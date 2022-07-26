@@ -10,14 +10,13 @@ SOURCE = src
 INCLUDE = include
 LDFLAGS :=
 
-BINS = gfa-lines log functions bed stream-obj struct
+BINS = $(addsuffix .o, gfa-lines log functions bed stream-obj struct)
 
 all: $(BINS)
 	@
 
-$(BINS): %: $(SOURCE)/%.cpp $(INCLUDE)/%.h
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $(SOURCE)/$@.cpp -o $@.o
+%.o: $(SOURCE)/%.cpp $(INCLUDE)/%.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@
     
 clean:
-
 	$(RM) *.o
