@@ -10,11 +10,11 @@ SOURCE = src
 INCLUDE = include
 LDFLAGS :=
 
-all:
-    
-$(BUILD):
-    -mkdir -p $@
+BINS = gfa-lines log
+
+$(BINS): %: $(SOURCE)/%.cpp $(INCLUDE)/%.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $(SOURCE)/$@.cpp -o $@.o
     
 clean:
-    $(MAKE) -j -C $(GFALIBS_DIR) clean
-    $(RM) -r build
+
+	$(RM) *.o
