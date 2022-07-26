@@ -10,7 +10,7 @@ SOURCE = src
 INCLUDE = include
 LDFLAGS :=
 
-all: 
+all:
     
 $(BUILD):
     -mkdir -p $@
