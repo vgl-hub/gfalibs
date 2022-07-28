@@ -436,6 +436,12 @@ void InEdge::setSeqTags(std::vector<Tag>* t) {
     tags = *t;
 }
 
+void InEdge::appendTag(Tag t) {
+    
+    tags.push_back(t);
+    
+}
+
 std::string InEdge::getCigar() {
     
     return cigar;

@@ -77,7 +77,7 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
     
 }
 
-bool Report::outFile(InSequences &inSequences, int splitLength, std::string &outSeq) { // method to output new sequence opposed to sequence report
+bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLength) { // method to output new sequence opposed to sequence report
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 

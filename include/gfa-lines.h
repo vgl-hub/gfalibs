@@ -148,6 +148,8 @@ public:
     
     void setSeqTags(std::vector<Tag>* t);
     
+    void appendTag(Tag t);
+    
     std::string getCigar();
     
     unsigned int geteUId();
