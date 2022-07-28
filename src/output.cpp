@@ -389,7 +389,7 @@ bool Report::outFile(InSequences &inSequences, int splitLength, std::string &out
                 
             }
 
-            for (InEdge inEdge : inSequences.getEdges()) {
+            for (InEdge inEdge : *(inSequences.getEdges())) {
                 
                 *stream <<"L\t" // line type
                         <<idsToHeaders[inEdge.getsId1()]<<"\t"<<inEdge.getsId1Or()<<"\t"
@@ -532,7 +532,7 @@ bool Report::outFile(InSequences &inSequences, int splitLength, std::string &out
                 
             }
             
-            for (InEdge inEdge : inSequences.getEdges()) {
+            for (InEdge inEdge : *(inSequences.getEdges())) {
                 
                 *stream <<"E\t" // line type
                         <<idsToHeaders[inEdge.getsId1()]<<"\t"<<inEdge.getsId1Or()<<"\t" // sUid1:sid1:ref
@@ -1054,7 +1054,7 @@ bool Report::reportStats(InSequences &inSequences, unsigned long long int gSize)
         std::cout<<output("# edges")<<edgeN<<"\n";
         std::cout<<output("Average degree")<<(double)inSequences.getEdgeN()/inSequences.getSegmentN()<<"\n";
     
-        inSequences.buildEdgeGraph(inSequences.getEdges());
+        inSequences.buildEdgeGraph(*(inSequences.getEdges()));
 
         lg.verbose("Graph DFS");
         

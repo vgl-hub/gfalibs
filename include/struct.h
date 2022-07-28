@@ -64,6 +64,7 @@ struct Edge {
     char orientation0;
     unsigned int id;
     char orientation1;
+    unsigned int weight = 0;
     
     bool operator==(const Edge& e) const;
     

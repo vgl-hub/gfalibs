@@ -107,7 +107,7 @@ InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InP
     
 }
 
-void InSequences::traverseInSequence(Sequence* sequence) { // traverse the sequence to split at gaps and measure sequence properties
+bool InSequences::traverseInSequence(Sequence* sequence) { // traverse the sequence to split at gaps and measure sequence properties
     
     Log threadLog;
     
@@ -318,10 +318,12 @@ void InSequences::traverseInSequence(Sequence* sequence) { // traverse the seque
     logs.push_back(threadLog);
     
     lck.unlock();
+    
+    return true;
 
 }
 
-void InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags) { // traverse the segment
+bool InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags) { // traverse the segment
     
     Log threadLog;
     
@@ -415,6 +417,8 @@ void InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSeque
     logs.push_back(threadLog);
     
     lck.unlock();
+    
+    return true;
     
 }
 
@@ -980,9 +984,9 @@ std::vector<InGap> InSequences::getGaps() { // return gfa gaps vector
     
 }
 
-std::vector<InEdge> InSequences::getEdges() { // return gfa edge vector
+std::vector<InEdge>* InSequences::getEdges() { // return gfa edge vector
     
-    return inEdges;
+    return &inEdges;
     
 }
 

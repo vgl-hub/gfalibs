@@ -89,9 +89,9 @@ public:
     
     InSegment* pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned long long int sStart, unsigned long long int sEnd, std::string* sequenceQuality = NULL);
     
-    void traverseInSequence(Sequence* sequence);
+    bool traverseInSequence(Sequence* sequence);
     
-    void traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags);
+    bool traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags);
     
     void appendSequence(Sequence* sequence);
     
@@ -232,7 +232,7 @@ public:
     
     std::vector<InGap> getGaps();
 
-    std::vector<InEdge> getEdges();
+    std::vector<InEdge>* getEdges();
     
     bool appendEdge(InEdge edge);
     
