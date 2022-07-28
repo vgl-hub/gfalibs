@@ -15,7 +15,7 @@ BINS = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log funct
 all: $(BINS)
 	@
 
-%.o: $(SOURCE)/%.cpp $(INCLUDE)/%.h
+%.o: $(SOURCE)/%.cpp $(INCLUDE)/*.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@
     
 clean:
