@@ -99,7 +99,7 @@ bool ThreadPool<T>::jobsDone() {
     for(bool done : threadStates) {
         if (!done)
 //#ifdef DEBUG
-            lg.verbose(done);
+            lg.verbose(done == 1 ? "done" : "not done");
 //#endif
             return false;
     }
