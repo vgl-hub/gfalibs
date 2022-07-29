@@ -37,8 +37,9 @@ void ThreadPool<T>::threadLoop(int threadN) {
         T job;
         {
             std::unique_lock<std::mutex> lock(queueMutex);
-            
+#ifdef DEBUG
             lg.verbose("Thread " + std::to_string(threadN) + " waiting");
+#endif
             
             mutexCondition.wait(lock, [this] {
                 return !jobs.empty() || done;
@@ -52,7 +53,9 @@ void ThreadPool<T>::threadLoop(int threadN) {
         }
         threadStates[threadN] = false;
         threadStates[threadN] = job();
+#ifdef DEBUG
         lg.verbose("Thread " + std::to_string(threadN) + " done");
+#endif
 
     }
 }
@@ -95,6 +98,9 @@ bool ThreadPool<T>::jobsDone() {
     
     for(bool done : threadStates) {
         if (!done)
+#ifdef DEBUG
+            lg.verbose(done);
+#endif
             return false;
     }
     
