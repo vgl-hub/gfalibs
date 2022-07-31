@@ -1,6 +1,7 @@
 #ifndef THREADPOOL
 #define THREADPOOL
 
+#include <iostream>
 #include <condition_variable>
 
 extern Log lg;
@@ -37,7 +38,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
 
         std::unique_lock<std::mutex> lock(queueMutex);
 #ifdef DEBUG
-        lg.verbose("Thread " + std::to_string(threadN) + " waiting");
+        std::cout<<"Thread "<<std::to_string(threadN)<<" waiting"<<std::endl;
 #endif
         mutexCondition.wait(lock, [this] {
             return !jobs.empty() || done;
@@ -50,7 +51,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
         threadStates[threadN] = jobs.front()();
         jobs.pop();
 #ifdef DEBUG
-        lg.verbose("Thread " + std::to_string(threadN) + " done");
+        std::cout<<"Thread "<<std::to_string(threadN)<<" done"<<std::endl;
 #endif
 
     }
@@ -94,7 +95,7 @@ bool ThreadPool<T>::jobsDone() {
     
     for(bool done : threadStates) {
 #ifdef DEBUG
-        lg.verbose(done == 1 ? "done" : "not done");
+        std::cout<<(done == 1 ? "done" : "not done")<<std::endl;
 #endif
         if (!done)
             return false;
