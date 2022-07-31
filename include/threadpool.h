@@ -48,8 +48,8 @@ void ThreadPool<T>::threadLoop(int threadN) {
                 return;
             }
             
-            threadStates[threadN] = false;
-            threadStates[threadN] = jobs.front()();
+            threadStates[threadN] = true;
+//            threadStates[threadN] = jobs.front()();
             jobs.pop();
         }
 #ifdef DEBUG
