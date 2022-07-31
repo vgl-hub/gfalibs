@@ -48,10 +48,13 @@ void ThreadPool<T>::threadLoop(int threadN) {
                 return;
             }
             
-            threadStates[threadN] = true;
-//            threadStates[threadN] = jobs.front()();
-            jobs.pop();
+            threadStates[threadN] = false;
+            if (!jobs.empty()) {
+                jobs.front();
+                jobs.pop();
+            }
         }
+        threadStates[threadN] = job();
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
