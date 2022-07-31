@@ -50,7 +50,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
             threadStates[threadN] = jobs.front()();
             jobs.pop();
         }else{
-            threadStates[threadN] = done;
+            threadStates[threadN] = true;
         }
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done"<<std::endl;
