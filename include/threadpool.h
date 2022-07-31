@@ -35,6 +35,7 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
+    bool weHaveAJob = false;
     
     while (true) {
         
@@ -54,8 +55,10 @@ void ThreadPool<T>::threadLoop(int threadN) {
             if (!jobs.empty()) {
                 job = jobs.front();
                 jobs.pop();
+                weHaveAJob = true;
             }
         }
+        if (weHaveAJob)
         threadStates[threadN] = job();
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
