@@ -21,6 +21,9 @@ struct UserInput { // a container for user input
     
     std::string file(char type);
     
+    std::string outSequence;
+    int noSequence = 0;
+    
 };
 
 struct Sequence { // a generic sequence container

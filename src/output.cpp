@@ -77,7 +77,7 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
     
 }
 
-bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLength) { // method to output new sequence opposed to sequence report
+bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLength) { // method to output new sequence opposed to sequence report
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 
@@ -102,8 +102,8 @@ bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLen
     bool outFile = false;
     
     // variable to handle output path and extension
-    std::string path = rmFileExt(outSeq);
-    std::string ext = getFileExt("." + outSeq);
+    std::string path = rmFileExt(userInput.outSequence);
+    std::string ext = getFileExt("." + userInput.outSequence);
     
     // depending on use input get output format
     if(getFileExt(ext) == ".gz") {
@@ -121,7 +121,7 @@ bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLen
         
     }else{
         
-        ext = outSeq;
+        ext = userInput.outSequence;
         
     }
     
@@ -131,7 +131,7 @@ bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLen
     std::unique_ptr<std::ostream> stream;
     
     // this stream outputs to file
-    std::ofstream ofs(outSeq);
+    std::ofstream ofs(userInput.outSequence);
 
     // this stream outputs gzip compressed to file
     zstream::ogzstream zfout(ofs);
@@ -153,7 +153,7 @@ bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLen
         
         // we close and delete the file
         ofs.close();
-        remove(outSeq.c_str());
+        remove(userInput.outSequence.c_str());
         
         if (gzip) { // if the output to stdout needs to be compressed we use the appropriate stream
             
@@ -368,8 +368,17 @@ bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLen
                 seqHeader = inSegment->getSeqHeader();
                 
                 *stream <<"S\t" // line type
-                        <<seqHeader<<"\t" // header
-                        <<inSegment->getInSequence(); // sequence
+                        <<seqHeader<<"\t"; // header
+                
+                if (userInput.noSequence) {
+                
+                    *stream <<'*'; // sequence
+                    
+                }else{
+                    
+                    *stream <<inSegment->getInSequence(); // sequence
+                    
+                }
                 
                 std::vector<Tag> tags = inSegment->getTags();
                 
@@ -643,7 +652,7 @@ bool Report::outFile(InSequences &inSequences, std::string &outSeq, int splitLen
             
         case 0: { // undefined case
             
-            std::cout<<"Unrecognized output format: "<<outSeq;
+            std::cout<<"Unrecognized output format: "<<userInput.outSequence;
             
             break;
             

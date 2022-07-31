@@ -40,7 +40,6 @@ void ThreadPool<T>::threadLoop(int threadN) {
 #ifdef DEBUG
             lg.verbose("Thread " + std::to_string(threadN) + " waiting");
 #endif
-            
             mutexCondition.wait(lock, [this] {
                 return !jobs.empty() || done;
             });
@@ -97,10 +96,10 @@ template<class T>
 bool ThreadPool<T>::jobsDone() {
     
     for(bool done : threadStates) {
-        if (!done)
 //#ifdef DEBUG
-            lg.verbose(done == 1 ? "done" : "not done");
+        lg.verbose(done == 1 ? "done" : "not done");
 //#endif
+        if (!done)
             return false;
     }
     
