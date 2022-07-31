@@ -32,8 +32,6 @@ public:
 template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
-    T job;
-    
     while (true) {
 
         std::unique_lock<std::mutex> lock(queueMutex);
@@ -47,17 +45,9 @@ void ThreadPool<T>::threadLoop(int threadN) {
             return;
         }
         
-        threadStates[threadN] = false;
-        
-        if(!jobs.empty()) {
-            lock.lock();
-            job = jobs.front();
-            jobs.pop();
-            lock.unlock();
-            threadStates[threadN] = job();
-        }else{
-            threadStates[threadN] = true;
-        }
+//        threadStates[threadN] = false;
+        threadStates[threadN] = jobs.front()();
+        jobs.pop();
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done"<<std::endl;
 #endif
