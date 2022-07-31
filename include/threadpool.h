@@ -33,6 +33,8 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     while (true) {
+        
+        threadStates[threadN] = true;
 
         std::unique_lock<std::mutex> lock(queueMutex);
 #ifdef DEBUG
