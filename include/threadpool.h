@@ -93,11 +93,11 @@ unsigned int ThreadPool<T>::queueSize() {return jobs.size();}
 template<class T>
 bool ThreadPool<T>::jobsDone() {
     
-    for(bool done : threadStates) {
+    for(bool isDone : threadStates) {
 #ifdef DEBUG
-        std::cout<<(done == 1 ? "done" : "not done")<<std::endl;
+        std::cout<<(isDone == true ? "done" : "not done")<<std::endl;
 #endif
-        if (!done)
+        if (!isDone)
             return false;
     }
     
