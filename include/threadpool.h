@@ -34,8 +34,6 @@ friend class InSequences;
 template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
-    T job;
-    
     while (true) {
         
         {
@@ -51,12 +49,11 @@ void ThreadPool<T>::threadLoop(int threadN) {
             }
             
             threadStates[threadN] = false;
-            if (!jobs.empty()) {
-                job = jobs.front();
-                jobs.pop();
-            }
+            jobs.front();
+            jobs.pop();
         }
-        threadStates[threadN] = job();
+        job();
+        threadStates[threadN] = true;
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
