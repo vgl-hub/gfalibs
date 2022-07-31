@@ -52,7 +52,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
         jobs.pop();
         threadStates[threadN] = job();
 #ifdef DEBUG
-        std::cout<<"Thread "<<std::to_string(threadN)<<" done(thread state: "<<threadStates[threadN]<<")"<<std::endl;
+        std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<", job: "<<job<<")"<<std::endl;
 #endif
 
     }
