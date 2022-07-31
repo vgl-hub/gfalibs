@@ -26,8 +26,6 @@ public:
     bool jobsDone();
     unsigned int queueSize();
     void join();
-
-friend class InSequences;
     
 };
 
@@ -47,6 +45,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
             return;
         }
         
+        threadStates[threadN] = true;
         if(!jobs.empty()) {
             threadStates[threadN] = jobs.front()();
             jobs.pop();
