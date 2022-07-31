@@ -26,33 +26,34 @@ public:
     bool jobsDone();
     unsigned int queueSize();
     void join();
+
+friend class InSequences;
     
 };
 
 template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
-    T job;
-    
     while (true) {
-
-        std::unique_lock<std::mutex> lock(queueMutex);
-#ifdef DEBUG
-        std::cout<<"Thread "<<std::to_string(threadN)<<" waiting"<<std::endl;
-#endif
-        mutexCondition.wait(lock, [this] {
-            return !jobs.empty() || done;
-        });
-        if (done) {
-            return;
-        }
         
-        threadStates[threadN] = false;
-        job = jobs.front();
-        jobs.pop();
-        threadStates[threadN] = job();
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
 #ifdef DEBUG
-        std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<", threadN: "<<threadN<<", job: "<<&job<<")"<<std::endl;
+            std::cout<<"Thread "<<std::to_string(threadN)<<" waiting"<<std::endl;
+#endif
+            mutexCondition.wait(lock, [this] {
+                return !jobs.empty() || done;
+            });
+            if (done) {
+                return;
+            }
+            
+            threadStates[threadN] = false;
+            threadStates[threadN] = jobs.front()();
+            jobs.pop();
+        }
+#ifdef DEBUG
+        std::cout<<"Thread "<<std::to_string(threadN)<<" done"<<std::endl;
 #endif
 
     }
