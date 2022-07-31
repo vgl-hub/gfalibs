@@ -96,7 +96,7 @@ bool ThreadPool<T>::jobsDone() {
     
     for(bool isDone : threadStates) {
 #ifdef DEBUG
-        std::cout<<(isDone == true ? "done" : "not done")<<std::endl;
+        std::cout<<isDone<<std::endl;
 #endif
         if (!isDone)
             return false;
