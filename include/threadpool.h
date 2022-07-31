@@ -34,24 +34,21 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     while (true) {
-        T job;
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
+
+        std::unique_lock<std::mutex> lock(queueMutex);
 #ifdef DEBUG
-            lg.verbose("Thread " + std::to_string(threadN) + " waiting");
+        lg.verbose("Thread " + std::to_string(threadN) + " waiting");
 #endif
-            mutexCondition.wait(lock, [this] {
-                return !jobs.empty() || done;
-            });
-            if (done) {
-                return;
-            }
-            job = jobs.front();
-            jobs.pop();
-            
+        mutexCondition.wait(lock, [this] {
+            return !jobs.empty() || done;
+        });
+        if (done) {
+            return;
         }
+            
         threadStates[threadN] = false;
-        threadStates[threadN] = job();
+        threadStates[threadN] = jobs.front()();
+        jobs.pop();
 #ifdef DEBUG
         lg.verbose("Thread " + std::to_string(threadN) + " done");
 #endif
@@ -96,9 +93,9 @@ template<class T>
 bool ThreadPool<T>::jobsDone() {
     
     for(bool done : threadStates) {
-//#ifdef DEBUG
+#ifdef DEBUG
         lg.verbose(done == 1 ? "done" : "not done");
-//#endif
+#endif
         if (!done)
             return false;
     }
