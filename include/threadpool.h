@@ -34,6 +34,8 @@ friend class InSequences;
 template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
+    T job;
+    
     while (true) {
         
         {
@@ -49,7 +51,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
             }
             
             threadStates[threadN] = false;
-            jobs.front();
+            job = jobs.front();
             jobs.pop();
         }
         job();
