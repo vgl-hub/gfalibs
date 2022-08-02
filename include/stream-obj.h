@@ -26,7 +26,7 @@ public:
 //
 //    void readBuf(std::streambuf* buffer);
     
-    std::shared_ptr<std::istream> openStream(UserInput &userInput, char type);
+    std::shared_ptr<std::istream> openStream(UserInput &userInput, char type, unsigned int* file = NULL);
     
     void closeStream();
     

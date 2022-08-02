@@ -115,7 +115,7 @@ bool StreamObj::isGzip(std::streambuf* buffer) {
 //    
 //}
 
-std::shared_ptr<std::istream> StreamObj::openStream(UserInput &userInput, char type) {
+std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char type, unsigned int* fileNum) {
     
     file = userInput.pipeType != type ? true : false;
     
@@ -123,7 +123,15 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput &userInput, char t
         
         ifs.close();
         
-        ifs.open(userInput.file(type)); // this stream takes input from a plain file
+        if (fileNum == NULL) {
+        
+            ifs.open(userInput.file(type)); // this stream takes input from a plain file
+            
+        }else{
+            
+            ifs.open(userInput.file(type, fileNum));
+            
+        }
 
         buffer = ifs.rdbuf();
         
@@ -185,5 +193,9 @@ void StreamObj::closeStream() {
         }
 
     }
+        
+    ifs.close();
+        
+    lg.verbose("File stream closed");
 
 }
