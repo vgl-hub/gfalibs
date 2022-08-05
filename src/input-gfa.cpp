@@ -50,7 +50,7 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
     InGap gap;
     InEdge edge;
     InPath path;
-    unsigned int sId1 = 0, sId2 = 0, dist = 0, start = 0, end = 0, gapN = 0;
+    unsigned int sId1 = 0, sId2 = 0, dist = 0, start = 0, end = 0, gapN = 0, edgeN = 0;
     phmap::flat_hash_map<std::string, unsigned int>* hash;
     phmap::flat_hash_map<std::string, unsigned int>::const_iterator got;
     
@@ -640,6 +640,12 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     uId = inSequences.getuId();
                     
                     euId = uId; // since I am still reading segments I need to keep this fixed
+                    
+                    eHeader = "edge" + std::to_string(edgeN);
+                    
+                    edgeN++;
+                    
+                    inSequences.insertHash(eHeader, uId);
                     
                     inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
                     
