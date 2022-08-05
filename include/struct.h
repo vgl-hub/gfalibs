@@ -9,7 +9,7 @@ struct UserInput { // a container for user input
     std::string iAgpFileArg; // input agp
     std::string iBedIncludeFileArg; // input bed file of coordinates to include
     std::string iBedExcludeFileArg; // input bed file of coordinates to exclude
-    std::string iReadFileArg; // input reads to evaluate
+    std::vector<std::string> iReadFileArg; // input reads to evaluate
     std::string iAlignFileArg;
     
     //coordinates
@@ -19,7 +19,7 @@ struct UserInput { // a container for user input
     char pipeType = 'n'; // default pipe type null
     std::string sortType = "none"; // type of sorting (default: none)
     
-    std::string file(char type);
+    std::string file(char type, unsigned int* fileNum = NULL);
     
     std::string outSequence;
     int noSequence = 0;

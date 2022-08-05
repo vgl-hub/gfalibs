@@ -15,7 +15,7 @@ InSegment::~InSegment()
     delete inSequenceQuality;
 }
 
-void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned int seqPos, std::string* sequenceQuality, std::vector<Tag>* inSequenceTags) {
+void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned int seqPos, std::string* sequenceQuality, std::vector<Tag>* inSequenceTags, unsigned long long int* N) {
     
     threadLog->add("Processing segment: " + seqHeader + " (uId: " + std::to_string(uId) + ", iId: " + std::to_string(iId) + ")");
     
@@ -55,7 +55,7 @@ void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::str
             
         }
         
-        this->setACGT(A, C, G, T);
+        this->setACGT(A, C, G, T, N);
         
         threadLog->add("Increased ACGT counts");
         
@@ -163,7 +163,7 @@ unsigned long long int InSegment::getSegmentLen(unsigned long long int start, un
         
     }else{
     
-        return start != 0 || end != 0 ? end-start+1 : A + C + G + T; // need to sum long long int to prevent size() overflow
+        return start != 0 || end != 0 ? end-start+1 : A + C + G + T + N; // need to sum long long int to prevent size() overflow
         
     }
     
@@ -179,12 +179,13 @@ unsigned int InSegment::getiId() { // temporary id, internal to scaffold
     return iId;
 }
 
-void InSegment::setACGT(unsigned long long int* a, unsigned long long int* c, unsigned long long int* g, unsigned long long int* t) {
+void InSegment::setACGT(unsigned long long int* a, unsigned long long int* c, unsigned long long int* g, unsigned long long int* t, unsigned long long int* n) {
     
     A = *a;
     C = *c;
     G = *g;
     T = *t;
+    N = *n;
     
 }
 

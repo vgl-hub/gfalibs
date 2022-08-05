@@ -7,7 +7,7 @@ private:
     std::string seqComment;
     std::string* inSequence = NULL;
     std::string* inSequenceQuality = NULL;
-    unsigned long long int A = 0, C = 0, G = 0, T = 0, lowerCount = 0;
+    unsigned long long int A = 0, C = 0, G = 0, T = 0, N = 0, lowerCount = 0;
     unsigned int uId = 0, iId = 0, seqPos = 0;
     std::vector<Tag> tags;
     
@@ -19,7 +19,7 @@ public:
     
     ~InSegment();
     
-    void set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned int seqPos, std::string* sequenceQuality = NULL, std::vector<Tag>* inSequenceTags = NULL);
+    void set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned int seqPos, std::string* sequenceQuality = NULL, std::vector<Tag>* inSequenceTags = NULL, unsigned long long int* N = NULL);
     
     void setSeqHeader(std::string* h);
     
@@ -55,7 +55,7 @@ public:
     
     unsigned int getiId(); // temporary id, internal to scaffold
     
-    void setACGT(unsigned long long int* a, unsigned long long int* c, unsigned long long int* g, unsigned long long int* t);
+    void setACGT(unsigned long long int* a, unsigned long long int* c, unsigned long long int* g, unsigned long long int* t, unsigned long long int* n = NULL);
     
     void setLowerCount(unsigned long long int* C);
     
@@ -66,6 +66,8 @@ public:
     unsigned long long int getG();
     
     unsigned long long int getT();
+
+    unsigned long long int getN();
     
     unsigned int getLowerCount(unsigned long long int start = 0, unsigned long long int end = 0);
     
