@@ -69,13 +69,13 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
     
     firstLine = newLine;
     
-    arguments = readDelimited(newLine, "\t");
+    char firstChar = stream->peek();
     
-    if (arguments[0] == "H") {
+    if (firstChar == 'H') {
         
         h_col2 = arguments[1]; // read header col2
         
-        arguments = readDelimited(newLine, ":");
+        arguments = readDelimited(h_col2, ":");
         
         if (arguments[2] != "") {
             
@@ -90,32 +90,25 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
     
     }else{
             
-        lg.verbose("Cannot recognize GFA version from first line. Trying to detect from content.");
+        lg.verbose("Missing header. Trying to detect from first line.");
         
-        if (arguments[0] == "S") {
+        if (firstChar == 'S') {
+                
+            version = '1';
             
-            if (isInt(arguments[2]) || (arguments[2] == "*" && arguments[3].find(":") == std::string::npos)) {
-                
-                version = '2';
-                lg.verbose("Proposed GFA version: " + version);
-                
-            }else{
-                
-                version = '1';
-                lg.verbose("Proposed GFA version: " + version);
-                
-            }
-            
-        }else if (arguments[0] == "G" || arguments[0] == "O") {
+        }else if (firstChar == 'G' || firstChar == 'O' || firstChar == 'E') {
             
             version = '2';
-            lg.verbose("Proposed GFA version: " + version);
+            
+        }else if (firstChar == 'J' || firstChar == 'P' || firstChar == 'L') {
+            
+            version = '2';
             
         }
-        
-        stream->seekg(0); // return to begin of file after detection
             
     }
+    
+    lg.verbose("Proposed GFA version: " + version);
     
     if (version[0] == '2') { // GFA2
     
