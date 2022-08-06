@@ -65,10 +65,6 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
     std::vector<Tag> inTags;
     Tag tag;
     
-    getline(*stream, newLine);
-    
-    firstLine = newLine;
-    
     char firstChar = stream->peek();
     
     if (firstChar == 'H') {
