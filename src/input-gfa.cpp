@@ -69,6 +69,10 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
     
     if (firstChar == 'H') {
         
+        getline(*stream, newLine);
+        
+        arguments = readDelimited(newLine, "\t");
+        
         h_col2 = arguments[1]; // read header col2
         
         arguments = readDelimited(h_col2, ":");
