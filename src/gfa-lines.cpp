@@ -185,7 +185,8 @@ void InSegment::setACGT(unsigned long long int* a, unsigned long long int* c, un
     C = *c;
     G = *g;
     T = *t;
-    N = *n;
+    if (n != NULL)
+        N = *n;
     
 }
 
