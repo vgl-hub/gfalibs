@@ -102,7 +102,7 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
             
         }else if (firstChar == 'J' || firstChar == 'P' || firstChar == 'L') {
             
-            version = '2';
+            version = '1';
             
         }
             
