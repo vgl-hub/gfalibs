@@ -380,6 +380,12 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
                     
                 }
                 
+                if (userInput.noSequence) {
+                    
+                    *stream <<"\tLN:i:"<<inSegment->getSegmentLen(); // tags
+                    
+                }
+                
                 std::vector<Tag> tags = inSegment->getTags();
                 
                 for (Tag &tag : tags) {
