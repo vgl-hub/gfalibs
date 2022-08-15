@@ -1174,8 +1174,8 @@ void InSequences::buildGraph(std::vector<InGap> const& gaps) { // graph construc
     adjListFW.clear();
     adjListBW.clear();
     
-    adjListFW.resize(headersToIds.size()); // resize the adjaciency list to hold all nodes
-    adjListBW.resize(headersToIds.size()); // resize the adjaciency list to hold all nodes
+    adjListFW.resize(uId.get()); // resize the adjaciency list to hold all nodes
+    adjListBW.resize(uId.get()); // resize the adjaciency list to hold all nodes
     
     for (auto &gap: gaps) // add edges to the graph
     {
