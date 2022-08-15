@@ -181,9 +181,9 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
             std::vector<InGap>* inGaps = inSequences.getInGaps();
             std::vector<PathComponent> pathComponents;
             
-            unsigned int uId = 0, sIdx = 0, gIdx = 0;
+            unsigned int uId = 0, gIdx = 0;
                 
-            for (InPath inPath : inSequences.getInPaths()) {
+            for (InPath& inPath : inSequences.getInPaths()) {
                 
                 if (inPath.getHeader() == "") {
                     
@@ -217,15 +217,15 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
                     
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
-                        if (sId != inSegments->end()) {sIdx = std::distance(inSegments->begin(), sId);} // gives us the segment index
+                        if (sId == inSegments->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
                         
                         if (component->orientation == '+') {
                         
-                            inSeq += (*inSegments)[sIdx]->getInSequence(component->start, component->end);
+                            inSeq += (*sId)->getInSequence(component->start, component->end);
                             
                         }else{
                             
-                            inSeq += revCom((*inSegments)[sIdx]->getInSequence(component->start, component->end));
+                            inSeq += revCom((*sId)->getInSequence(component->start, component->end));
                             
                         }
                         
@@ -233,9 +233,9 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
                         
                         auto gId = find_if(inGaps->begin(), inGaps->end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
                         
-                        if (gId != inGaps->end()) {gIdx = std::distance(inGaps->begin(), gId);} // gives us the segment index
+                        if (gId == inGaps->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
                         
-                        inSeq += std::string((*inGaps)[gIdx].getDist(component->start, component->end), 'N');
+                        inSeq += std::string(gId->getDist(component->start, component->end), 'N');
                         
                     }
                     
