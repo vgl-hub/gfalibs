@@ -49,6 +49,12 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
     
     lg.verbose("Processing sequence: " + seqHeader);
     
+    if(!bedIncludeList.empty() || !bedExcludeList.empty()) {
+        
+        inSequence->erase(remove(inSequence->begin(), inSequence->end(), '\n'), inSequence->end());
+        
+    }
+    
     if   (bedIncludeList.empty() &&
           bedExcludeList.empty()) {
         
@@ -66,16 +72,20 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
             
             it = std::find(it, bedIncludeListHeaders.end(), seqHeader);
             
-            if (it == end(bedIncludeListHeaders) || bedIncludeList.getSeqHeader(pos) != seqHeader) {
+            if (it == end(bedIncludeListHeaders)) {
                 
                 break;
                 
             }
             
+            pos = std::distance(bedIncludeListHeaders.begin(), it);
+            
             outSeq = true;
 
             cBegin = bedIncludeList.getcBegin(pos);
             cEnd = bedIncludeList.getcEnd(pos);
+            
+            std::cout<<seqHeader<<" "<<cBegin<<" "<<cEnd<<std::endl;
             
             if (!(cBegin == 0 && cEnd == 0)) {
                 
@@ -100,6 +110,8 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
         if (outSeq && inSequence->size()>0) {
             
             if (offset>0) {
+                
+                std::cout<<offset<<" "<<*inSequence<<std::endl;
             
                 inSequence->erase(offset, inSequence->size()-offset);
                 
