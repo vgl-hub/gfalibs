@@ -85,8 +85,6 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
             cBegin = bedIncludeList.getcBegin(pos);
             cEnd = bedIncludeList.getcEnd(pos);
             
-            std::cout<<seqHeader<<" "<<cBegin<<" "<<cEnd<<std::endl;
-            
             if (!(cBegin == 0 && cEnd == 0)) {
                 
                 inSequence->erase(offset, cBegin-prevCEnd);
@@ -110,8 +108,6 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
         if (outSeq && inSequence->size()>0) {
             
             if (offset>0) {
-                
-                std::cout<<offset<<" "<<*inSequence<<std::endl;
             
                 inSequence->erase(offset, inSequence->size()-offset);
                 
@@ -145,6 +141,8 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
                 break;
                 
             }
+            
+            pos = std::distance(bedExcludeListHeaders.begin(), it);
 
             cBegin = bedExcludeList.getcBegin(pos);
             cEnd = bedExcludeList.getcEnd(pos);
