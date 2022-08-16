@@ -181,7 +181,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
             std::vector<InGap>* inGaps = inSequences.getInGaps();
             std::vector<PathComponent> pathComponents;
             
-            unsigned int uId = 0, gIdx = 0;
+            unsigned int uId = 0;
                 
             for (InPath& inPath : inSequences.getInPaths()) {
                 
