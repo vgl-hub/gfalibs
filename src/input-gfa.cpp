@@ -729,7 +729,7 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     
                     arguments = readDelimited(newLine, "\t");
                     
-                    if (!(arguments[2].find(",") == std::string::npos)) break; // we are not reading edge paths yet
+                    if (!(arguments[2].find(",") == std::string::npos)) {lck.unlock();break;} // we are not reading edge paths yet
                     
                     seqHeader = arguments[1];
                     
