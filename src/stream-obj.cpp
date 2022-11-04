@@ -150,7 +150,7 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             do {
               char ch = buffer->sgetc();
               std::cout << ch;
-            } while ( buffer->snextc() != EOF );
+            } while (buffer->snextc());
             
             std::cout << "im done\n";
             
