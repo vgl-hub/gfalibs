@@ -148,9 +148,12 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             buffer = zfin.rdbuf();
             
             do {
-              char ch = buffer->sgetc();
+              char ch = buffer->sbumpc();
               std::cout << ch;
-            } while (buffer->snextc());
+              if(buffer->snextc() == EOF)
+                std::cout << "EOF present\n";
+                
+            } while (true);
             
             std::cout << "im done\n";
             
