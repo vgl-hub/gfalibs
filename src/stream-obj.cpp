@@ -117,7 +117,7 @@ bool StreamObj::isGzip(std::streambuf* buffer) {
 
 std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char type, unsigned int* fileNum) {
     
-
+    buffer = ifs.rdbuf();
             
             zfin.open();
             
