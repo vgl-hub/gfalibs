@@ -117,27 +117,7 @@ bool StreamObj::isGzip(std::streambuf* buffer) {
 
 std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char type, unsigned int* fileNum) {
     
-    file = userInput.pipeType != type ? true : false;
-    
-    if (file) { // input is from file
-        
-        ifs.close();
-        
-        if (fileNum == NULL) {
-        
-            ifs.open(userInput.file(type)); // this stream takes input from a plain file
-            
-        }else{
-            
-            ifs.open(userInput.file(type, fileNum));
-            
-        }
 
-        buffer = ifs.rdbuf();
-        
-        gzip = isGzip(buffer);
-
-        if (gzip) {
             
             zfin.open();
             
@@ -164,21 +144,6 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 
         }
 
-    }else{
-        
-        buffer = std::cin.rdbuf();
-        
-        gzip = isGzip(buffer);
-
-        if (gzip) {
-            
-            zin.open();
-            
-            buffer = zin.rdbuf();
-
-        }
-        
-    }
     
     return std::make_shared<std::istream>(buffer);
     
