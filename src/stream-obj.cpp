@@ -132,7 +132,7 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             do {
               char ch = buffer->sbumpc();
               std::cout << ch;
-              if(buffer->sbumpc() == EOF)
+              if(buffer->snextc() == EOF)
                 std::cout << "EOF present\n";
                 
             } while (true);
@@ -141,8 +141,6 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             
             exit(1);
 
-
-        }
 
     
     return std::make_shared<std::istream>(buffer);
