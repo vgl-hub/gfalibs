@@ -147,9 +147,10 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             
             buffer = zfin.rdbuf();
             
-            char test;
-            while (buffer->get(test))          // loop getting single characters
-              std::cout << test;
+            do {
+              char ch = buffer->sgetc();
+              std::cout << ch;
+            } while ( buffer->snextc() != EOF );
             
             exit(1);
 
