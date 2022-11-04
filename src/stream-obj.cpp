@@ -127,8 +127,6 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             
             buffer = zfin.rdbuf();
             
-            std::cout.rdbuf(psbuf);
-            
             do {
               char ch = buffer->sbumpc();
               std::cout << ch;
