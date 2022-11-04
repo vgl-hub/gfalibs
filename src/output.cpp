@@ -686,73 +686,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
     
 }
 
-bool Report::outSize(InSequences &inSequences, char &sizeOutType) { // method to output only the size of the sequences
-    
-    std::cout << std::fixed; // disables scientific notation
-    std::cout << std::setprecision(2); // 2 decimal poinst
-    
-    switch (sizeOutType) {
-
-        default:
-        case 's': { // scaffolds
-            
-            std::string pHeader;
-            std::vector<InPath> inPaths = inSequences.getInPaths();
-                
-            for (InPath inPath : inSequences.getInPaths()) {
-                
-                if (inPath.getHeader() == "") {
-                    
-                    pHeader = inPath.getpUId();
-                    
-                }else{
-                    
-                    pHeader = inPath.getHeader();
-                    
-                }
-                
-                std::cout<<pHeader<<"\t"<<inPath.getLen()<<"\n";
-                
-            }
-            
-            break;
-        }
-            
-        case 'c': { // contigs
-            
-            std::vector<InSegment*>* inSegments = inSequences.getInSegments();
-            
-            for (InSegment* inSegment : *inSegments) {
-                
-                std::cout<<inSegment->getSeqHeader()<<"\t"<<inSegment->getInSequence().size()<<"\n";
-
-            }
-            
-            break;
-            
-        }
-            
-        case 'g': { // gaps
-            
-            std::vector<InGap>* inGaps = inSequences.getInGaps();
-            
-            for (InGap inGap : *inGaps) {
-
-                std::cout<<inGap.getgHeader()<<"\t"<<inGap.getDist()<<"\n";
-
-            }
-            
-            break;
-            
-        }
-            
-    }
-    
-    return true;
-    
-}
-
-bool Report::outCoord(InSequences &inSequences, char bedOutType) { // method to output the coordinates of each feature
+bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) { // method to output the coordinates of each feature
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 
@@ -788,7 +722,13 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType) { // method to 
                 
             case 's': { // scaffolds
                 
-                std::cout<<pHeader<<"\t"<<pos;
+                std::cout<<pHeader<<"\t";
+                
+                if (!sizeOnly) {
+                
+                    std::cout<<pos<<"\t";
+                    
+                }
                 
                 for (auto &component : pathComponents) {
                     
@@ -815,7 +755,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType) { // method to 
                     
                 }
                 
-                std::cout<<"\t"<<pos<<"\n";
+                std::cout<<pos<<"\n";
                 pos = 0;
                 
                 break;
@@ -833,11 +773,28 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType) { // method to 
                         
                         if (sId != inSegments->end()) {sIdx = std::distance(inSegments->begin(), sId);} // gives us the segment index
                         
-                        std::cout<<pHeader<<"\t"<<pos;
+                        std::cout<<(sizeOnly ? (*inSegments)[sIdx]->getSeqHeader() : pHeader)<<"\t";
                         
-                        pos += (*inSegments)[sIdx]->getInSequence().size();
+                        if (!sizeOnly) {
                         
-                        std::cout<<"\t"<<pos<<"\n";
+                            std::cout<<pos<<"\t";
+                            
+                        }
+                        
+                        if (sizeOnly) {
+                            
+                            pos = (*inSegments)[sIdx]->getInSequence().size();
+                            
+                        }else{
+                            
+                            pos += (*inSegments)[sIdx]->getInSequence().size();
+                        
+                        }
+                        
+                        std::cout<<pos<<"\n";
+                        
+                        if (sizeOnly)
+                            pos = 0;
                         
                     }else{
                         
@@ -875,11 +832,25 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType) { // method to 
                         
                         if (gId != inGaps->end()) {gIdx = std::distance(inGaps->begin(), gId);} // gives us the gap index
                         
-                        std::cout<<pHeader<<"\t"<<pos;
+                        std::cout<<(sizeOnly ? (*inGaps)[gIdx].getgHeader() : pHeader)<<"\t";
                         
-                        pos += (*inGaps)[gIdx].getDist();
+                        if (!sizeOnly) {
                         
-                        std::cout<<"\t"<<pos<<"\n";
+                            std::cout<<pos<<"\t";
+                            
+                        }
+                        
+                        if (sizeOnly) {
+                            
+                            pos = (*inGaps)[gIdx].getDist();
+                            
+                        }else{
+                            
+                            pos += (*inGaps)[gIdx].getDist();
+                        
+                        }
+                            
+                        std::cout<<pos<<"\n";
                         
                     }
                     
