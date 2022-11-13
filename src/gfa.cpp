@@ -2673,7 +2673,7 @@ void InSequences::dfsPath(unsigned int v, InPath& newPath) // Depth First Search
 
 }
 
-void InSequences::findBubbles () {
+void InSequences::findBubbles() {
     
     unsigned int sUId = 0, sUId1 = 0, sUId2 = 0;
     char sId1Or, sId2Or;
@@ -2753,8 +2753,30 @@ void InSequences::findBubbles () {
     
 }
 
-std::vector<Bubble>* InSequences::getBubbles () {
+std::vector<Bubble>* InSequences::getBubbles() {
     
     return &bubbles;
     
 }
+
+std::vector<unsigned int> InSequences::getCircular() {
+    
+    std::vector<unsigned int> segments;
+    std::vector<unsigned int>::iterator it;
+    
+    for (InEdge& inEdge : inEdges) {
+        
+        if (inEdge.sId1 == inEdge.sId2)
+            segments.push_back(inEdge.sId1);
+        
+    }
+    
+    sort(segments.begin(), segments.end());
+    it = std::unique(segments.begin(), segments.end());
+    segments.resize(std::distance(segments.begin(),it));
+    
+    return segments;
+    
+}
+
+

@@ -320,6 +320,12 @@ bool InSegment::invertSegment() {
     
 }
 
+bool InSegment::isCircular(std::vector<unsigned int>* circularSegments) {
+    
+    return std::binary_search(circularSegments->begin(), circularSegments->end(), this->uId);
+    
+}
+
 void InGap::newGap(unsigned int uId, unsigned int sId1, unsigned int sId2, const char& sId1or, const char& sId2or, unsigned int& dist, std::string gHeader, std::vector<Tag> tags) {
     
     this->gHeader = gHeader;
@@ -488,6 +494,10 @@ char InEdge::getsId2Or() {
 
 std::vector<Tag> InEdge::getTags() {
     return tags;
+}
+
+bool InEdge::isSelf() {
+    return this->sId1 == this->sId2 ? true : false;
 }
     
 void InPath::newPath(unsigned int pUid, std::string h, std::string c, unsigned int seqpos) {

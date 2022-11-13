@@ -79,6 +79,8 @@ public:
     
     bool invertSegment();
     
+    bool isCircular(std::vector<unsigned int>* circularSegments);
+    
 };
 
 class InGap {
@@ -167,6 +169,8 @@ public:
     char getsId2Or();
     
     std::vector<Tag> getTags();
+    
+    bool isSelf();
     
 };
 

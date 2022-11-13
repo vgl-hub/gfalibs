@@ -343,6 +343,8 @@ public:
     
     std::vector<Bubble>* getBubbles();
     
+    std::vector<unsigned int> getCircular();
+    
 };
 
 #endif /* GFA_H */

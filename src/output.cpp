@@ -37,6 +37,7 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
     std::cout << std::setprecision(2); // 2 decimal poinst
     counter = 0;
     std::vector<InSegment*>* inSegments = inSequences.getInSegments();
+    std::vector<unsigned int> circularSegments = inSequences.getCircular();
     
     std::cout<<output("Seq\tHeader\tComment\tTotal segment length\tA\tC\tG\tT\tGC content %\t# soft-masked bases");
     
@@ -57,7 +58,8 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
                     <<inSegment->getG()<<"\t"
                     <<inSegment->getT()<<"\t"
                     <<inSegment->computeGCcontent()<<"\t"
-                    <<inSegment->getLowerCount();
+                    <<inSegment->getLowerCount()<<"\t"
+                    <<(inSegment->isCircular(&circularSegments) ? "Y" : "N");
 
         if (outSequence_flag) {
 
@@ -1088,6 +1090,8 @@ bool Report::reportStats(InSequences &inSequences, unsigned long long int gSize)
             }
         
         }
+        
+        std::cout<<output("# circular segments")<<inSequences.getCircular().size()<<"\n";
             
     }
 
