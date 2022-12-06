@@ -26,11 +26,6 @@
 #include "threadpool.h"
 #include "gfa.h"
 
-#include "zlib.h"
-#include <zstream/zstream_common.hpp>
-#include <zstream/izstream.hpp>
-#include <zstream/izstream_impl.hpp>
-
 #include "stream-obj.h"
 
 #include "input-filters.h"

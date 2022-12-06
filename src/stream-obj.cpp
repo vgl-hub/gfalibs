@@ -49,71 +49,52 @@ bool StreamObj::isGzip(std::streambuf* buffer) {
     
 }
 
-//void StreamObj::decompressBuf(std::streambuf* buffer) {
-//    
-//    int chars = 0;
-//    
-//    std::unique_lock<std::mutex> lck(mtx, std::defer_lock);
-//    
-//    while (true) {
-//        
-//        if (decompress) {
-//        
-//            lck.lock();
-//                                    
-//            chars = buffer->sgetn(content, 1024);
-//            std::cout<<"decompress: "<<chars<<" "<<std::endl;
-//
-//            strm.str(content);
-//            
-//            decompress = false;
-//            
-//            if (chars < 1024) {
-//                done = true;
-//                return;
-//            }
-//            
-//            lck.unlock();
-//            
-//        }
-//    
-//    }
-//    
-//}
-//
-//void StreamObj::readBuf(std::streambuf* buffer) {
-//    
-//    int chars = 0;
-//    
-//    std::unique_lock<std::mutex> lck(mtx, std::defer_lock);
-//    
-//    while (true) {
-//        
-//        if (!decompress) {
-//        
-//            lck.lock();
-//            
-//            std::string line;
-//
-//            getline(strm,line);
-//            
-//            std::cout<<line<<std::endl;
-//
-//            if (!strm.eof())
-//                decompress = true;
-//            else
-//                return;
-//            
-//            if (done)
-//                decompress = false;
-//            
-//            lck.unlock();
-//            
-//        }
-//        
-//    }
-//    
-//}
+void StreamObj::decompressBuf(gzFile fi) {
+    
+    bufContent = new char[bufSize];
+
+    std::unique_lock<std::mutex> lck(mtx);
+    
+    while(gzread(fi, bufContent, bufSize)) {
+        
+        mutexCondition.wait(lck, [this] {
+            return decompress;
+        });
+        sbuf.set(bufContent, bufContent, bufContent + bufSize);
+        
+        decompress = false;
+        
+        mutexCondition.notify_one();
+        
+    }
+    
+    sbuf.set(bufContent, bufContent + bufSize, bufContent + bufSize);
+
+}
+
+void StreamObj::readBuf() {
+    
+    contents = new char [bufSize];
+    
+    unsigned int n = bufSize;
+    
+    std::unique_lock<std::mutex> lck(mtx);
+    
+    while (n == bufSize) {
+        
+        mutexCondition.wait(lck, [this] {
+            return !decompress;
+        });
+        
+        n = sbuf.sgetn(contents, bufSize);
+        
+        decompress = true;
+
+        mutexCondition.notify_one();
+        
+    }
+    
+}
 
 std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char type, unsigned int* fileNum) {
     
@@ -138,15 +119,14 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
         gzip = isGzip(buffer);
 
         if (gzip) {
+                        
+            gzFile fi = gzopen(userInput.file(type).c_str(), "rb");
             
-            zfin.open();
+            threadPool.queueJob([=]{ return decompressBuf(fi); });
             
-//            threadPool.queueJob([=]{ return decompressBuf(zfin.rdbuf()); });
+            readBuf();
             
-//            buffer = strm.rdbuf();
-            
-            buffer = zfin.rdbuf();
-
+            buffer = &sbuf;
 
         }
 
@@ -170,27 +150,21 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
     
 }
 
-std::shared_ptr<std::istream> StreamObj::returnStream() {
-    
-    return stream;
-    
-}
-
 void StreamObj::closeStream() {
 
     if (gzip) {
 
-        zfin.read_footer();
-
-        if (zfin.check_crc()) {
-
-            lg.verbose("Crc check successful");
-
-        }else{
-
-            lg.verbose("Warning: crc check unsuccessful. Check input file");
-
-        }
+//        zfin.read_footer();
+//
+//        if (zfin.check_crc()) {
+//
+//            lg.verbose("Crc check successful");
+//
+//        }else{
+//
+//            lg.verbose("Warning: crc check unsuccessful. Check input file");
+//
+//        }
 
     }
         

@@ -27,11 +27,6 @@
 #include "gfa.h"
 #include "sak.h" // swiss army knife
 
-#include "zlib.h"
-#include <zstream/zstream_common.hpp>
-#include <zstream/izstream.hpp>
-#include <zstream/izstream_impl.hpp>
-
 #include "stream-obj.h"
 
 #include "input-agp.h"
