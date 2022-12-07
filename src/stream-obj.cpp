@@ -49,53 +49,6 @@ bool StreamObj::isGzip(std::streambuf* buffer) {
     
 }
 
-void StreamObj::decompressBuf(gzFile fi) {
-    
-    bufContent = new char[bufSize];
-
-    std::unique_lock<std::mutex> lck(mtx);
-    
-    while(gzread(fi, bufContent, bufSize)) {
-        
-        mutexCondition.wait(lck, [this] {
-            return decompress;
-        });
-        sbuf.set(bufContent, bufContent, bufContent + bufSize);
-        
-        decompress = false;
-        
-        mutexCondition.notify_one();
-        
-    }
-    
-    sbuf.set(bufContent, bufContent + bufSize, bufContent + bufSize);
-
-}
-
-void StreamObj::readBuf() {
-    
-    contents = new char [bufSize];
-    
-    unsigned int n = bufSize;
-    
-    std::unique_lock<std::mutex> lck(mtx);
-    
-    while (n == bufSize) {
-        
-        mutexCondition.wait(lck, [this] {
-            return !decompress;
-        });
-        
-        n = sbuf.sgetn(contents, bufSize);
-        
-        decompress = true;
-
-        mutexCondition.notify_one();
-        
-    }
-    
-}
-
 std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char type, unsigned int* fileNum) {
     
     file = userInput.pipeType != type ? true : false;
@@ -119,14 +72,24 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
         gzip = isGzip(buffer);
 
         if (gzip) {
-                        
-            gzFile fi = gzopen(userInput.file(type).c_str(), "rb");
             
-            threadPool.queueJob([=]{ return decompressBuf(fi); });
+            membuf sbuf;
+            std::string newLine;
             
-            readBuf();
+            sbuf.openFile(userInput.file(type));
             
-            buffer = &sbuf;
+            std::istream in(&sbuf);
+            
+            while (getline(in, newLine)) {
+                
+                std::cout<<"line: "<<newLine<<std::endl;
+                
+            }
+            
+            exit(1);
+            
+            return std::make_shared<std::istream>(&sbuf);
+                
 
         }
 
