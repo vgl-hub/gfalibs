@@ -26,6 +26,115 @@
 #include "threadpool.h"
 #include "stream-obj.h"
 
+
+    
+void membuf::openFile(std::string file) {
+    
+//        std::cout<<"file open"<<std::endl;
+    
+    fi = gzopen(file.c_str(), "rb");
+    threadPool.queueJob([=]{ return decompressBuf(); });
+    
+    read();
+    
+}
+
+void membuf::read() {
+    
+//        std::cout<<"read"<<std::endl;
+    
+    std::unique_lock<std::mutex> lck(mtx);
+    
+    mutexCondition.wait(lck, [this] {
+        return !decompress;
+    });
+    
+    decompress = false;
+    mutexCondition.notify_one();
+    
+}
+
+char membuf::snextc() {
+    
+    std::cout<<"snextc"<<std::endl;
+    
+    if ( sbumpc() == EOF ) return EOF;
+    else return sgetc();
+    
+}
+
+int membuf::sbumpc() {
+    
+    gbump(1);
+    
+    if ( (!gptr()) || (gptr()==egptr()) ) {
+        
+        std::cout<<"resetting buffer"<<std::endl;
+        
+        decompress = true;
+        mutexCondition.notify_one();
+        
+        std::unique_lock<std::mutex> lck(mtx);
+        
+        mutexCondition.wait(lck, [this] {
+            return !decompress || eof;
+        });
+        
+    }
+    
+    return gptr()[-1];
+    
+}
+
+bool membuf::decompressBuf() {
+
+    std::unique_lock<std::mutex> lck(mtx);
+    
+    unsigned int size = bufSize;
+    
+    while(size==bufSize) {
+        
+        mutexCondition.wait(lck, [this] {
+//                std::cout<<"decompression thread is waiting"<<std::endl;
+            return decompress;
+        });
+        
+        size = gzread(fi, bufContent, sizeof(char)*bufSize);
+        
+        set(bufContent, bufContent, bufContent + sizeof(bufContent));
+        
+        decompress = false;
+        
+        mutexCondition.notify_one();
+        
+    };
+    
+    eof = true;
+    
+    gzclose(fi);
+    
+    return eof;
+
+}
+
+membuf* memstream::rdbuf() {return assBuf;}
+
+bool getline(memstream& in, std::string& newLine) {
+
+    char c = in.rdbuf()->sgetc();
+    
+    newLine.clear();
+
+     do{
+
+        newLine.push_back(c);
+
+     }while ((c = in.rdbuf()->membuf::snextc()) != '\n' && c != EOF);
+
+    return c != EOF ? true : false;
+
+}
+
 std::string StreamObj::type() {
     
     std::string type;
@@ -74,21 +183,12 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
         if (gzip) {
             
             membuf sbuf;
-            std::string newLine;
             
             sbuf.openFile(userInput.file(type));
             
-            std::istream in(&sbuf);
+            memstream in(&sbuf);
             
-            while (getline(in, newLine)) {
-                
-                std::cout<<"line: "<<newLine<<std::endl;
-                
-            }
-            
-            exit(1);
-            
-            return std::make_shared<std::istream>(&sbuf);
+            return std::make_shared<memstream>(&sbuf);
                 
 
         }
@@ -101,9 +201,7 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 
         if (gzip) {
             
-            zin.open();
-            
-            buffer = zin.rdbuf();
+            //TBD
 
         }
         
