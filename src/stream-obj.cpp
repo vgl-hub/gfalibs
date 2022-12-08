@@ -87,7 +87,7 @@ bool membuf::decompressBuf() {
     
     unsigned int size = bufSize;
     
-    while(size==bufSize) {
+    while(size>0) {
         
         {
             std::unique_lock<std::mutex> lck(semMtx);
