@@ -87,7 +87,7 @@ bool membuf::decompressBuf() {
     
     unsigned int size = bufSize;
     
-    while(size>0) {
+    while(size==bufSize) {
         
         {
             std::unique_lock<std::mutex> lck(semMtx);
@@ -99,7 +99,7 @@ bool membuf::decompressBuf() {
             
             size = gzread(fi, bufContent, sizeof(char)*bufSize);
             
-            std::cout<<size<<std::endl;
+            std::cout<<"extracted bases: "<<size<<std::endl;
             
             setg(bufContent, bufContent, bufContent + sizeof(bufContent) - sizeof(char)*(bufSize-size));
             
