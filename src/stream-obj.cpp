@@ -75,11 +75,11 @@ int membuf::uflow() {
         mutexCondition.wait(lck, [this] {
             return !decompress || eof;
         });
-    
-        if (sgetc() == EOF) {return EOF;}
-        return gptr()[-1];
         
     }
+    
+    if (sgetc() == EOF) {return EOF;}
+    return gptr()[-1];
     
 }
 
