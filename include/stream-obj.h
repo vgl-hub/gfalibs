@@ -9,47 +9,25 @@ struct membuf : std::streambuf {
     char bufContent[1000000];
     gzFile fi;
     bool decompress = true, eof = false;
+    std::mutex semMtx;
     std::condition_variable mutexCondition;
-    
-    void set(char* gbeg, char* gnext, char* gend) {
-        this->setg(gbeg, gnext, gend);
-    }
     
     void openFile(std::string file);
     
     void read();
     
-    char snextc();
-    
-    int sbumpc();
+    int uflow();
     
     bool decompressBuf();
-    
-};
-
-class memstream : public std::istream {
-
-    membuf* assBuf;
-    
-public:
-    
-    memstream(membuf* sbuf) : std::istream(sbuf) {
-        
-        init(sbuf);
-        
-        assBuf = sbuf;
-        
-    }
-    
-    membuf* rdbuf();
     
 };
 
 class StreamObj {
     
     std::streambuf* buffer;
-    std::shared_ptr<std::istream> stream;
+    membuf sbuf;
     std::ifstream ifs;
+
     bool file = false, gzip = false;
     
 public:
@@ -57,8 +35,6 @@ public:
     ~StreamObj(){this->closeStream();}
     
     bool isGzip(std::streambuf* buffer);
-    
-    void decompressBuf(gzFile buffer);
 
     void readBuf();
     

@@ -26,9 +26,10 @@
 
 void membuf::openFile(std::string file) {
     
-//    std::cout<<"file open: "<<file<<std::endl;
+    std::cout<<"file open: "<<file<<std::endl;
     
     fi = gzopen(file.c_str(), "rb");
+    exit(1);
     threadPool.queueJob([=]{ return decompressBuf(); });
     
     read();
@@ -37,7 +38,7 @@ void membuf::openFile(std::string file) {
 
 void membuf::read() {
     
-//        std::cout<<"read"<<std::endl;
+        std::cout<<"read"<<std::endl;
     {
         
         std::unique_lock<std::mutex> lck(semMtx);
@@ -56,11 +57,15 @@ void membuf::read() {
 
 int membuf::uflow() {
     
-//    std::cout<<"resetting buffer"<<std::endl;
+    std::cout<<"resetting buffer"<<std::endl;
     
     {
             
         std::unique_lock<std::mutex> lck(semMtx);
+        
+        mutexCondition.wait(lck, [this] {
+            return !decompress || eof;
+        });
         
         decompress = true;
         
@@ -68,18 +73,7 @@ int membuf::uflow() {
     
     mutexCondition.notify_one();
     
-    {
-        
-        std::unique_lock<std::mutex> lck(semMtx);
-        
-        mutexCondition.wait(lck, [this] {
-            return !decompress || eof;
-        });
-    
-        if (sgetc() == EOF) {return EOF;}
-        return gptr()[-1];
-        
-    }
+    return gptr()[-1];
     
 }
 
@@ -93,17 +87,19 @@ bool membuf::decompressBuf() {
             std::unique_lock<std::mutex> lck(semMtx);
         
             mutexCondition.wait(lck, [this] {
-//                std::cout<<"decompression thread is waiting"<<std::endl;
+                std::cout<<"decompression thread is waiting"<<std::endl;
                 return decompress;
             });
             
             size = gzread(fi, bufContent, sizeof(char)*bufSize);
             
-            setg(bufContent, bufContent, bufContent + sizeof(bufContent) - sizeof(char)*(bufSize-size));
+            std::cout<<size<<std::endl;
+            
+            set(bufContent, bufContent, bufContent + sizeof(bufContent) - sizeof(char)*(bufSize-size));
             
             decompress = false;
             
-//            std::cout<<"buffer replenished"<<std::endl;
+            std::cout<<"buffer replenished"<<std::endl;
         
         }
         
@@ -115,11 +111,13 @@ bool membuf::decompressBuf() {
     
     gzclose(fi);
     
-//    std::cout<<"decompression completed"<<std::endl;
+    std::cout<<"decompression completed"<<std::endl;
     
     return eof;
 
 }
+
+membuf* memstream::rdbuf() {return assBuf;}
 
 std::string StreamObj::type() {
     
@@ -169,6 +167,17 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             sbuf.openFile(userInput.file(type));
             
             buffer = &sbuf;
+            
+            char c;
+            
+            do{
+                
+                in.get(c);
+                std::cout<<c;
+                
+            }while (c != EOF);
+            
+            exit(1);
 
         }
 
@@ -194,6 +203,17 @@ void StreamObj::closeStream() {
 
     if (gzip) {
 
+//        zfin.read_footer();
+//
+//        if (zfin.check_crc()) {
+//
+//            lg.verbose("Crc check successful");
+//
+//        }else{
+//
+//            lg.verbose("Warning: crc check unsuccessful. Check input file");
+//
+//        }
 
     }
         
