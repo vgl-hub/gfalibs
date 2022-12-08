@@ -26,7 +26,7 @@
 
 void membuf::openFile(std::string file) {
     
-//    std::cout<<"file open: "<<file<<std::endl;
+    std::cout<<"file open: "<<file<<std::endl;
     
     fi = gzopen(file.c_str(), "rb");
     threadPool.queueJob([=]{ return decompressBuf(); });
@@ -37,7 +37,7 @@ void membuf::openFile(std::string file) {
 
 void membuf::read() {
     
-//        std::cout<<"read"<<std::endl;
+        std::cout<<"read"<<std::endl;
     {
         
         std::unique_lock<std::mutex> lck(semMtx);
@@ -56,7 +56,7 @@ void membuf::read() {
 
 int membuf::uflow() {
     
-//    std::cout<<"resetting buffer"<<std::endl;
+    std::cout<<"resetting buffer"<<std::endl;
     
     {
             
@@ -93,7 +93,7 @@ bool membuf::decompressBuf() {
             std::unique_lock<std::mutex> lck(semMtx);
         
             mutexCondition.wait(lck, [this] {
-//                std::cout<<"decompression thread is waiting"<<std::endl;
+                std::cout<<"decompression thread is waiting"<<std::endl;
                 return decompress;
             });
             
@@ -103,7 +103,7 @@ bool membuf::decompressBuf() {
             
             decompress = false;
             
-//            std::cout<<"buffer replenished"<<std::endl;
+            std::cout<<"buffer replenished"<<std::endl;
         
         }
         
@@ -115,7 +115,7 @@ bool membuf::decompressBuf() {
     
     gzclose(fi);
     
-//    std::cout<<"decompression completed"<<std::endl;
+    std::cout<<"decompression completed"<<std::endl;
     
     return eof;
 
