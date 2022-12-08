@@ -99,6 +99,8 @@ bool membuf::decompressBuf() {
             
             size = gzread(fi, bufContent, sizeof(char)*bufSize);
             
+            std::cout<<size<<std::endl;
+            
             setg(bufContent, bufContent, bufContent + sizeof(bufContent) - sizeof(char)*(bufSize-size));
             
             decompress = false;
