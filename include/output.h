@@ -19,9 +19,7 @@ public:
     
     bool outFile(InSequences &inSequences, UserInput &userInput, int splitLength = 0);
     
-    bool outSize(InSequences &inSequences, char &sizeOutType);
-    
-    bool outCoord(InSequences &inSequences, char bedOutType);
+    bool outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly = false);
     
     bool reportStats(InSequences &inSequences, unsigned long long int gSize);
     

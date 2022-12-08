@@ -333,11 +333,17 @@ public:
     
     void discoverPaths();
     
+    unsigned int detectOverlap(std::string* sequence1, std::string* sequence2, unsigned int minOvlLen);
+    
+    void discoverTerminalOverlaps(int terminalOvlLen);
+    
     void dfsPath(unsigned int v, InPath& newPath); // Depth First Search to build a new path given a vertex
     
     void findBubbles();
     
     std::vector<Bubble>* getBubbles();
+    
+    std::vector<unsigned int> getCircular();
     
 };
 

@@ -32,10 +32,10 @@
 #include "input-agp.h"
 
 
-void readAgp (InSequences& inSequences, UserInput& userInput) {
+void readAgp(InSequences& inSequences, UserInput& userInput) {
 
     inSequences.updateStats();
-    
+
     StreamObj streamObj;
 
     std::shared_ptr<std::istream> stream;
@@ -63,6 +63,7 @@ void readAgp (InSequences& inSequences, UserInput& userInput) {
     std::queue<std::string> nextLines;
 
     while (true) {
+        
         if(nextLines.size() > 0) {
             line = nextLines.front();
             nextLines.pop();
@@ -125,8 +126,8 @@ void readAgp (InSequences& inSequences, UserInput& userInput) {
                 
             }
             
-            getline(*stream, line);
-            nextLines.push(line);
+            if(getline(*stream, line))
+                nextLines.push(line);
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
             
@@ -205,7 +206,6 @@ void readAgp (InSequences& inSequences, UserInput& userInput) {
             }
             
             inSequences.insertHash(gHeader, gUId);
-            
             
             dist = stoi(arguments[5]);
             

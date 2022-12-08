@@ -2467,6 +2467,109 @@ void InSequences::discoverPaths() {
     
 }
 
+unsigned int InSequences::detectOverlap(std::string* sequence1, std::string* sequence2, unsigned int minOvlLen) {
+    
+    unsigned int ovlLen = 0;
+    
+    if (sequence1->size() > minOvlLen && sequence2->size() > minOvlLen) {
+        
+        std::size_t found = 0, pos = 0;
+        
+        while (found < std::string::npos) {
+            
+            found = sequence2->find(sequence1->substr(sequence1->size()-minOvlLen, minOvlLen), pos);
+            
+            if (found == std::string::npos)
+                break;
+            
+            if (sequence1->substr(sequence1->size()-minOvlLen-found, minOvlLen+found) == sequence2->substr(0, found+minOvlLen))
+                ovlLen = minOvlLen+found;
+                
+            pos = minOvlLen+found;
+            
+        }
+        
+    }
+    
+    if (ovlLen == sequence1->size() || ovlLen == sequence2->size())
+        return 0;
+    
+    return ovlLen;
+    
+}
+
+void InSequences::discoverTerminalOverlaps(int terminalOvlLen) {
+    
+    unsigned int max = inSegments.size();
+    InSegment* inSegment1, *inSegment2;
+        
+    for (unsigned int i = 0; i < max; ++i) {
+        
+        for (unsigned int j = i; j < max; ++j) {
+            
+            inSegment1 = inSegments[i];
+            inSegment2 = inSegments[j];
+            
+            std::string* sequence1 = inSegment1->inSequence;
+            std::string* sequence2 = inSegment2->inSequence;
+            
+            unsigned int maxOverhang = 20000;
+            
+            if(sequence1->size() < maxOverhang)
+                maxOverhang = sequence1->size();
+            
+            if(sequence2->size() < maxOverhang && sequence2->size() < sequence1->size())
+                maxOverhang = sequence2->size();
+            
+            std::string subSeq1 = sequence1->substr(sequence1->size()-maxOverhang, maxOverhang);
+            std::string subSeq2 = sequence2->substr(0, maxOverhang);
+            
+            std::string subSeq3 = revCom(sequence2->substr(sequence2->size()-maxOverhang, maxOverhang));
+            std::string subSeq4 = revCom(sequence1->substr(0, maxOverhang));
+            
+            unsigned int ovlLen = 0;
+            
+            ovlLen = detectOverlap(&subSeq1, &subSeq2, terminalOvlLen);
+            
+            if (ovlLen>0) {
+                
+                lg.verbose("Found perfect overlap of length " + std::to_string(ovlLen) + " between: " + inSegment1->getSeqHeader() + "+ and " + inSegment2->getSeqHeader() + "+");
+                
+                edge.newEdge(this->uId.next(), inSegment1->getuId(), inSegment2->getuId(), '+', '+', std::to_string(ovlLen) + "M");
+                
+                this->appendEdge(edge);
+                
+            }
+            
+            ovlLen = detectOverlap(&subSeq1, &subSeq3, terminalOvlLen);
+
+            if (ovlLen>0) {
+             
+                lg.verbose("Found perfect overlap of length " + std::to_string(ovlLen) + " between: " + inSegment1->getSeqHeader() + "+ and " + inSegment2->getSeqHeader() + "-");
+                
+                edge.newEdge(this->uId.next(), inSegment1->getuId(), inSegment2->getuId(), '+', '-', std::to_string(ovlLen) + "M");
+                
+                this->appendEdge(edge);
+                
+            }
+
+            ovlLen = detectOverlap(&subSeq4, &subSeq2, terminalOvlLen);
+
+            if (ovlLen>0) {
+                lg.verbose("Found perfect overlap of length " + std::to_string(ovlLen) + " between: " + inSegment1->getSeqHeader() + "- and " + inSegment2->getSeqHeader() + "+");
+             
+                edge.newEdge(this->uId.next(), inSegment1->getuId(), inSegment2->getuId(), '-', '+', std::to_string(ovlLen) + "M");
+                
+                this->appendEdge(edge);
+                
+            }
+            
+        }
+        
+    }
+    
+}
+
 void InSequences::dfsPath(unsigned int v, InPath& newPath) // Depth First Search to build a new path given a vertex
 {
 
@@ -2570,7 +2673,7 @@ void InSequences::dfsPath(unsigned int v, InPath& newPath) // Depth First Search
 
 }
 
-void InSequences::findBubbles () {
+void InSequences::findBubbles() {
     
     unsigned int sUId = 0, sUId1 = 0, sUId2 = 0;
     char sId1Or, sId2Or;
@@ -2650,8 +2753,30 @@ void InSequences::findBubbles () {
     
 }
 
-std::vector<Bubble>* InSequences::getBubbles () {
+std::vector<Bubble>* InSequences::getBubbles() {
     
     return &bubbles;
     
 }
+
+std::vector<unsigned int> InSequences::getCircular() {
+    
+    std::vector<unsigned int> segments;
+    std::vector<unsigned int>::iterator it;
+    
+    for (InEdge& inEdge : inEdges) {
+        
+        if (inEdge.sId1 == inEdge.sId2)
+            segments.push_back(inEdge.sId1);
+        
+    }
+    
+    sort(segments.begin(), segments.end());
+    it = std::unique(segments.begin(), segments.end());
+    segments.resize(std::distance(segments.begin(),it));
+    
+    return segments;
+    
+}
+
+
