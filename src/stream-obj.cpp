@@ -23,15 +23,6 @@
 #include "threadpool.h"
 #include "stream-obj.h"
 
-std::istream& getline(std::istream& stream, std::string& str)
-{
-  char ch;
-  str.clear();
-  while (stream.get(ch) && ch != '\n')
-    str.push_back(ch);
-  return stream;
-}
-
 void membuf::openFile(std::string file) {
     
 //    std::cout<<"file open: "<<file<<std::endl;
