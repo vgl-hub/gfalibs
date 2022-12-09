@@ -87,6 +87,7 @@ int membuf::uflow() {
     }
     
     if (sgetc() == EOF) {return EOF;}
+    gbump(1);
     return gptr()[-1];
     
 }
