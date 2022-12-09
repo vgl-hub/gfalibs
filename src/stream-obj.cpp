@@ -196,6 +196,8 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
         
     }
     
+    lg.verbose("Created stream object from input.\nStream type (" + this->type() + ").\nStreaming started.");
+    
     return std::make_shared<std::istream>(buffer);
     
 }
