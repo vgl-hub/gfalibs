@@ -5,12 +5,13 @@
 
 struct membuf : std::streambuf {
     
-    unsigned int bufSize = 1000000;
-    char bufContent[1000000];
+    unsigned int bufSize = 1000000, size = 1000000;
+    char bufContent1[1000000], bufContent2[1000000];
+    char* bufContent = bufContent1;
     gzFile fi;
-    bool decompress = true, eof = false;
+    bool decompressed1 = false, decompressed2 = false, start = false, eof = false, uflowDone1 = true, uflowDone2 = true;
     std::mutex semMtx;
-    std::condition_variable mutexCondition;
+    std::condition_variable semaphore;
     
     void openFile(std::string file);
     

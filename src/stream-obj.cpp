@@ -25,7 +25,7 @@
 
 void membuf::openFile(std::string file) {
     
-//    std::cout<<"file open: "<<file<<std::endl;
+    std::cout<<"file open: "<<file<<std::endl;
     
     fi = gzopen(file.c_str(), "rb");
     threadPool.queueJob([=]{ return decompressBuf(); });
@@ -36,46 +36,57 @@ void membuf::openFile(std::string file) {
 
 void membuf::read() {
     
-//        std::cout<<"read"<<std::endl;
+    std::cout<<"R:wait"<<std::endl;
+    
     {
         
         std::unique_lock<std::mutex> lck(semMtx);
         
-        mutexCondition.wait(lck, [this] {
-            return !decompress;
+        semaphore.wait(lck, [this] {
+            return start;
         });
-        
-        decompress = false;
         
     }
     
-    mutexCondition.notify_one();
+    std::cout<<"R:read"<<std::endl;
     
 }
 
 int membuf::uflow() {
     
-//    std::cout<<"resetting buffer"<<std::endl;
-    
-    {
-            
-        std::unique_lock<std::mutex> lck(semMtx);
-        
-        decompress = true;
-        
-    }
-    
-    mutexCondition.notify_one();
+    std::cout<<"R:resetting buffer"<<std::endl;
     
     {
         
+        std::cout<<"R:waiting for decompressed buffer"<<std::endl;
+        
         std::unique_lock<std::mutex> lck(semMtx);
         
-        mutexCondition.wait(lck, [this] {
-            return !decompress || eof;
+        semaphore.wait(lck, [this] {
+            return decompressed1 || decompressed2 || eof;
         });
         
     }
+    
+    if(decompressed1) {
+        
+        setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
+        
+        uflowDone1 = false;
+        uflowDone2 = true;
+        decompressed1 = false;
+        
+    }else if (decompressed2){
+        
+        setg(bufContent2, bufContent2, bufContent2 + bufSize - sizeof(char)*(bufSize-size));
+        
+        uflowDone1 = true;
+        uflowDone2 = false;
+        decompressed2 = false;
+
+    }
+    
+    semaphore.notify_one();
     
     if (sgetc() == EOF) {return EOF;}
     gbump(1);
@@ -85,31 +96,43 @@ int membuf::uflow() {
 
 bool membuf::decompressBuf() {
     
-    unsigned int size = bufSize;
+    setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
+    
+    size = gzread(fi, bufContent, sizeof(char)*bufSize);
+    
+    start = true;
+    
+    semaphore.notify_one();
+    
+    std::cout<<"D:extracted bases: "<<size<<std::endl;
     
     while(size==bufSize) {
+         
+        bufContent = (bufContent == bufContent1) ? bufContent2 : bufContent1;
+        
+        std::cout<<"D:buffer swapped"<<std::endl;
+        
+        size = gzread(fi, bufContent, sizeof(char)*bufSize);
+        
+        (bufContent == bufContent1) ? decompressed1 = true : decompressed2 = true;
+        
+        semaphore.notify_one();
+        
+        std::cout<<"D:extracted bases: "<<size<<std::endl;
         
         {
+            
+            std::cout<<"D:waiting for buffer being read"<<std::endl;
+            
             std::unique_lock<std::mutex> lck(semMtx);
-        
-            mutexCondition.wait(lck, [this] {
-//                std::cout<<"decompression thread is waiting"<<std::endl;
-                return decompress;
+            
+            semaphore.wait(lck, [this] {
+                
+                return (bufContent == bufContent1) ? uflowDone2 : uflowDone1;
+                
             });
             
-            size = gzread(fi, bufContent, sizeof(char)*bufSize);
-            
-//            std::cout<<"extracted bases: "<<size<<std::endl;
-            
-            setg(bufContent, bufContent, bufContent + sizeof(bufContent) - sizeof(char)*(bufSize-size));
-            
-            decompress = false;
-            
-//            std::cout<<"buffer replenished"<<std::endl;
-        
         }
-        
-        mutexCondition.notify_one();
         
     };
     
@@ -117,7 +140,7 @@ bool membuf::decompressBuf() {
     
     gzclose(fi);
     
-//    std::cout<<"decompression completed"<<std::endl;
+    std::cout<<"D:decompression completed"<<std::endl;
     
     return eof;
 
