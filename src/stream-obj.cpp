@@ -96,9 +96,9 @@ int membuf::uflow() {
 
 bool membuf::decompressBuf() {
     
-    setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
-    
     size = gzread(fi, bufContent, sizeof(char)*bufSize);
+    
+    setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
     
     start = true;
     
