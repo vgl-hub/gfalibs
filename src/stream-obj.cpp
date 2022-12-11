@@ -25,7 +25,7 @@
 
 void membuf::openFile(std::string file) {
     
-    std::cout<<"file open: "<<file<<std::endl;
+//    std::cout<<"file open: "<<file<<std::endl;
     
     fi = gzopen(file.c_str(), "rb");
     threadPool.queueJob([=]{ return decompressBuf(); });
@@ -36,7 +36,7 @@ void membuf::openFile(std::string file) {
 
 void membuf::read() {
     
-    std::cout<<"R:wait"<<std::endl;
+//    std::cout<<"R:wait"<<std::endl;
     
     {
         
@@ -48,17 +48,17 @@ void membuf::read() {
         
     }
     
-    std::cout<<"R:read"<<std::endl;
+//    std::cout<<"R:read"<<std::endl;
     
 }
 
 int membuf::uflow() {
     
-    std::cout<<"R:resetting buffer"<<std::endl;
+//    std::cout<<"R:resetting buffer"<<std::endl;
     
     {
         
-        std::cout<<"R:waiting for decompressed buffer"<<std::endl;
+//        std::cout<<"R:waiting for decompressed buffer"<<std::endl;
         
         std::unique_lock<std::mutex> lck(semMtx);
         
@@ -104,13 +104,13 @@ bool membuf::decompressBuf() {
     
     semaphore.notify_one();
     
-    std::cout<<"D:extracted bases: "<<size<<std::endl;
+//    std::cout<<"D:extracted bases: "<<size<<std::endl;
     
     while(size==bufSize) {
          
         bufContent = (bufContent == bufContent1) ? bufContent2 : bufContent1;
         
-        std::cout<<"D:buffer swapped"<<std::endl;
+//        std::cout<<"D:buffer swapped"<<std::endl;
         
         size = gzread(fi, bufContent, sizeof(char)*bufSize);
         
@@ -118,11 +118,11 @@ bool membuf::decompressBuf() {
         
         semaphore.notify_one();
         
-        std::cout<<"D:extracted bases: "<<size<<std::endl;
+//        std::cout<<"D:extracted bases: "<<size<<std::endl;
         
         {
             
-            std::cout<<"D:waiting for buffer being read"<<std::endl;
+//            std::cout<<"D:waiting for buffer being read"<<std::endl;
             
             std::unique_lock<std::mutex> lck(semMtx);
             
@@ -140,7 +140,7 @@ bool membuf::decompressBuf() {
     
     gzclose(fi);
     
-    std::cout<<"D:decompression completed"<<std::endl;
+//    std::cout<<"D:decompression completed"<<std::endl;
     
     return eof;
 
