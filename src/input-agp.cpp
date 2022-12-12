@@ -31,14 +31,9 @@
 
 #include "input-agp.h"
 
-
 void readAgp(InSequences& inSequences, UserInput& userInput) {
 
     inSequences.updateStats();
-
-    StreamObj streamObj;
-
-    std::shared_ptr<std::istream> stream;
 
     std::string pHeaderNew, pHeader1, pHeader2, gHeader, instruction, coord1, coord2, line;
     char pId1Or = '+', pId2Or;
@@ -57,6 +52,10 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         oldPaths.push_back(path.getpUId());
         
     }
+    
+    StreamObj streamObj;
+
+    std::shared_ptr<std::istream> stream;
 
     stream = streamObj.openStream(userInput, 'a');
 

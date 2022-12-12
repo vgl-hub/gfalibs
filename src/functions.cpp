@@ -17,6 +17,60 @@
 
 //functions
 
+std::istream& getline(std::istream& is, std::string& str) {
+    
+    str.clear();
+    std::ios_base::iostate err = std::ios_base::goodbit;
+    std::streamsize extr = 0;
+    
+    while (true)
+    {
+
+        int i = is.rdbuf()->sbumpc();
+        if (i == EOF)
+            break;
+        ++extr;
+        if (i == '\n')
+            break;
+        str.push_back(i);
+        
+    }
+    
+    if (extr == 0)
+        err |= std::ios_base::failbit;
+    is.setstate(err);
+    
+    return is;
+    
+}
+
+std::istream& getline(std::istream& is, std::string& str, char dlm) {
+    
+    str.clear();
+    std::ios_base::iostate err = std::ios_base::goodbit;
+    std::streamsize extr = 0;
+    
+    while (true)
+    {
+
+        int i = is.rdbuf()->sbumpc();
+        if (i == EOF)
+            break;
+        ++extr;
+        if (i == dlm)
+            break;
+        str.push_back(i);
+        
+    }
+    
+    if (extr == 0)
+        err |= std::ios_base::failbit;
+    is.setstate(err);
+    
+    return is;
+    
+}
+
 double elapsedTime(){ // compute runtime in verbose mode
     
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
