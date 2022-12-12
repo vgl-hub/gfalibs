@@ -1,6 +1,8 @@
 #ifndef SAK_H
 #define SAK_H
 
+#include <stack>
+
 struct Instruction {
     std::string action;
     std::string path1;

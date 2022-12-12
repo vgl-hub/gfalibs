@@ -1,13 +1,8 @@
 #include <stdlib.h>
 #include <unistd.h>
-#include <string>
-#include <thread>
-#include <mutex>
 #include <vector>
-#include <queue>
-#include <stack>
 
-#include <iostream>
+#include <istream>
 #include <fstream>
 #include <sstream>
 
@@ -54,10 +49,10 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
     }
     
     StreamObj streamObj;
+    
+    std::shared_ptr<std::istream> str;
 
-    std::shared_ptr<std::istream> stream;
-
-    stream = streamObj.openStream(userInput, 'a');
+    str = streamObj.openStream(userInput, 'a');
 
     std::queue<std::string> nextLines;
 
@@ -66,7 +61,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         if(nextLines.size() > 0) {
             line = nextLines.front();
             nextLines.pop();
-        } else if(!getline(*stream, line)) {
+        } else if(!getline(*str, line)) {
             break;
         }
         
@@ -125,7 +120,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
                 
             }
             
-            if(getline(*stream, line))
+            if(getline(*str, line))
                 nextLines.push(line);
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
@@ -208,7 +203,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
             
             dist = stoi(arguments[5]);
             
-            getline(*stream, line);
+            getline(*str, line);
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
             
