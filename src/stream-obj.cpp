@@ -1,11 +1,8 @@
 #include <stdlib.h>
 #include <unistd.h>
-#include <iostream>
+#include <istream>
 #include <fstream>
 #include <sstream>
-#include <vector>
-#include <memory>
-#include <cstring>
 
 #include <queue>
 #include <thread>
