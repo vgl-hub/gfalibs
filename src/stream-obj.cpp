@@ -62,25 +62,25 @@ int membuf::uflow() {
         semaphore.wait(lck, [this] {
             return decompressed1 || decompressed2 || eof;
         });
-        
-    }
     
-    if(decompressed1) {
-        
-        setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
-        
-        uflowDone1 = false;
-        uflowDone2 = true;
-        decompressed1 = false;
-        
-    }else if (decompressed2){
-        
-        setg(bufContent2, bufContent2, bufContent2 + bufSize - sizeof(char)*(bufSize-size));
-        
-        uflowDone1 = true;
-        uflowDone2 = false;
-        decompressed2 = false;
+        if(decompressed1) {
+            
+            setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
+            
+            uflowDone1 = false;
+            uflowDone2 = true;
+            decompressed1 = false;
+            
+        }else if (decompressed2){
+            
+            setg(bufContent2, bufContent2, bufContent2 + bufSize - sizeof(char)*(bufSize-size));
+            
+            uflowDone1 = true;
+            uflowDone2 = false;
+            decompressed2 = false;
 
+        }
+        
     }
     
     semaphore.notify_one();
@@ -111,7 +111,13 @@ bool membuf::decompressBuf() {
         
         size = gzread(fi, bufContent, sizeof(char)*bufSize);
         
-        (bufContent == bufContent1) ? decompressed1 = true : decompressed2 = true;
+        {
+            
+            std::unique_lock<std::mutex> lck(semMtx);
+            
+            (bufContent == bufContent1) ? decompressed1 = true : decompressed2 = true;
+            
+        }
         
         semaphore.notify_one();
         
