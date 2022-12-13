@@ -22,16 +22,15 @@ std::istream& getline(std::istream& is, std::string& str) {
     str.clear();
     std::ios_base::iostate err = std::ios_base::goodbit;
     std::streamsize extr = 0;
+    int i = 0;
     
     while (true)
     {
 
-        int i = is.rdbuf()->sbumpc();
-        if (i == EOF)
+        i = is.rdbuf()->sbumpc();
+        if (i == '\n' || i == EOF)
             break;
         ++extr;
-        if (i == '\n')
-            break;
         str.push_back(i);
         
     }
@@ -49,16 +48,17 @@ std::istream& getline(std::istream& is, std::string& str, char dlm) {
     str.clear();
     std::ios_base::iostate err = std::ios_base::goodbit;
     std::streamsize extr = 0;
+    int i = 0;
     
     while (true)
     {
-
-        int i = is.rdbuf()->sbumpc();
-        if (i == EOF)
+        
+        i = is.rdbuf()->sbumpc();
+        if (i == dlm || i == EOF)
             break;
+        else if(i == '\n')
+            continue;
         ++extr;
-        if (i == dlm)
-            break;
         str.push_back(i);
         
     }
