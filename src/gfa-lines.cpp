@@ -217,6 +217,12 @@ unsigned long long int InSegment::getT() {
     return T;
 }
 
+
+unsigned long long int InSegment::getN() {
+
+    return N;
+}
+
 unsigned int InSegment::getLowerCount(unsigned long long int start, unsigned long long int end) {
     
     if (start == 0 || end == 0) {

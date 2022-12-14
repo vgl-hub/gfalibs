@@ -2,7 +2,7 @@
 #define GFA_LINES_H
 
 class InSegment { // DNA sequence with no gaps
-private:
+protected:
     std::string seqHeader;
     std::string seqComment;
     std::string* inSequence = NULL;
