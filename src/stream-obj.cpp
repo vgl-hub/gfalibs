@@ -141,6 +141,8 @@ bool membuf::decompressBuf() {
     
     eof = true;
     
+    semaphore.notify_one();
+    
     gzclose(fi);
     
 //    std::cout<<"D:decompression completed"<<std::endl;
