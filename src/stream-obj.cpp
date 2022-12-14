@@ -1,23 +1,14 @@
 #include <stdlib.h>
-#include <unistd.h>
-#include <istream>
 #include <fstream>
-#include <sstream>
-
-#include <queue>
-#include <thread>
-#include <condition_variable>
-#include <mutex>
+#include <vector>
 
 #include "bed.h"
 #include "struct.h"
-
 #include "zlib.h"
-
 #include "global.h"
 #include "log.h"
-
 #include "threadpool.h"
+
 #include "stream-obj.h"
 
 void membuf::openFile(std::string file) {

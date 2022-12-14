@@ -8,6 +8,7 @@
 #include "bed.h"
 #include "struct.h"
 #include "functions.h"
+
 #include "gfa-lines.h"
 
 InSegment::~InSegment()

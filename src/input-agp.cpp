@@ -1,7 +1,4 @@
-#include <stdlib.h>
-#include <unistd.h>
 #include <vector>
-
 #include <istream>
 #include <fstream>
 #include <sstream>
@@ -11,17 +8,11 @@
 #include "bed.h"
 #include "struct.h"
 #include "functions.h" // global functions
-
-#include "log.h"
 #include "global.h"
 #include "uid-generator.h"
-
 #include "gfa-lines.h"
-
-#include "threadpool.h"
 #include "gfa.h"
 #include "sak.h" // swiss army knife
-
 #include "stream-obj.h"
 
 #include "input-agp.h"

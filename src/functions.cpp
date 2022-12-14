@@ -9,9 +9,7 @@
 #include <unistd.h>
 #include <string>
 
-#include "log.h"
 #include "global.h"
-
 #include "bed.h"
 #include "struct.h"
 

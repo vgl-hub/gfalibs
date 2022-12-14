@@ -1,33 +1,18 @@
 #include <stdlib.h>
-#include <unistd.h>
 #include <string>
-#include <thread>
-#include <mutex>
 #include <vector>
-#include <queue>
-#include <stack>
-
 #include <iostream>
-#include <fstream>
-#include <sstream>
 
 #include <parallel_hashmap/phmap.h>
 
 #include "bed.h"
 #include "struct.h"
 #include "functions.h"
-
 #include "log.h"
 #include "global.h"
 #include "uid-generator.h"
-
 #include "gfa-lines.h"
-
-#include "threadpool.h"
 #include "gfa.h"
-
-#include "stream-obj.h"
-
 #include "input-filters.h"
 #include "input-gfa.h"
 
