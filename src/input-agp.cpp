@@ -27,6 +27,8 @@
 #include "input-agp.h"
 
 void readAgp(InSequences& inSequences, UserInput& userInput) {
+    
+    lg.verbose("AGP processing started");
 
     inSequences.updateStats();
 
@@ -53,6 +55,8 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
     std::shared_ptr<std::istream> str;
 
     str = streamObj.openStream(userInput, 'a');
+    
+    lg.verbose("AGP stream started");
 
     std::queue<std::string> nextLines;
 
@@ -64,6 +68,8 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         } else if(!getline(*str, line)) {
             break;
         }
+        
+        lg.verbose("Evaluating line:" + line);
         
         std::istringstream iss(line); // line to string
         
@@ -279,5 +285,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         inSequences.removePath(pUId, false, true); // silently remove the original paths that were not joined or duplicated
         
     }
+    
+    lg.verbose("AGP processing complete");
 
 }
