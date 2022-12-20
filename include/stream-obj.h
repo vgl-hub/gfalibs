@@ -3,7 +3,7 @@
 
 #include "zlib.h"
 
-struct membuf : std::streambuf {
+class membuf : std::streambuf {
     
     static const unsigned int bufSize = 1000000;
     unsigned int size = bufSize;
@@ -31,7 +31,6 @@ class StreamObj {
     std::streambuf* buffer;
     membuf sbuf;
     std::ifstream ifs;
-
     bool file = false, gzip = false;
     
 public:
