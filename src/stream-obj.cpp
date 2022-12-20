@@ -171,6 +171,8 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
     
     if (file) { // input is from file
         
+        ifs.close();
+        
         if (fileNum == NULL) {
         
             ifs.open(userInput.file(type)); // this stream takes input from a plain file
@@ -185,13 +187,18 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
         
         gzip = isGzip(buffer);
 
-        if (gzip) {
-            
-            sbuf.openFile(userInput.file(type, fileNum));
-            
-            buffer = &sbuf;
-
-        }
+//        if (gzip) {
+//            
+//            zfin.open();
+//            
+////            threadPool.queueJob([=]{ return decompressBuf(zfin.rdbuf()); });
+//            
+////            buffer = strm.rdbuf();
+//            
+//            buffer = zfin.rdbuf();
+//
+//
+//        }
 
     }else{
         
@@ -199,15 +206,15 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
         
         gzip = isGzip(buffer);
 
-        if (gzip) {
-            
-            //TBD
-
-        }
+//        if (gzip) {
+//
+//            zin.open();
+//
+//            buffer = zin.rdbuf();
+//
+//        }
         
     }
-    
-    lg.verbose("Created stream object from input.\nStream type (" + this->type() + ").\nStreaming started.");
     
     return std::make_shared<std::istream>(buffer);
     
