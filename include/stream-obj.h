@@ -26,9 +26,8 @@ struct membuf : std::streambuf {
 
 class StreamObj {
     
-    std::shared_ptr<std::istream> stream;
     std::streambuf* buffer;
-    membuf sbuf;
+//    membuf sbuf;
     std::ifstream ifs;
 
     bool file = false, gzip = false;
