@@ -188,13 +188,13 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
         gzip = isGzip(buffer);
 
 //        if (gzip) {
-//            
+//
 //            zfin.open();
-//            
+//
 ////            threadPool.queueJob([=]{ return decompressBuf(zfin.rdbuf()); });
-//            
+//
 ////            buffer = strm.rdbuf();
-//            
+//
 //            buffer = zfin.rdbuf();
 //
 //
