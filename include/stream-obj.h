@@ -34,7 +34,7 @@ class StreamObj {
     
 public:
     
-    StreamObj();
+    StreamObj(){}
     
     ~StreamObj(){this->closeStream();}
     
