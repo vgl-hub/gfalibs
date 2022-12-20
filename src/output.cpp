@@ -1,12 +1,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <string>
-#include <queue>
-#include <thread>
-#include <stack>
 #include <iomanip>
-
-#include <iostream>
 #include <fstream>
 
 #include <parallel_hashmap/phmap.h>
@@ -14,16 +9,11 @@
 #include "bed.h"
 #include "struct.h"
 #include "functions.h"
-
 #include "log.h"
 #include "global.h"
 #include "uid-generator.h"
-
 #include "gfa-lines.h"
-
-#include "threadpool.h"
 #include "gfa.h"
-#include "sak.h"
 
 #include "zlib.h"
 #include <zstream/zstream_common.hpp>

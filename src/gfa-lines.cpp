@@ -8,6 +8,7 @@
 #include "bed.h"
 #include "struct.h"
 #include "functions.h"
+
 #include "gfa-lines.h"
 
 InSegment::~InSegment()
@@ -215,6 +216,12 @@ unsigned long long int InSegment::getG() {
 unsigned long long int InSegment::getT() {
     
     return T;
+}
+
+
+unsigned long long int InSegment::getN() {
+
+    return N;
 }
 
 unsigned int InSegment::getLowerCount(unsigned long long int start, unsigned long long int end) {
