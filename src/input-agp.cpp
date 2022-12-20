@@ -1,7 +1,6 @@
 #include <vector>
 #include <istream>
 #include <fstream>
-#include <sstream>
 
 #include <parallel_hashmap/phmap.h>
 
@@ -61,8 +60,6 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         }
         
         lg.verbose("Evaluating line:" + line);
-        
-        std::istringstream iss(line); // line to string
         
         arguments = readDelimited(line, "\t", "#"); // read the columns in the line
         

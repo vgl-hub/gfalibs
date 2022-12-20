@@ -26,11 +26,18 @@ std::istream& getline(std::istream& is, std::string& str) {
     {
 
         i = is.rdbuf()->sbumpc();
-        if (i == '\n' || i == EOF)
+        if (i == EOF) {
+            err |= std::ios_base::eofbit;
             break;
+        }
         ++extr;
+        if (i == '\n')
+            break;
         str.push_back(i);
-        
+        if (str.size() == str.max_size()) {
+            err |= std::ios_base::failbit;
+            break;
+        }
     }
     
     if (extr == 0)
