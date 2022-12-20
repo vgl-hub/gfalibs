@@ -14,6 +14,8 @@ struct membuf : std::streambuf {
     std::mutex semMtx;
     std::condition_variable semaphore;
     
+    membuf() {}
+    
     void openFile(std::string file);
     
     void read();
@@ -27,7 +29,7 @@ struct membuf : std::streambuf {
 class StreamObj {
     
     std::streambuf* buffer;
-//    membuf sbuf;
+    membuf sbuf;
     std::ifstream ifs;
 
     bool file = false, gzip = false;

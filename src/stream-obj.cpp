@@ -187,9 +187,9 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 
         if (gzip) {
             
-//            sbuf.openFile(userInput.file(type, fileNum));
-//            
-//            buffer = &sbuf;
+            sbuf.openFile(userInput.file(type, fileNum));
+            
+            buffer = &sbuf;
 
         }
 
