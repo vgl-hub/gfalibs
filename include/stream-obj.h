@@ -26,6 +26,7 @@ struct membuf : std::streambuf {
 
 class StreamObj {
     
+    std::shared_ptr<std::istream> stream;
     std::streambuf* buffer;
     membuf sbuf;
     std::ifstream ifs;
