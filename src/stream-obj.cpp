@@ -189,7 +189,7 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
             
             sbuf.openFile(userInput.file(type, fileNum));
             
-//            buffer = &sbuf;
+            buffer = &sbuf;
 
         }
 
