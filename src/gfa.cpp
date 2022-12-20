@@ -1,31 +1,18 @@
 #include <stdlib.h>
 #include <string>
-#include <thread>
-#include <mutex>
-
 #include <vector>
-#include <queue>
-#include <stack>
-#include <iostream>
-#include <unistd.h>
 
 #include <parallel_hashmap/phmap.h>
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-
 #include "log.h"
 #include "global.h"
-
 #include "bed.h"
 #include "struct.h"
 #include "functions.h" // global functions
 #include "gfa-lines.h"
-
 #include "threadpool.h"
-
 #include "uid-generator.h"
+
 #include "gfa.h"
 
 InSequences::~InSequences()

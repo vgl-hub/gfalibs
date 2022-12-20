@@ -9,13 +9,80 @@
 #include <unistd.h>
 #include <string>
 
-#include "log.h"
 #include "global.h"
-
 #include "bed.h"
 #include "struct.h"
 
 //functions
+
+std::istream& getline(std::istream& is, std::string& str) {
+    
+    str.clear();
+    std::ios_base::iostate err = std::ios_base::goodbit;
+    std::streamsize extr = 0;
+    int i = 0;
+    
+    while (true)
+    {
+
+        i = is.rdbuf()->sbumpc();
+        if (i == EOF) {
+            err |= std::ios_base::eofbit;
+            break;
+        }
+        ++extr;
+        if (i == '\n')
+            break;
+        str.push_back(i);
+        if (str.size() == str.max_size()) {
+            err |= std::ios_base::failbit;
+            break;
+        }
+    }
+    
+    if (extr == 0)
+        err |= std::ios_base::failbit;
+    is.setstate(err);
+    
+    return is;
+    
+}
+
+std::istream& getline(std::istream& is, std::string& str, char dlm) {
+    
+    str.clear();
+    std::ios_base::iostate err = std::ios_base::goodbit;
+    std::streamsize extr = 0;
+    int i = 0;
+    
+    while (true)
+    {
+        
+        i = is.rdbuf()->sbumpc();
+        if (i == EOF) {
+            err |= std::ios_base::eofbit;
+            break;
+        }
+        ++extr;
+        if (i == dlm)
+            break;
+        if(i == '\n')
+            continue;
+        str.push_back(i);
+        if (str.size() == str.max_size()) {
+            err |= std::ios_base::failbit;
+            break;
+        }
+        
+    }
+    
+    if (extr == 0)
+        err |= std::ios_base::failbit;
+    is.setstate(err);
+    
+    return is;
+    
+}
 
 double elapsedTime(){ // compute runtime in verbose mode
     

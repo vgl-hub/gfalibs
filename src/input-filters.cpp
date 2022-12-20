@@ -1,40 +1,17 @@
 #include <stdlib.h>
-#include <unistd.h>
 #include <string>
-#include <thread>
-#include <mutex>
 #include <vector>
-#include <queue>
-#include <stack>
-
-#include <iostream>
 #include <fstream>
-#include <sstream>
 
 #include <parallel_hashmap/phmap.h>
 
 #include "bed.h"
 #include "struct.h"
-#include "functions.h" // global functions
-
 #include "log.h"
 #include "global.h"
 #include "uid-generator.h"
-
 #include "gfa-lines.h"
-
-#include "threadpool.h"
 #include "gfa.h"
-#include "sak.h" // swiss army knife
-
-#include "zlib.h"
-#include <zstream/zstream_common.hpp>
-#include <zstream/izstream.hpp>
-#include <zstream/izstream_impl.hpp>
-
-#include "stream-obj.h"
-
-#include "input-agp.h"
 #include "input-filters.h"
 
 Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::string* inSequence, BedCoordinates bedIncludeList, BedCoordinates bedExcludeList, std::string* inSequenceQuality) {

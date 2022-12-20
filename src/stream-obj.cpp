@@ -1,30 +1,146 @@
 #include <stdlib.h>
-#include <unistd.h>
-#include <iostream>
 #include <fstream>
-#include <sstream>
 #include <vector>
-#include <memory>
-#include <cstring>
-
-#include <queue>
-#include <thread>
-#include <condition_variable>
-#include <mutex>
 
 #include "bed.h"
 #include "struct.h"
-
 #include "zlib.h"
-#include <zstream/zstream_common.hpp>
-#include <zstream/izstream.hpp>
-#include <zstream/izstream_impl.hpp>
-
 #include "global.h"
 #include "log.h"
-
 #include "threadpool.h"
+
 #include "stream-obj.h"
+
+void membuf::openFile(std::string file) {
+    
+//    std::cout<<"file open: "<<file<<std::endl;
+    
+    fi = gzopen(file.c_str(), "rb");
+    threadPool.queueJob([=]{ return decompressBuf(); });
+    
+    read();
+    
+}
+
+void membuf::read() {
+    
+//    std::cout<<"R:wait"<<std::endl;
+    
+    {
+        
+        std::unique_lock<std::mutex> lck(semMtx);
+        
+        semaphore.wait(lck, [this] {
+            return start;
+        });
+        
+    }
+    
+//    std::cout<<"R:read"<<std::endl;
+    
+}
+
+int membuf::uflow() {
+    
+//    std::cout<<"R:resetting buffer"<<std::endl;
+    
+    {
+        
+//        std::cout<<"R:waiting for decompressed buffer"<<std::endl;
+        
+        std::unique_lock<std::mutex> lck(semMtx);
+        
+        semaphore.wait(lck, [this] {
+            return decompressed1 || decompressed2 || eof;
+        });
+    
+        if(decompressed1) {
+            
+            setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
+            
+            uflowDone1 = false;
+            uflowDone2 = true;
+            decompressed1 = false;
+            
+        }else if (decompressed2){
+            
+            setg(bufContent2, bufContent2, bufContent2 + bufSize - sizeof(char)*(bufSize-size));
+            
+            uflowDone1 = true;
+            uflowDone2 = false;
+            decompressed2 = false;
+
+        }
+        
+    }
+    
+    semaphore.notify_one();
+    
+    if (sgetc() == EOF) {return EOF;}
+    gbump(1);
+    return gptr()[-1];
+    
+}
+
+bool membuf::decompressBuf() {
+    
+    size = gzread(fi, bufContent, sizeof(char)*bufSize);
+    
+    setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
+    
+    start = true;
+    
+    semaphore.notify_one();
+    
+//    std::cout<<"D:extracted bases: "<<size<<std::endl;
+    
+    while(size==bufSize) {
+         
+        bufContent = (bufContent == bufContent1) ? bufContent2 : bufContent1;
+        
+//        std::cout<<"D:buffer swapped"<<std::endl;
+        
+        size = gzread(fi, bufContent, sizeof(char)*bufSize);
+        
+        {
+            
+            std::unique_lock<std::mutex> lck(semMtx);
+            
+            (bufContent == bufContent1) ? decompressed1 = true : decompressed2 = true;
+            
+        }
+        
+        semaphore.notify_one();
+        
+//        std::cout<<"D:extracted bases: "<<size<<std::endl;
+        
+        {
+            
+//            std::cout<<"D:waiting for buffer being read"<<std::endl;
+            
+            std::unique_lock<std::mutex> lck(semMtx);
+            
+            semaphore.wait(lck, [this] {
+                
+                return (bufContent == bufContent1) ? uflowDone2 : uflowDone1;
+                
+            });
+            
+        }
+        
+    };
+    
+    eof = true;
+    
+    semaphore.notify_one();
+    
+    gzclose(fi);
+    
+//    std::cout<<"D:decompression completed"<<std::endl;
+    
+    return eof;
+
+}
 
 std::string StreamObj::type() {
     
@@ -49,79 +165,11 @@ bool StreamObj::isGzip(std::streambuf* buffer) {
     
 }
 
-//void StreamObj::decompressBuf(std::streambuf* buffer) {
-//    
-//    int chars = 0;
-//    
-//    std::unique_lock<std::mutex> lck(mtx, std::defer_lock);
-//    
-//    while (true) {
-//        
-//        if (decompress) {
-//        
-//            lck.lock();
-//                                    
-//            chars = buffer->sgetn(content, 1024);
-//            std::cout<<"decompress: "<<chars<<" "<<std::endl;
-//
-//            strm.str(content);
-//            
-//            decompress = false;
-//            
-//            if (chars < 1024) {
-//                done = true;
-//                return;
-//            }
-//            
-//            lck.unlock();
-//            
-//        }
-//    
-//    }
-//    
-//}
-//
-//void StreamObj::readBuf(std::streambuf* buffer) {
-//    
-//    int chars = 0;
-//    
-//    std::unique_lock<std::mutex> lck(mtx, std::defer_lock);
-//    
-//    while (true) {
-//        
-//        if (!decompress) {
-//        
-//            lck.lock();
-//            
-//            std::string line;
-//
-//            getline(strm,line);
-//            
-//            std::cout<<line<<std::endl;
-//
-//            if (!strm.eof())
-//                decompress = true;
-//            else
-//                return;
-//            
-//            if (done)
-//                decompress = false;
-//            
-//            lck.unlock();
-//            
-//        }
-//        
-//    }
-//    
-//}
-
 std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char type, unsigned int* fileNum) {
     
     file = userInput.pipeType != type ? true : false;
     
     if (file) { // input is from file
-        
-        ifs.close();
         
         if (fileNum == NULL) {
         
@@ -139,14 +187,9 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 
         if (gzip) {
             
-            zfin.open();
+            sbuf.openFile(userInput.file(type, fileNum));
             
-//            threadPool.queueJob([=]{ return decompressBuf(zfin.rdbuf()); });
-            
-//            buffer = strm.rdbuf();
-            
-            buffer = zfin.rdbuf();
-
+            buffer = &sbuf;
 
         }
 
@@ -158,21 +201,15 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 
         if (gzip) {
             
-            zin.open();
-            
-            buffer = zin.rdbuf();
+            //TBD
 
         }
         
     }
     
+    lg.verbose("Created stream object from input.\nStream type (" + this->type() + ").\nStreaming started.");
+    
     return std::make_shared<std::istream>(buffer);
-    
-}
-
-std::shared_ptr<std::istream> StreamObj::returnStream() {
-    
-    return stream;
     
 }
 
@@ -180,17 +217,6 @@ void StreamObj::closeStream() {
 
     if (gzip) {
 
-        zfin.read_footer();
-
-        if (zfin.check_crc()) {
-
-            lg.verbose("Crc check successful");
-
-        }else{
-
-            lg.verbose("Warning: crc check unsuccessful. Check input file");
-
-        }
 
     }
         

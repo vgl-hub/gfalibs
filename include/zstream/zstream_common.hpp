@@ -27,7 +27,7 @@ namespace zstream {
 
 /// Compression strategy, see zlib doc.
 enum EStrategy {
-	StrategyFiltered = 1, StrategyHuffmanOnly = 2, DefaultStrategy = 0
+    StrategyFiltered = 1, StrategyHuffmanOnly = 2, DefaultStrategy = 0
 };
 
 namespace detail {
@@ -49,4 +49,3 @@ const int gz_reserved = 0xE0; /* bits 5..7: reserved */
 } // zstream
 
 #endif
-

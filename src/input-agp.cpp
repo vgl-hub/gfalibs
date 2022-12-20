@@ -1,49 +1,26 @@
-#include <stdlib.h>
-#include <unistd.h>
-#include <string>
-#include <thread>
-#include <mutex>
 #include <vector>
-#include <queue>
-#include <stack>
-
-#include <iostream>
+#include <istream>
 #include <fstream>
-#include <sstream>
 
 #include <parallel_hashmap/phmap.h>
 
 #include "bed.h"
 #include "struct.h"
 #include "functions.h" // global functions
-
-#include "log.h"
 #include "global.h"
 #include "uid-generator.h"
-
 #include "gfa-lines.h"
-
-#include "threadpool.h"
 #include "gfa.h"
 #include "sak.h" // swiss army knife
-
-#include "zlib.h"
-#include <zstream/zstream_common.hpp>
-#include <zstream/izstream.hpp>
-#include <zstream/izstream_impl.hpp>
-
 #include "stream-obj.h"
 
 #include "input-agp.h"
 
-
 void readAgp(InSequences& inSequences, UserInput& userInput) {
+    
+    lg.verbose("AGP processing started");
 
     inSequences.updateStats();
-
-    StreamObj streamObj;
-
-    std::shared_ptr<std::istream> stream;
 
     std::string pHeaderNew, pHeader1, pHeader2, gHeader, instruction, coord1, coord2, line;
     char pId1Or = '+', pId2Or;
@@ -62,8 +39,14 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         oldPaths.push_back(path.getpUId());
         
     }
+    
+    StreamObj streamObj;
+    
+    std::shared_ptr<std::istream> stream;
 
     stream = streamObj.openStream(userInput, 'a');
+    
+    lg.verbose("AGP stream started");
 
     std::queue<std::string> nextLines;
 
@@ -76,7 +59,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
             break;
         }
         
-        std::istringstream iss(line); // line to string
+        lg.verbose("Evaluating line:" + line);
         
         arguments = readDelimited(line, "\t", "#"); // read the columns in the line
         
@@ -290,5 +273,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         inSequences.removePath(pUId, false, true); // silently remove the original paths that were not joined or duplicated
         
     }
+    
+    lg.verbose("AGP processing complete");
 
 }
