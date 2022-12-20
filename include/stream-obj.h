@@ -9,12 +9,10 @@ struct membuf : std::streambuf {
     unsigned int size = bufSize;
     char bufContent1[bufSize], bufContent2[bufSize];
     char* bufContent = bufContent1;
-    gzFile fi;
     bool decompressed1 = false, decompressed2 = false, start = false, eof = false, uflowDone1 = true, uflowDone2 = true;
     std::mutex semMtx;
     std::condition_variable semaphore;
-    
-    membuf() {}
+    std::string file;
     
     void openFile(std::string file);
     

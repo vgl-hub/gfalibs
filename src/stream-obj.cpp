@@ -15,7 +15,8 @@ void membuf::openFile(std::string file) {
     
 //    std::cout<<"file open: "<<file<<std::endl;
     
-    fi = gzopen(file.c_str(), "rb");
+    this->file = file;
+    
     threadPool.queueJob([=]{ return decompressBuf(); });
     
     read();
@@ -84,6 +85,7 @@ int membuf::uflow() {
 
 bool membuf::decompressBuf() {
     
+    gzFile fi = gzopen(file.c_str(), "rb");
     size = gzread(fi, bufContent, sizeof(char)*bufSize);
     
     setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
