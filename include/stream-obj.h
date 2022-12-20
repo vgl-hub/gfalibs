@@ -5,7 +5,11 @@
 
 class membuf : public std::streambuf {
     
+#ifdef _WIN32
+    static const unsigned int bufSize = 500000;
+#else
     static const unsigned int bufSize = 1000000;
+#endif
     unsigned int size = bufSize;
     char bufContent1[bufSize], bufContent2[bufSize];
     char* bufContent = bufContent1;
