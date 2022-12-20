@@ -171,8 +171,6 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
     
     if (file) { // input is from file
         
-        ifs.close();
-        
         if (fileNum == NULL) {
         
             ifs.open(userInput.file(type)); // this stream takes input from a plain file

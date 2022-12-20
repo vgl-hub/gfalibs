@@ -5,8 +5,9 @@
 
 struct membuf : std::streambuf {
     
-    unsigned int bufSize = 1000000, size = 1000000;
-    char bufContent1[1000000], bufContent2[1000000];
+    static const unsigned int bufSize = 1000000;
+    unsigned int size = bufSize;
+    char bufContent1[bufSize], bufContent2[bufSize];
     char* bufContent = bufContent1;
     gzFile fi;
     bool decompressed1 = false, decompressed2 = false, start = false, eof = false, uflowDone1 = true, uflowDone2 = true;
