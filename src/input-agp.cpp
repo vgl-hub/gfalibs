@@ -40,9 +40,11 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         
     }
     
-    std::ifstream stream;
+    StreamObj streamObj;
     
-    stream.open(userInput.file('a'));
+    std::shared_ptr<std::istream> stream;
+
+    stream = streamObj.openStream(userInput, 'a');
     
     lg.verbose("AGP stream started");
 
@@ -53,7 +55,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         if(nextLines.size() > 0) {
             line = nextLines.front();
             nextLines.pop();
-        } else if(!getline(stream, line)) {
+        } else if(!getline(*stream, line)) {
             break;
         }
         
@@ -112,7 +114,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
                 
             }
             
-            if(getline(stream, line))
+            if(getline(*stream, line))
                 nextLines.push(line);
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
@@ -195,7 +197,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
             
             dist = stoi(arguments[5]);
             
-            getline(stream, line);
+            getline(*stream, line);
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
             
