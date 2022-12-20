@@ -8,9 +8,9 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
-std::istream& getline(std::istream& is, std::string& str);
-
-std::istream& getline(std::istream& is, std::string& str, char dlm);
+//std::istream& getline(std::istream& is, std::string& str);
+//
+//std::istream& getline(std::istream& is, std::string& str, char dlm);
 
 double elapsedTime(); // compute runtime in verbose mode
 
