@@ -3,7 +3,7 @@
 
 #include "zlib.h"
 
-class membuf : std::streambuf {
+class membuf : public std::streambuf {
     
     static const unsigned int bufSize = 1000000;
     unsigned int size = bufSize;
