@@ -10,11 +10,12 @@ class membuf : public std::streambuf {
 #else
     static const unsigned int bufSize = 1000000;
 #endif
-    unsigned int size = bufSize;
+    unsigned int size1 = bufSize, size2 = 0;
+    unsigned int* size = &size1;
     char bufContent1[bufSize], bufContent2[bufSize];
     char* bufContent = bufContent1;
     gzFile fi;
-    bool decompressed1 = false, decompressed2 = false, start = false, eof = false, uflowDone1 = true, uflowDone2 = true;
+    bool decompressed1 = false, decompressed2 = false, start = false, eof = false, whichBuf = 0;
     std::mutex semMtx;
     std::condition_variable semaphore;
     
@@ -22,7 +23,7 @@ public:
     
     void openFile(std::string file);
     
-    void read();
+    void wait();
     
     int uflow();
     

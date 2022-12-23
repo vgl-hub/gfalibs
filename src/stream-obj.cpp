@@ -18,11 +18,11 @@ void membuf::openFile(std::string file) {
     fi = gzopen(file.c_str(), "rb");
     threadPool.queueJob([=]{ return decompressBuf(); });
     
-    read();
+    wait();
     
 }
 
-void membuf::read() {
+void membuf::wait() {
     
 //    std::cout<<"R:wait"<<std::endl;
     
@@ -51,24 +51,28 @@ int membuf::uflow() {
         std::unique_lock<std::mutex> lck(semMtx);
         
         semaphore.wait(lck, [this] {
-            return decompressed1 || decompressed2 || eof;
+            return (decompressed1 && whichBuf) || (decompressed2 && !whichBuf) || eof;
         });
     
-        if(decompressed1) {
+        if(decompressed1 && whichBuf) {
             
-            setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
+//            std::cout<<"R:setting internal buffer to buffer 1"<<std::endl;
             
-            uflowDone1 = false;
-            uflowDone2 = true;
+            setg(bufContent1, bufContent1, bufContent1 + sizeof(char)*size1);
+            
             decompressed1 = false;
+            whichBuf = 0;
             
-        }else if (decompressed2){
+        }
+        
+        if (decompressed2 && !whichBuf){
             
-            setg(bufContent2, bufContent2, bufContent2 + bufSize - sizeof(char)*(bufSize-size));
+//            std::cout<<"R:setting internal buffer to buffer 2"<<std::endl;
             
-            uflowDone1 = true;
-            uflowDone2 = false;
+            setg(bufContent2, bufContent2, bufContent2 + sizeof(char)*size2);
+            
             decompressed2 = false;
+            whichBuf = 1;
 
         }
         
@@ -84,23 +88,25 @@ int membuf::uflow() {
 
 bool membuf::decompressBuf() {
     
-    size = gzread(fi, bufContent, sizeof(char)*bufSize);
+    *size = gzread(fi, bufContent, sizeof(char)*bufSize);
     
-    setg(bufContent1, bufContent1, bufContent1 + bufSize - sizeof(char)*(bufSize-size));
+    setg(bufContent, bufContent, bufContent + sizeof(char)**size);
     
     start = true;
     
     semaphore.notify_one();
     
-//    std::cout<<"D:extracted bases: "<<size<<std::endl;
+//    std::cout<<"D:extracted bases: "<<*size<<std::endl;
     
-    while(size==bufSize) {
+    while(*size==bufSize) {
          
         bufContent = (bufContent == bufContent1) ? bufContent2 : bufContent1;
         
+        size = (bufContent == bufContent1) ? &size1 : &size2;
+        
 //        std::cout<<"D:buffer swapped"<<std::endl;
         
-        size = gzread(fi, bufContent, sizeof(char)*bufSize);
+        *size = gzread(fi, bufContent, sizeof(char)*bufSize);
         
         {
             
@@ -112,7 +118,7 @@ bool membuf::decompressBuf() {
         
         semaphore.notify_one();
         
-//        std::cout<<"D:extracted bases: "<<size<<std::endl;
+//        std::cout<<"D:extracted bases: "<<*size<<std::endl;
         
         {
             
@@ -122,7 +128,7 @@ bool membuf::decompressBuf() {
             
             semaphore.wait(lck, [this] {
                 
-                return (bufContent == bufContent1) ? uflowDone2 : uflowDone1;
+                return (bufContent == bufContent1) ? !whichBuf : whichBuf;
                 
             });
             
