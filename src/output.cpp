@@ -171,6 +171,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
             std::vector<InPath> inPaths = inSequences.getInPaths();
             std::vector<InSegment*>* inSegments = inSequences.getInSegments();
             std::vector<InGap>* inGaps = inSequences.getInGaps();
+            std::vector<InEdge>* inEdges = inSequences.getEdges();
             std::vector<PathComponent> pathComponents;
             
             unsigned int uId = 0;
@@ -221,13 +222,19 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
                             
                         }
                         
+                    }else if(component->type == EDGE){ // this is just a prototype, need to handle cigar
+                        
+                        auto edge = find_if(inEdges->begin(), inEdges->end(), [uId](InEdge& obj) {return obj.geteUId() == uId;}); // given a node Uid, find it
+                        
+                        if (edge == inEdges->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
+                        
                     }else{
                         
-                        auto gId = find_if(inGaps->begin(), inGaps->end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
+                        auto gap = find_if(inGaps->begin(), inGaps->end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
                         
-                        if (gId == inGaps->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
+                        if (gap == inGaps->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
                         
-                        inSeq += std::string(gId->getDist(component->start, component->end), 'N');
+                        inSeq += std::string(gap->getDist(component->start, component->end), 'N');
                         
                     }
                     
@@ -479,8 +486,8 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
                         *stream << component->orientation;
                         
                     }else{
-                            
-                        *stream <<";";
+                        
+                        *stream <<(component->type == EDGE ? ',' : ';');
                         
                     }
                     
@@ -502,7 +509,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
             
         }
             
-        case 4: { // gfa[.gz] GFA2
+        case 4: { // gfa2[.gz] GFA2
             
             std::string seqHeader, gHeader, pHeader;
             
@@ -542,6 +549,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
             for (InEdge inEdge : *(inSequences.getEdges())) {
                 
                 *stream <<"E\t" // line type
+                        <<inEdge.geteHeader()<<"\t"
                         <<idsToHeaders[inEdge.getsId1()]<<"\t"<<inEdge.getsId1Or()<<"\t" // sUid1:sid1:ref
                         <<idsToHeaders[inEdge.getsId2()]<<"\t"<<inEdge.getsId2Or()<<"\t"; // sUid2:sid2:ref
                 

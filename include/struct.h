@@ -73,7 +73,7 @@ struct Edge {
     
 };
 
-enum PathType { SEGMENT, GAP };
+enum PathType { SEGMENT, GAP, EDGE };
 struct PathComponent {
     
     PathType type;

@@ -2406,7 +2406,7 @@ void InSequences::walkPath(InPath* path) {
                 
             }
             
-        }else{
+        }else if (component->type == GAP){
             
             auto inGap = find_if(inGaps.begin(), inGaps.end(), [cUId](InGap& obj) {return obj.getuId() == cUId;}); // given a node Uid, find it
             
@@ -2422,7 +2422,7 @@ void InSequences::walkPath(InPath* path) {
             
             path->increaseLen(inGap->getDist(component->start - component->end));
             
-        }
+        }else{} // need to handle edges, cigars etc
         
     }
     

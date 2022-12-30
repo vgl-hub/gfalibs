@@ -295,6 +295,53 @@ std::vector<std::string> readDelimited(std::string line, std::string delimiter, 
     
 }
 
+std::vector<std::string> readDelimitedArr(std::string line, std::vector<char> delimiters, std::string skipLine = "", bool keepDelimiter = false) { // read line delimited by specific character, optionally skip lines starting with specific string
+    
+    auto is_delimiter = [delimiters](char c){
+        
+        bool cond = false;
+        
+        for (char delimiter : delimiters) {
+            
+            cond = (c == delimiter ? true : false);
+            
+            if (cond)
+                break;
+            
+        }
+        
+        return cond;
+        
+    };
+
+    std::vector<std::string> arguments;
+
+    size_t pos = 0;
+    
+    if (skipLine != "" && line.substr(0, skipLine.size()) == skipLine) {
+        
+        return arguments;
+        
+    }
+    
+    auto it = begin(line);
+
+    while ((it = std::find_if(begin(line), end(line), is_delimiter)) != end(line)) {
+        
+        pos = std::distance(begin(line), it);
+        
+        arguments.push_back(line.substr(0, pos + (keepDelimiter ? 1 : 0)));
+        
+        line.erase(0, pos + (keepDelimiter ? 1 : 0));
+            
+    }
+    
+    arguments.push_back(line); // last column
+        
+    return arguments;
+    
+}
+
 bool isNumber(const std::string& str)
 {
     for (char const &c : str) {
