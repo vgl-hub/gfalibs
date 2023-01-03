@@ -158,6 +158,8 @@ public:
     
     void appendTag(Tag t);
     
+    std::string geteHeader();
+    
     std::string getCigar();
     
     unsigned int geteUId();

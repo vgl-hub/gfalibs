@@ -43,6 +43,8 @@ std::string rev(std::string seq); // reverse string
 
 std::vector<std::string> readDelimited(std::string line, std::string delimiter, std::string skipLine = ""); // read line delimited by specific character, optionally skip lines starting with specific string
 
+std::vector<std::string> readDelimitedArr(std::string line, std::vector<char> delimiters, std::string skipLine = "", bool keepDelimiter = false); // read line delimited by specific character(s), optionally skip lines starting with specific string and keep the delimeter as last character for further processing
+
 bool isNumber(const std::string& str);
 
 void revComPathComponents(std::vector<PathComponent>& pathComponents);

@@ -470,6 +470,12 @@ void InEdge::appendTag(Tag t) {
     
 }
 
+std::string InEdge::geteHeader() {
+    
+    return eHeader;
+    
+}
+
 std::string InEdge::getCigar() {
     
     return cigar;
