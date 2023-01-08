@@ -26,6 +26,7 @@ public:
     bool jobsDone();
     unsigned int queueSize();
     void join();
+    short unsigned int totalThreads();
 
 friend class InSequences;
     
@@ -77,7 +78,7 @@ void ThreadPool<T>::init(int maxThreads) {
         threads[i] = std::thread(&ThreadPool::threadLoop, this, i);
         threadStates[i] = true;
     }
-    this->maxThreads = maxThreads;
+    this->maxThreads = maxThreads-1;
     done = false;
 }
 
@@ -122,6 +123,11 @@ void ThreadPool<T>::join() {
         activeThread.join();
     }
     threads.clear();
+}
+
+template<class T>
+short unsigned int ThreadPool<T>::totalThreads() {
+    return maxThreads;
 }
 
 template<class T>
