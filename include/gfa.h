@@ -297,6 +297,8 @@ public:
     
     void removeGap(unsigned int gUId, bool silent = false);
     
+    void resizeGap(std::string gHeader, unsigned int size);
+    
     void removePathsFromSegment(unsigned int uId);
     
     void removePathComponents(unsigned int uId);
