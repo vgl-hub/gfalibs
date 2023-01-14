@@ -48,34 +48,6 @@ std::istream& getline(std::istream& is, std::string& str) {
     
 }
 
-std::istream& ignore(std::istream& is, char dlm) {
-    
-    std::ios_base::iostate err = std::ios_base::goodbit;
-    std::streamsize extr = 0;
-    int i = 0;
-    
-    while (true)
-    {
-        
-        i = is.rdbuf()->sbumpc();
-        if (i == EOF) {
-            err |= std::ios_base::eofbit;
-            break;
-        }
-        ++extr;
-        if (i == dlm)
-            break;
-        
-    }
-    
-    if (extr == 0)
-        err |= std::ios_base::failbit;
-    is.setstate(err);
-    
-    return is;
-    
-}
-
 std::istream& getline(std::istream& is, std::string& str, char dlm) {
     
     str.clear();
@@ -101,6 +73,34 @@ std::istream& getline(std::istream& is, std::string& str, char dlm) {
             err |= std::ios_base::failbit;
             break;
         }
+        
+    }
+    
+    if (extr == 0)
+        err |= std::ios_base::failbit;
+    is.setstate(err);
+    
+    return is;
+    
+}
+
+std::istream& ignore(std::istream& is, char dlm) {
+    
+    std::ios_base::iostate err = std::ios_base::goodbit;
+    std::streamsize extr = 0;
+    int i = 0;
+    
+    while (true)
+    {
+        
+        i = is.rdbuf()->sbumpc();
+        if (i == EOF) {
+            err |= std::ios_base::eofbit;
+            break;
+        }
+        ++extr;
+        if (i == dlm)
+            break;
         
     }
     
