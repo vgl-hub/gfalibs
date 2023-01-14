@@ -137,6 +137,12 @@ std::string InSegment::getInSequence(unsigned int start, unsigned int end) {
     
 }
 
+std::string* InSegment::getInSequencePtr() {
+   
+    return inSequence;
+    
+}
+
 std::string InSegment::getInSequenceQuality(unsigned int start, unsigned int end) {
     
     if (inSequenceQuality != NULL) {
@@ -331,6 +337,12 @@ bool InSegment::invertSegment() {
 bool InSegment::isCircular(std::vector<unsigned int>* circularSegments) {
     
     return std::binary_search(circularSegments->begin(), circularSegments->end(), this->uId);
+    
+}
+
+char* InSegment::first() {
+    
+    return &inSequence->front();
     
 }
 

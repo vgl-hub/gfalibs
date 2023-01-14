@@ -45,6 +45,8 @@ public:
     
     std::string getInSequence(unsigned int start = 0, unsigned int end = 0);
     
+    std::string* getInSequencePtr();
+    
     std::string getInSequenceQuality(unsigned int start = 0, unsigned int end = 0);
     
     unsigned int getSeqPos();
@@ -80,6 +82,8 @@ public:
     bool invertSegment();
     
     bool isCircular(std::vector<unsigned int>* circularSegments);
+    
+    char* first();
     
 };
 

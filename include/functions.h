@@ -8,9 +8,14 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
+#include <parallel_hashmap/phmap.h>
+#include <iostream>
+
 std::istream& getline(std::istream& is, std::string& str);
 
 std::istream& getline(std::istream& is, std::string& str, char dlm);
+
+std::istream& ignore(std::istream& is, char dlm);
 
 double elapsedTime(); // compute runtime in verbose mode
 
@@ -61,6 +66,15 @@ void computeNstars(std::vector<unsigned long long int>& lens, // compute N/L* st
                    std::vector<unsigned long long int>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
                    std::vector<unsigned long long int>* NGstars = NULL, std::vector<unsigned int>* LGstars = NULL, unsigned long long int gSize = 0);
 
+
 void rmChrFromStr(std::string &str, const char* charsToRemove);
+
+template<typename K, typename V>
+void print_map(phmap::flat_hash_map<K, V> const &m)
+{
+    for (auto const &pair: m) {
+        std::cout << "{" << pair.first << ": " << pair.second << "}\n";
+    }
+}
 
 #endif /* FUNCTIONS_H */
