@@ -10,6 +10,7 @@ struct Instruction {
     std::string path3;
     std::string contig1;
     std::string contig2;
+    std::string gap1;
     std::string comment1;
     std::string comment2;
     std::string gHeader = "";
@@ -211,7 +212,18 @@ public:
         std::vector<std::pair<unsigned long long int, unsigned long long int>> bedCoords = compressStack.top();
         compressStack.pop();
         homopolymerDecompress(sequence, bedCoords);
+            
+        return true;
+    }
+    
+    void readResize(Instruction &instruction, std::vector<std::string> &arguments) {
+        instruction.gap1 = arguments[1];
+        instruction.dist = stoi(arguments[2]);
+    }
 
+    bool resize(InSequences &inSequences, Instruction &instruction) {
+        inSequences.resizeGap(instruction.gap1, instruction.dist);
+        
         return true;
     }
 
@@ -231,7 +243,8 @@ private:
         {"INVERT",      {&SAK::readInvert,      &SAK::invert    } },
         {"COMPRESS",    {&SAK::readCompress,    &SAK::compress  } },
         {"DECOMPRESS",  {&SAK::readDecompress,  &SAK::decompress} },
-        {"EXCLUDE",     {&SAK::readExclude,     &SAK::exclude   } }
+        {"EXCLUDE",     {&SAK::readExclude,     &SAK::exclude   } },
+        {"RESIZE",      {&SAK::readResize,      &SAK::resize    } }
     };
 
 public:

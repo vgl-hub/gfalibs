@@ -1759,6 +1759,22 @@ void InSequences::removeGap(unsigned int gUId, bool silent) {
 
 }
 
+void InSequences::resizeGap(std::string gHeader, unsigned int size) {
+    
+    auto gapIt = find_if(inGaps.begin(), inGaps.end(), [gHeader](InGap& obj) {return obj.getgHeader() == gHeader;}); // given a path pUId, find it
+    
+    if (gapIt != inGaps.end()) {
+        
+        gapIt->setDist(size);
+        
+    }else{
+        
+        fprintf(stderr, "Warning: the gap you are attempting to resize does not exist (pUId: %s). Skipping.\n", gHeader.c_str());
+        
+    }
+
+}
+
 void InSequences::removePathsFromSegment(unsigned int uId) {
     
     for (InPath& inPath : inPaths) {
