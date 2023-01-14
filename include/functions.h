@@ -15,6 +15,8 @@ std::istream& getline(std::istream& is, std::string& str);
 
 std::istream& getline(std::istream& is, std::string& str, char dlm);
 
+std::istream& ignore(std::istream& is, char dlm);
+
 double elapsedTime(); // compute runtime in verbose mode
 
 bool checkTag(const char tag1[2], std::string tag2);
