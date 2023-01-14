@@ -61,4 +61,6 @@ void computeNstars(std::vector<unsigned long long int>& lens, // compute N/L* st
                    std::vector<unsigned long long int>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
                    std::vector<unsigned long long int>* NGstars = NULL, std::vector<unsigned int>* LGstars = NULL, unsigned long long int gSize = 0);
 
+void rmChrFromStr(std::string &str, const char* charsToRemove);
+
 #endif /* FUNCTIONS_H */
