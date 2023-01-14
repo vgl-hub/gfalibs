@@ -512,6 +512,6 @@ void computeNstars(std::vector<unsigned long long int>& lens, // compute N/L* st
 
 void rmChrFromStr(std::string &str, const char* charsToRemove) {
    for (unsigned int i = 0; i < strlen(charsToRemove); ++i ) {
-      str.erase(remove(str.begin(), str.end(), charsToRemove[i]), str.end());
+      str.erase(std::remove(str.begin(), str.end(), charsToRemove[i]), str.end());
    }
 }
