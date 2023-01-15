@@ -24,6 +24,7 @@ public:
     void queueJob(const T& job);
     bool empty();
     bool jobsDone();
+    short unsigned int running();
     unsigned int queueSize();
     void join();
     short unsigned int totalThreads();
@@ -113,6 +114,20 @@ bool ThreadPool<T>::jobsDone() {
 }
 
 template<class T>
+short unsigned int ThreadPool<T>::running() {
+    
+    short unsigned int jobN = 0;
+    
+    for(bool isDone : threadStates) {
+        if (!isDone)
+            ++jobN;
+    }
+    
+    return jobN;
+
+}
+
+template<class T>
 void ThreadPool<T>::join() {
     {
         std::unique_lock<std::mutex> lock(queueMutex);
@@ -135,7 +150,7 @@ void jobWait(ThreadPool<T>& threadPool) {
     while (true) {
         
         if (threadPool.empty() && threadPool.jobsDone()) {break;}
-        lg.verbose("Remaining jobs: " + std::to_string(threadPool.queueSize()), true);
+        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()), true);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
     }
