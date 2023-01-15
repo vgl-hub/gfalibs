@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <string>
 #include <sys/stat.h>
+#include <direct.h>
 
 #include "global.h"
 #include "bed.h"
