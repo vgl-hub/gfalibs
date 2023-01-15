@@ -149,7 +149,12 @@ template<class T>
 void jobWait(ThreadPool<T>& threadPool) {
     while (true) {
         
-        if (threadPool.empty() && threadPool.jobsDone()) {break;}
+        if (threadPool.empty() && threadPool.jobsDone()) {
+            
+            lg.newlines(2);
+            break;
+            
+        }
         lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()), true);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         

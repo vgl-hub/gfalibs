@@ -6,6 +6,8 @@ struct Log {
     std::string log;
     unsigned int jobId;
     
+    void newlines(unsigned int n);
+    
     void verbose(std::string msg, bool overwrite = false); // verbose decorated output
     
     void add(std::string msg); // verbose decorated output

@@ -69,7 +69,7 @@ void computeNstars(std::vector<unsigned long long int>& lens, // compute N/L* st
 void rmChrFromStr(std::string &str, const char* charsToRemove);
 
 template<typename K, typename V>
-void print_map(phmap::flat_hash_map<K, V> const &m)
+void printMap(phmap::flat_hash_map<K, V> const &m)
 {
     for (auto const &pair: m) {
         std::cout << "{" << pair.first << ": " << pair.second << "}\n";

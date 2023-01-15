@@ -8,6 +8,12 @@
 #include "global.h"
 #include "log.h"
 
+void Log::newlines(unsigned int n) { // add new lines
+    
+    std::cerr<<std::string(n, '\n');
+    
+}
+
 void Log::verbose(std::string msg, bool overwrite) { // verbose decorated output
     
     if(verbose_flag) {
