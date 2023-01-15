@@ -68,6 +68,8 @@ void computeNstars(std::vector<unsigned long long int>& lens, // compute N/L* st
 
 void rmChrFromStr(std::string &str, const char* charsToRemove);
 
+void make_dir(const char* name);
+
 template<typename K, typename V>
 void printMap(phmap::flat_hash_map<K, V> const &m)
 {

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <string>
+#include <sys/stat.h>
 
 #include "global.h"
 #include "bed.h"
@@ -514,4 +515,12 @@ void rmChrFromStr(std::string &str, const char* charsToRemove) {
    for (unsigned int i = 0; i < strlen(charsToRemove); ++i ) {
       str.erase(std::remove(str.begin(), str.end(), charsToRemove[i]), str.end());
    }
+}
+
+void make_dir(const char* name) {
+#ifdef _WIN32
+    _mkdir(name);
+#else
+    mkdir(name, 777);
+#endif
 }
