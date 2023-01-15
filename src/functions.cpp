@@ -9,7 +9,10 @@
 #include <unistd.h>
 #include <string>
 #include <sys/stat.h>
+
+#ifdef _WIN32
 #include <direct.h>
+#endif
 
 #include "global.h"
 #include "bed.h"
@@ -522,6 +525,6 @@ void make_dir(const char* name) {
 #ifdef _WIN32
     _mkdir(name);
 #else
-    mkdir(name, 777);
+    mkdir(name, 0777);
 #endif
 }
