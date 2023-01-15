@@ -10,7 +10,8 @@
 
 void Log::newlines(unsigned int n) { // add new lines
     
-    std::cerr<<std::string(n, '\n');
+    if(verbose_flag)
+        std::cerr<<std::string(n, '\n');
     
 }
 
