@@ -70,6 +70,8 @@ void rmChrFromStr(std::string &str, const char* charsToRemove);
 
 void make_dir(const char* name);
 
+unsigned int fileCount(const char *dir);
+
 template<typename K, typename V>
 void printMap(phmap::flat_hash_map<K, V> const &m)
 {

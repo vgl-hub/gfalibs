@@ -10,6 +10,10 @@
 #include <string>
 #include <sys/stat.h>
 
+#include <sys/types.h>
+#include <dirent.h>
+#include <stdio.h>
+
 #ifdef _WIN32
 #include <direct.h>
 #endif
@@ -527,4 +531,22 @@ void make_dir(const char* name) {
 #else
     mkdir(name, 0777);
 #endif
+}
+
+unsigned int fileCount(const char *dir) {
+    struct dirent *dp;
+    DIR *fd;
+    unsigned int i = 0;
+
+    if ((fd = opendir(dir)) == NULL) {
+        fprintf(stderr, "Error: can't open %s\n", dir);
+        exit(1);
+    }
+    while ((dp = readdir(fd)) != NULL) {
+        if (!strcmp(dp->d_name, ".") || !strcmp(dp->d_name, ".."))
+            continue;    /* skip self and parent */
+        ++i;
+    }
+    closedir(fd);
+    return i;
 }

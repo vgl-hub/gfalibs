@@ -37,6 +37,7 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
+    bool exec = false;
     
     while (true) {
         
@@ -45,6 +46,8 @@ void ThreadPool<T>::threadLoop(int threadN) {
 #ifdef DEBUG
             std::cout<<"Thread "<<std::to_string(threadN)<<" waiting"<<std::endl;
 #endif
+            threadStates[threadN] = true;
+            
             mutexCondition.wait(lock, [this] {
                 return !jobs.empty() || done;
             });
@@ -53,11 +56,17 @@ void ThreadPool<T>::threadLoop(int threadN) {
             }
             
             threadStates[threadN] = false;
-            job = jobs.front();
-            jobs.pop();
+            
+            if(!jobs.empty()) {
+                job = jobs.front();
+                jobs.pop();
+                exec = true;
+            }else{
+                exec = false;
+            }
         }
-        job();
-        threadStates[threadN] = true;
+        if(exec)
+            job();
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
