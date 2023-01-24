@@ -1645,6 +1645,10 @@ std::vector<unsigned int> InSequences::removeGaps(std::string* contig1, std::str
             
             changeTotGapLen(-gId->getDist()); // update length of gaps
             
+        }else{
+            
+            fprintf(stderr, "Error: could not find gap between segments (gId1: %s, gId2: %s).\n", contig1->c_str(), contig2->c_str()); exit(1);
+            
         }
         
     }else{
