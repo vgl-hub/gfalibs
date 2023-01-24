@@ -42,7 +42,7 @@ class Kmap {
 
     std::vector<buf64*> buffers;
     
-    phmap::flat_hash_map<uint64_t, uint64_t>* map = new phmap::flat_hash_map<uint64_t, uint64_t>[mapCount];
+    phmap::flat_hash_map<uint64_t, T>* map = new phmap::flat_hash_map<uint64_t, T>[mapCount];
     
     phmap::flat_hash_map<uint64_t, uint64_t> histogram1, histogram2;
     
@@ -99,7 +99,7 @@ public:
     
     bool countBuff(uint16_t m);
     
-    bool histogram(phmap::flat_hash_map<uint64_t, uint64_t>& map);
+    bool histogram(phmap::flat_hash_map<uint64_t, T>& map);
     
     void resizeBuff(buf64* buff);
     
@@ -274,7 +274,7 @@ void Kmap<T>::load(UserInputKmap& userInput){
 template<class T>
 bool Kmap<T>::loadMap(std::string prefix, uint16_t m) { // loading prototype
     
-    prefix.append("/.Kmap." + std::to_string(m) + ".bin");
+    prefix.append("/.kmap." + std::to_string(m) + ".bin");
     
     phmap::BinaryInputArchive ar_in(prefix.c_str());
     map[m].phmap_load(ar_in);
@@ -286,7 +286,7 @@ bool Kmap<T>::loadMap(std::string prefix, uint16_t m) { // loading prototype
 template<class T>
 bool Kmap<T>::dumpMap(std::string prefix, uint16_t m) {
     
-    prefix.append("/.Kmap." + std::to_string(m) + ".bin");
+    prefix.append("/.kmap." + std::to_string(m) + ".bin");
     
     phmap::BinaryOutputArchive ar_out(prefix.c_str());
     map[m].phmap_dump(ar_out);
@@ -305,9 +305,10 @@ void Kmap<T>::report(UserInputKmap& userInput) {
 
     };
     
-    // variable to handle output path and extension
-    std::string path = rmFileExt(userInput.outFile);
-    std::string ext = getFileExt("." + userInput.outFile);
+    std::string ext = "stdout";
+    
+    if (userInput.outFile != "")
+        ext = getFileExt("." + userInput.outFile);
     
     lg.verbose("Writing ouput: " + ext);
     
@@ -435,7 +436,7 @@ bool Kmap<T>::countBuff(uint16_t m) {
     
     buf64* thisBuf;
     
-    phmap::flat_hash_map<uint64_t, uint64_t>* thisMap;
+    phmap::flat_hash_map<uint64_t, T>* thisMap;
     
     for(buf64* buf : buffers) {
         
@@ -457,11 +458,11 @@ bool Kmap<T>::countBuff(uint16_t m) {
 }
 
 template<class T>
-bool Kmap<T>::histogram(phmap::flat_hash_map<uint64_t, uint64_t>& map) {
+bool Kmap<T>::histogram(phmap::flat_hash_map<uint64_t, T>& map) {
     
     uint64_t kmersUnique = 0, kmersDistinct = 0;
     
-    phmap::flat_hash_map<uint64_t, uint64_t> hist;
+    phmap::flat_hash_map<uint64_t, T> hist;
     
     for (auto pair : map) {
         
