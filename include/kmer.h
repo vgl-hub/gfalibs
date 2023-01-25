@@ -11,7 +11,8 @@ struct buf64 {
 
 template<class INPUT, typename VALUE>
 class Kmap {
-    
+
+protected:
     std::vector<Log> logs;
     
     //intermediates
