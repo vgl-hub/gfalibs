@@ -10,9 +10,9 @@ SOURCE = src
 INCLUDE = include
 LDFLAGS :=
 
-BINS = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log functions bed stream-obj uid-generator struct output)
+SOURCES = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log functions bed stream-obj uid-generator struct output)
 
-all: $(BINS)
+all: $(SOURCES)
 	@
 
 %.o: $(SOURCE)/%.cpp $(INCLUDE)/*.h
