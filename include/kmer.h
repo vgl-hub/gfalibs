@@ -4,6 +4,8 @@
 #include <parallel_hashmap/phmap.h>
 #include "parallel_hashmap/phmap_dump.h"
 
+#include <fastx.h>
+
 struct buf64 {
     uint64_t pos = 0, size = 100000;
     uint64_t *seq = new uint64_t[size];
@@ -13,6 +15,8 @@ template<class INPUT, typename VALUE>
 class Kmap {
 
 protected:
+    
+    InSequences inSequences;
     
     //intermediates
     std::string h;
@@ -83,7 +87,7 @@ public:
         
     }
     
-    void convert(INPUT& userInput);
+    void appendSequence(Sequence* sequence);
     
     void load(INPUT& userInput);
     
@@ -116,143 +120,25 @@ public:
 };
 
 template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::convert(INPUT& userInput) {
+void Kmap<INPUT, VALUE>::appendSequence(Sequence* sequence) { // method to append a new sequence from a fasta
+        
+    threadPool.queueJob([=]{ return inSequences.traverseInSequence(sequence); });
     
-    InSequences inSequences;
+    if(verbose_flag) {std::cerr<<"\n";};
     
-    if (!userInput.iSeqFileArg.empty() || userInput.pipeType == 'f') {
-        
-        StreamObj streamObj;
-        
-        stream = streamObj.openStream(userInput, 'f');
-        
-        if (stream) {
-            
-            switch (stream->peek()) {
-                    
-                case '>': {
-                    
-                    stream->get();
-                    
-                    while (getline(*stream, newLine)) {
-                        
-                        h = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
-                        c = strtok(NULL,""); //read comment
-                        
-                        seqHeader = h;
-                        
-                        if (c != NULL) {
-                            
-                            seqComment = std::string(c);
-                            
-                        }
-                        
-                        std::string* inSequence = new std::string;
-                        
-                        getline(*stream, *inSequence, '>');
-                        
-                        lg.verbose("Individual fasta sequence read");
-                        
-                        Sequence* sequence = new Sequence{seqHeader, seqComment, inSequence, NULL};
-                        
-                        sequence->seqPos = seqPos; // remember the order
-                        
-                        inSequences.appendSequence(sequence);
-                        
-                        seqPos++;
-                        
-                    }
-                    
-                    jobWait(threadPool);
-                    
-                    std::vector<Log> logs = inSequences.getLogs();
-                    
-                    //consolidate log
-                    for (auto it = logs.begin(); it != logs.end(); it++) {
-                        
-                        it->print();
-                        logs.erase(it--);
-                        
-                    }
-                    
-                    hashSegments(inSequences.getInSegments());
-                    
-                    break;
-                    
-                }
-                    
-                case '@': {
-                    
-                    Sequences* readBatch = new Sequences;
-
-                    while (getline(*stream, newLine)) { // file input
-
-                        newLine.erase(0, 1);
-
-                        h = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
-                        c = strtok(NULL,""); //read comment
-                        
-                        seqHeader = h;
-                        
-                        if (c != NULL) {
-                            
-                            seqComment = std::string(c);
-                            
-                        }
-
-                        std::string* inSequence = new std::string;
-                        getline(*stream, *inSequence);
-
-                        getline(*stream, newLine);
-                        
-                        ignore(*stream, '\n');
-
-                        readBatch->sequences.push_back(new Sequence {seqHeader, seqComment, inSequence});
-                        seqPos++;
-
-                        if (seqPos % batchSize == 0) {
-
-                            readBatch->batchN = seqPos/batchSize;
-                            
-                            lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
-
-                            appendReads(readBatch);
-
-                            readBatch = new Sequences;
-
-                        }
-
-                        lg.verbose("Individual fastq sequence read: " + seqHeader);
-
-                    }
-                    
-                    readBatch->batchN = seqPos/batchSize + 1;
-                        
-                    lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
-
-                    appendReads(readBatch);
-                    
-                    jobWait(threadPool);
-                    
-                    std::vector<Log> logs = inSequences.getLogs();
-                    
-                    //consolidate log
-                    for (auto it = logs.begin(); it != logs.end(); it++) {
-                        
-                        it->print();
-                        logs.erase(it--);
-                        
-                    }
-
-                    break;
-
-                }
-                    
-            }
-            
-        }
+    std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
+    
+    lck.lock();
+    
+    for (auto it = logs.begin(); it != logs.end(); it++) {
+     
+        it->print();
+        logs.erase(it--);
+        if(verbose_flag) {std::cerr<<"\n";};
         
     }
+    
+    lck.unlock();
     
 }
 
