@@ -28,8 +28,6 @@ public:
     unsigned int queueSize();
     void join();
     short unsigned int totalThreads();
-
-friend class InSequences;
     
 };
 

@@ -13,7 +13,6 @@ template<class INPUT, typename VALUE>
 class Kmap {
 
 protected:
-    std::vector<Log> logs;
     
     //intermediates
     std::string h;
@@ -67,6 +66,8 @@ protected:
     };
     
 public:
+    
+    std::vector<Log> logs;
     
     Kmap(uint8_t k) : k(k) {
         
