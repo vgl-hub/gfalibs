@@ -228,7 +228,7 @@ public:
     }
 
 private:
-    InSequences inSequences;
+
     std::string sId1Header, sId2Header;
     std::stack<std::vector<std::pair<unsigned long long int, unsigned long long int>>> compressStack; // decompress uses indices of corresponding compresses, last compress = first decompress
 

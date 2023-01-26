@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
-#include <fstream>
 
 #include <parallel_hashmap/phmap.h>
 
@@ -11,6 +10,7 @@
 #include "global.h"
 #include "uid-generator.h"
 #include "gfa-lines.h"
+#include "stream-obj.h"
 #include "gfa.h"
 #include "input-filters.h"
 

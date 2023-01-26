@@ -28,8 +28,6 @@ public:
     unsigned int queueSize();
     void join();
     short unsigned int totalThreads();
-
-friend class InSequences;
     
 };
 
@@ -168,6 +166,7 @@ void jobWait(ThreadPool<T>& threadPool) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
     }
+    
 }
 
 #endif //THREADPOOL

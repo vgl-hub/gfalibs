@@ -1,6 +1,7 @@
 #ifndef STREAM_OBJ_H
 #define STREAM_OBJ_H
 
+#include <fstream>
 #include "zlib.h"
 
 class membuf : public std::streambuf {
