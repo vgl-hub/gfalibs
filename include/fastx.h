@@ -1,3 +1,5 @@
+#ifndef FASTX_H
+#define FASTX_H
 
 template<typename OBJECT>
 bool loadSequences(UserInput userInput, OBJECT* object) { // load from FASTA/FASTQ to templated object
@@ -123,3 +125,5 @@ bool loadSequences(UserInput userInput, OBJECT* object) { // load from FASTA/FAS
     return true;
 
 }
+
+#endif /* FASTX_H */

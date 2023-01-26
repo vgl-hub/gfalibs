@@ -1,5 +1,5 @@
-#ifndef KMER
-#define KMER
+#ifndef KMER_H
+#define KMER_H
 
 #include <parallel_hashmap/phmap.h>
 #include "parallel_hashmap/phmap_dump.h"
