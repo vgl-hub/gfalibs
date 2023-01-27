@@ -6,12 +6,13 @@
 
 #include <fastx.h>
 
-struct buf64 {
+template<typename VALUE>
+struct Buf {
     uint64_t pos = 0, size = 100000;
-    uint64_t *seq = new uint64_t[size];
+    VALUE *seq = new VALUE[size];
 };
 
-template<class INPUT, typename VALUE>
+template<class INPUT, typename VALUE, typename TYPE>
 class Kmap {
 
 protected:
@@ -44,7 +45,7 @@ protected:
     
     uint64_t* pows = new uint64_t[k];
 
-    std::vector<buf64*> buffers;
+    std::vector<Buf<TYPE>*> buffers;
     
     phmap::flat_hash_map<uint64_t, VALUE>* map = new phmap::flat_hash_map<uint64_t, VALUE>[mapCount];
     
@@ -107,7 +108,7 @@ public:
     
     bool histogram(phmap::flat_hash_map<uint64_t, VALUE>& map);
     
-    void resizeBuff(buf64* buff);
+    void resizeBuff(Buf<uint64_t>* buff);
     
     void printHist(std::unique_ptr<std::ostream>& ostream);
     
@@ -119,9 +120,9 @@ public:
 
 };
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::appendSequence(Sequence* sequence) { // method to append a new sequence from a fasta
-        
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::appendSequence(Sequence* sequence) { // method to append a new sequence from a fasta
+    
     threadPool.queueJob([=]{ return inSequences.traverseInSequence(sequence); });
     
     if(verbose_flag) {std::cerr<<"\n";};
@@ -142,8 +143,8 @@ void Kmap<INPUT, VALUE>::appendSequence(Sequence* sequence) { // method to appen
     
 }
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::load(INPUT& userInput){
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::load(INPUT& userInput){
     
     for(uint16_t m = 0; m<mapCount; ++m)
         threadPool.queueJob([=]{ return loadMap(userInput.iSeqFileArg, m); });
@@ -159,8 +160,8 @@ void Kmap<INPUT, VALUE>::load(INPUT& userInput){
     
 }
 
-template<class INPUT, typename VALUE>
-bool Kmap<INPUT, VALUE>::loadMap(std::string prefix, uint16_t m) { // loading prototype
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::loadMap(std::string prefix, uint16_t m) { // loading prototype
     
     prefix.append("/.kmap." + std::to_string(m) + ".bin");
     
@@ -171,8 +172,8 @@ bool Kmap<INPUT, VALUE>::loadMap(std::string prefix, uint16_t m) { // loading pr
 
 }
 
-template<class INPUT, typename VALUE>
-bool Kmap<INPUT, VALUE>::dumpMap(std::string prefix, uint16_t m) {
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::dumpMap(std::string prefix, uint16_t m) {
     
     prefix.append("/.kmap." + std::to_string(m) + ".bin");
     
@@ -183,8 +184,8 @@ bool Kmap<INPUT, VALUE>::dumpMap(std::string prefix, uint16_t m) {
     
 }
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::report(INPUT& userInput) {
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::report(INPUT& userInput) {
     
     const static phmap::flat_hash_map<std::string,int> string_to_case{
         {"stats",1},
@@ -273,8 +274,8 @@ void Kmap<INPUT, VALUE>::report(INPUT& userInput) {
     
 }
 
-template<class INPUT, typename VALUE>
-bool Kmap<INPUT, VALUE>::traverseInReads(Sequences* readBatch) { // traverse the read
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::traverseInReads(Sequences* readBatch) { // traverse the read
 
     hashSequences(readBatch);
     
@@ -284,8 +285,8 @@ bool Kmap<INPUT, VALUE>::traverseInReads(Sequences* readBatch) { // traverse the
     
 }
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::appendReads(Sequences* readBatch) { // read a collection of reads
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::appendReads(Sequences* readBatch) { // read a collection of reads
     
     threadPool.queueJob([=]{ return traverseInReads(readBatch); });
     
@@ -300,8 +301,8 @@ void Kmap<INPUT, VALUE>::appendReads(Sequences* readBatch) { // read a collectio
     
 }
 
-template<class INPUT, typename VALUE>
-inline uint64_t Kmap<INPUT, VALUE>::hash(uint8_t *kmer) {
+template<class INPUT, typename VALUE, typename TYPE>
+inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer) {
     
     uint64_t fw = 0, rv = 0;
     
@@ -316,17 +317,17 @@ inline uint64_t Kmap<INPUT, VALUE>::hash(uint8_t *kmer) {
     return fw < rv ? fw : rv;
 }
 
-template<class INPUT, typename VALUE>
-bool Kmap<INPUT, VALUE>::countBuff(uint16_t m) {
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::countBuff(uint16_t m) {
 
 //    only if sorted table is needed:
 //    std::sort(buff.begin(), buff.end());
     
-    buf64* thisBuf;
+    Buf<uint64_t>* thisBuf;
     
     phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
     
-    for(buf64* buf : buffers) {
+    for(Buf<uint64_t>* buf : buffers) {
         
         thisBuf = &buf[m];
         
@@ -345,8 +346,8 @@ bool Kmap<INPUT, VALUE>::countBuff(uint16_t m) {
 
 }
 
-template<class INPUT, typename VALUE>
-bool Kmap<INPUT, VALUE>::histogram(phmap::flat_hash_map<uint64_t, VALUE>& map) {
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::histogram(phmap::flat_hash_map<uint64_t, VALUE>& map) {
     
     uint64_t kmersUnique = 0, kmersDistinct = 0;
     
@@ -381,8 +382,8 @@ bool Kmap<INPUT, VALUE>::histogram(phmap::flat_hash_map<uint64_t, VALUE>& map) {
 
 }
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::printHist(std::unique_ptr<std::ostream>& ostream) {
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::printHist(std::unique_ptr<std::ostream>& ostream) {
     
     std::vector<std::pair<uint64_t, uint64_t>> table(histogram1.begin(), histogram1.end());
     std::sort(table.begin(), table.end());
@@ -392,14 +393,14 @@ void Kmap<INPUT, VALUE>::printHist(std::unique_ptr<std::ostream>& ostream) {
 
 }
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::hashSequences(Sequences* readBatch) {
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
     
     Log threadLog;
     
     threadLog.setId(readBatch->batchN);
     
-    buf64* buf = new buf64[mapCount];
+    Buf<uint64_t>* buf = new Buf<uint64_t>[mapCount];
     
     for (Sequence* sequence : readBatch->sequences) {
         
@@ -419,7 +420,7 @@ void Kmap<INPUT, VALUE>::hashSequences(Sequences* readBatch) {
         }
         
         uint64_t value, i, newSize;
-        buf64* b;
+        Buf<uint64_t>* b;
         uint64_t* bufNew;
         
         for (uint64_t c = 0; c<Kmap; ++c){
@@ -461,14 +462,14 @@ void Kmap<INPUT, VALUE>::hashSequences(Sequences* readBatch) {
     
 }
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::hashSegments(std::vector<InSegment*>* segments) {
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::hashSegments(std::vector<InSegment*>* segments) {
     
-    buf64* buf = new buf64[mapCount];
+    Buf<uint64_t>* buf = new Buf<uint64_t>[mapCount];
     
     for (InSegment* segment : *segments) {
         
-        uint64_t len = segment->getSegmentLen(), Kmap = len-k+1;
+        uint64_t len = segment->getSegmentLen(), kcount = len-k+1;
         
         if (len<k)
             continue;
@@ -484,10 +485,10 @@ void Kmap<INPUT, VALUE>::hashSegments(std::vector<InSegment*>* segments) {
         }
         
         uint64_t value, i, newSize;
-        buf64* b;
+        Buf<uint64_t>* b;
         uint64_t* bufNew;
         
-        for (uint64_t c = 0; c<Kmap; ++c){
+        for (uint64_t c = 0; c<kcount; ++c){
             
             value = hash(str+c);
             
@@ -524,8 +525,8 @@ void Kmap<INPUT, VALUE>::hashSegments(std::vector<InSegment*>* segments) {
     
 }
 
-template<class INPUT, typename VALUE>
-void Kmap<INPUT, VALUE>::count() {
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::count() {
     
     lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
     
