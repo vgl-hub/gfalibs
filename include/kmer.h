@@ -19,20 +19,6 @@ protected:
     
     InSequences inSequences;
     
-    //intermediates
-    std::string h;
-    char* c;
-    
-    // stream read variable definition
-    std::string firstLine;
-    unsigned int seqPos = 0; // to keep track of the original sequence order
-    
-    std::string newLine, seqHeader, seqComment, line, bedHeader;
-    
-    StreamObj streamObj;
-    
-    std::shared_ptr<std::istream> stream;
-    
     unsigned int batchSize = 10000;
 
     uint8_t k;
@@ -100,7 +86,7 @@ public:
     
     void hashSequences(Sequences* readBatch);
     
-    void hashSegments(std::vector<InSegment*>* segments);
+    void hashSegments();
     
     void count();
     
@@ -463,7 +449,12 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-void Kmap<INPUT, VALUE, TYPE>::hashSegments(std::vector<InSegment*>* segments) {
+void Kmap<INPUT, VALUE, TYPE>::hashSegments() {
+    
+    std::vector<InSegment*>* segments = inSequences.getInSegments();
+    
+    if (segments->size() == 0)
+        return;
     
     Buf<uint64_t>* buf = new Buf<uint64_t>[mapCount];
     
