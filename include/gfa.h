@@ -191,12 +191,10 @@ public:
 
     unsigned long long int getSmallestScaffold();
 
-    
     unsigned long long int getLargestContig();
 
     unsigned long long int getSmallestContig();
 
-    
     unsigned int getLargestGap();
 
     unsigned int getSmallestGap();
