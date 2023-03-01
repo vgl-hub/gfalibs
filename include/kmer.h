@@ -19,7 +19,7 @@ protected:
     
     InSequences inSequences;
     
-    unsigned int batchSize = 10000;
+    uint32_t batchSize = 10000;
 
     uint8_t k;
     
@@ -56,6 +56,8 @@ protected:
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
     };
     
+    const uint8_t itoc[4] = {'A', 'C', 'G', 'T'};
+    
 public:
     
     std::vector<Log> logs;
@@ -82,7 +84,7 @@ public:
     
     void appendReads(Sequences* readBatch);
     
-    inline uint64_t hash(uint8_t* string);
+    inline uint64_t hash(uint8_t* string, bool* isFw = NULL);
     
     void hashSequences(Sequences* readBatch);
     
@@ -288,7 +290,7 @@ void Kmap<INPUT, VALUE, TYPE>::appendReads(Sequences* readBatch) { // read a col
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer) {
+inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer, bool *isFw) {
     
     uint64_t fw = 0, rv = 0;
     
@@ -299,6 +301,9 @@ inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer) {
     
     for(uint8_t c = 0; c<k; ++c)
         rv += (3-(*kmer--)) * pows[c];
+    
+    if (isFw != NULL)
+        *isFw = fw < rv ? true : false;
     
     return fw < rv ? fw : rv;
 }
@@ -386,7 +391,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
     
     threadLog.setId(readBatch->batchN);
     
-    Buf<uint64_t>* buf = new Buf<uint64_t>[mapCount];
+    Buf<TYPE>* buf = new Buf<TYPE>[mapCount];
     
     for (Sequence* sequence : readBatch->sequences) {
         
@@ -402,22 +407,22 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
         for (uint64_t i = 0; i<len; ++i)
             str[i] = ctoi[*(first+i)];
         
-        uint64_t value, i, newSize;
-        Buf<uint64_t>* b;
-        uint64_t* bufNew;
+        uint64_t key, i, newSize;
+        Buf<TYPE>* b;
+        TYPE* bufNew;
         
         for (uint64_t c = 0; c<Kmap; ++c){
             
-            value = hash(str+c);
+            key = hash(str+c);
             
-            i = value / moduloMap;
+            i = key / moduloMap;
             
             b = &buf[i];
             
             if (b->pos == b->size) {
                 
                 newSize = b->size * 2;
-                bufNew = new uint64_t[newSize];
+                bufNew = new TYPE[newSize];
 
                 memcpy(bufNew, b->seq, b->size*sizeof(uint64_t));
 
@@ -427,7 +432,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
 
             }
             
-            b->seq[b->pos++] = value;
+            b->seq[b->pos++] = key;
                         
         }
         
@@ -453,7 +458,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSegments() {
     if (segments->size() == 0)
         return;
     
-    Buf<uint64_t>* buf = new Buf<uint64_t>[mapCount];
+    Buf<TYPE>* buf = new Buf<TYPE>[mapCount];
     
     for (InSegment* segment : *segments) {
         
@@ -472,22 +477,22 @@ void Kmap<INPUT, VALUE, TYPE>::hashSegments() {
             
         }
         
-        uint64_t value, i, newSize;
-        Buf<uint64_t>* b;
-        uint64_t* bufNew;
+        uint64_t key, i, newSize;
+        Buf<TYPE>* b;
+        TYPE* bufNew;
         
         for (uint64_t c = 0; c<kcount; ++c){
             
-            value = hash(str+c);
+            key = hash(str+c);
             
-            i = value / moduloMap;
+            i = key / moduloMap;
             
             b = &buf[i];
             
             if (b->pos == b->size) {
                 
                 newSize = b->size * 2;
-                bufNew = new uint64_t[newSize];
+                bufNew = new TYPE[newSize];
 
                 memcpy(bufNew, b->seq, b->size*sizeof(uint64_t));
 
@@ -497,7 +502,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSegments() {
 
             }
             
-            b->seq[b->pos++] = value;
+            b->seq[b->pos++] = key;
                         
         }
         

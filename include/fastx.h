@@ -2,7 +2,7 @@
 #define FASTX_H
 
 template<typename OBJECT>
-bool loadSequences(UserInput userInput, OBJECT* object) { // load from FASTA/FASTQ to templated object
+bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int* fileNum) { // load from FASTA/FASTQ to templated object
     
     // stream read variables
     char* c;
@@ -10,12 +10,12 @@ bool loadSequences(UserInput userInput, OBJECT* object) { // load from FASTA/FAS
     unsigned int seqPos = 0; // to keep track of the original sequence order
     unsigned int batchSize = 10000; // number of sequences processed by a thread
         
-    if (!userInput.iSeqFileArg.empty() || userInput.pipeType == 'f') {
-        
+    if (!userInput.iSeqFileArg.empty() || userInput.pipeType == type) {
+                
         //stream objects
         StreamObj streamObj;
         std::shared_ptr<std::istream> stream;
-        stream = streamObj.openStream(userInput, 'f');
+        stream = streamObj.openStream(userInput, type, fileNum);
         
         if (stream) {
             
