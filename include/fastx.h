@@ -69,9 +69,11 @@ bool loadSequences(UserInput userInput, OBJECT* object) { // load from FASTA/FAS
                         readBatch->sequences.push_back(new Sequence {seqHeader, seqComment, inSequence});
                         seqPos++;
 
-                        if (seqPos % batchSize == 0) {
+                        lg.verbose("Individual fastq sequence read: " + seqHeader);
+                        
+                        if (seqPos % batchSize == 0 || stream->peek() == EOF) {
 
-                            readBatch->batchN = seqPos/batchSize;
+                            readBatch->batchN = seqPos/batchSize + 1;
                             lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
 
                             threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
@@ -83,24 +85,11 @@ bool loadSequences(UserInput userInput, OBJECT* object) { // load from FASTA/FAS
                                 
                             }
                             
-                            readBatch = new Sequences;
+                            if (stream->peek() != EOF)
+                                readBatch = new Sequences;
 
                         }
 
-                        lg.verbose("Individual fastq sequence read: " + seqHeader);
-
-                    }
-                    
-                    readBatch->batchN = seqPos/batchSize + 1;
-                    lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
-
-                    threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
-                    std::unique_lock<std::mutex> lck(mtx);
-                    for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-                     
-                        it->print();
-                        object->logs.erase(it--);
-                        
                     }
 
                     break;

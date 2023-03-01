@@ -399,11 +399,8 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
         
         uint8_t* str = new uint8_t[len];
         
-        for (uint64_t i = 0; i<len; ++i){
-            
+        for (uint64_t i = 0; i<len; ++i)
             str[i] = ctoi[*(first+i)];
-            
-        }
         
         uint64_t value, i, newSize;
         Buf<uint64_t>* b;
@@ -425,7 +422,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
                 memcpy(bufNew, b->seq, b->size*sizeof(uint64_t));
 
                 b->size = newSize;
-                delete [] b->seq;
+                delete[] b->seq;
                 b->seq = bufNew;
 
             }
