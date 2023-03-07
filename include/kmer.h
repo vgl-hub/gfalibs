@@ -31,7 +31,7 @@ protected:
     
     uint64_t* pows = new uint64_t[k];
 
-    std::vector<Buf<TYPE>*> buffers;
+    std::deque<Buf<TYPE>*> buffers;
     
     phmap::flat_hash_map<uint64_t, VALUE>* map = new phmap::flat_hash_map<uint64_t, VALUE>[mapCount];
     
@@ -76,11 +76,11 @@ public:
         
     }
     
-    void appendSequence(Sequence* sequence);
-    
     void load(INPUT& userInput);
     
     bool traverseInReads(Sequences* readBatch);
+    
+    void appendSequence(Sequence* sequence);
     
     void appendReads(Sequences* readBatch);
     
@@ -90,9 +90,11 @@ public:
     
     void hashSegments();
     
-    void count();
+    void consolidate();
     
-    bool countBuff(uint16_t m);
+    void hist();
+    
+    bool countBuff(Buf<uint64_t>* buf, uint16_t m);
     
     bool histogram(phmap::flat_hash_map<uint64_t, VALUE>& map);
     
@@ -309,7 +311,23 @@ inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer, bool *isFw) {
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-bool Kmap<INPUT, VALUE, TYPE>::countBuff(uint16_t m) {
+void Kmap<INPUT, VALUE, TYPE>::consolidate() {
+    
+    lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
+    
+    while (!buffers.empty()) {
+        
+        for(uint16_t m = 0; m<mapCount; ++m)
+            countBuff(buffers.front(), m);
+        
+        buffers.pop_front();
+        
+    }
+    
+}
+
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::countBuff(Buf<uint64_t>* buf, uint16_t m) {
 
 //    only if sorted table is needed:
 //    std::sort(buff.begin(), buff.end());
@@ -317,21 +335,17 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuff(uint16_t m) {
     Buf<uint64_t>* thisBuf;
     
     phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
+        
+    thisBuf = &buf[m];
     
-    for(Buf<uint64_t>* buf : buffers) {
-        
-        thisBuf = &buf[m];
-        
-        thisMap = &map[m];
-        
-        uint64_t len = thisBuf->pos;
-        
-        for (uint64_t c = 0; c<len; ++c)
-            ++(*thisMap)[thisBuf->seq[c]];
-        
-        delete[] thisBuf->seq;
-        
-    }
+    thisMap = &map[m];
+    
+    uint64_t len = thisBuf->pos;
+    
+    for (uint64_t c = 0; c<len; ++c)
+        ++(*thisMap)[thisBuf->seq[c]];
+    
+    delete[] thisBuf->seq;
     
     return true;
 
@@ -519,15 +533,8 @@ void Kmap<INPUT, VALUE, TYPE>::hashSegments() {
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-void Kmap<INPUT, VALUE, TYPE>::count() {
-    
-    lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
-    
-    for(uint16_t m = 0; m<mapCount; ++m)
-        threadPool.queueJob([=]{ return countBuff(m); });
-    
-    jobWait(threadPool);
-    
+void Kmap<INPUT, VALUE, TYPE>::hist() {
+
     lg.verbose("Generate histogram");
     
     for(uint16_t m = 0; m<mapCount; ++m)

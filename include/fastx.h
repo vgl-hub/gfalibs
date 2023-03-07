@@ -83,6 +83,8 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                             
                         }
                         
+                        object->consolidate();
+                        
                         if (stream->peek() != EOF)
                             readBatch = new Sequences;
 
