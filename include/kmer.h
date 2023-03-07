@@ -31,7 +31,7 @@ protected:
     
     uint64_t* pows = new uint64_t[k];
 
-    std::deque<Buf<TYPE>*> buffers;
+    std::vector<Buf<TYPE>*> buffers;
     
     phmap::flat_hash_map<uint64_t, VALUE>* map = new phmap::flat_hash_map<uint64_t, VALUE>[mapCount];
     
@@ -94,7 +94,7 @@ public:
     
     void hist();
     
-    bool countBuff(Buf<uint64_t>* buf, uint16_t m);
+    bool countBuff(uint16_t m);
     
     bool histogram(phmap::flat_hash_map<uint64_t, VALUE>& map);
     
@@ -312,25 +312,16 @@ inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer, bool *isFw) {
 
 template<class INPUT, typename VALUE, typename TYPE>
 void Kmap<INPUT, VALUE, TYPE>::consolidate() {
-    
+
     lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
     
-    while (!buffers.empty()) {
-        
-        for(uint16_t m = 0; m<mapCount; ++m)
-            countBuff(buffers.front(), m);
-        
-        {
-            std::unique_lock<std::mutex> lck(mtx);
-            buffers.pop_front();
-        }
-        
-    }
+    for(uint16_t m = 0; m<mapCount; ++m)
+        threadPool.queueJob([=]{ return countBuff(m); });
     
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-bool Kmap<INPUT, VALUE, TYPE>::countBuff(Buf<uint64_t>* buf, uint16_t m) {
+bool Kmap<INPUT, VALUE, TYPE>::countBuff(uint16_t m) {
 
 //    only if sorted table is needed:
 //    std::sort(buff.begin(), buff.end());
@@ -338,17 +329,25 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuff(Buf<uint64_t>* buf, uint16_t m) {
     Buf<uint64_t>* thisBuf;
     
     phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
+    
+    for(Buf<uint64_t>* buf : buffers) {
         
-    thisBuf = &buf[m];
-    
-    thisMap = &map[m];
-    
-    uint64_t len = thisBuf->pos;
-    
-    for (uint64_t c = 0; c<len; ++c)
-        ++(*thisMap)[thisBuf->seq[c]];
-    
-    delete[] thisBuf->seq;
+        thisBuf = &buf[m];
+        
+        if (thisBuf->seq != NULL) {
+            
+            thisMap = &map[m];
+            
+            uint64_t len = thisBuf->pos;
+            
+            for (uint64_t c = 0; c<len; ++c)
+                ++(*thisMap)[thisBuf->seq[c]];
+            
+            delete[] thisBuf->seq;
+            
+        }
+        
+    }
     
     return true;
 

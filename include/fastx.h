@@ -71,7 +71,10 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                     
                     if (seqPos % batchSize == 0 || stream->peek() == EOF) {
 
-                        readBatch->batchN = seqPos/batchSize + 1;
+                        readBatch->batchN = seqPos/batchSize;
+                        if (seqPos % batchSize != 0)
+                            readBatch->batchN += 1;
+                            
                         lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
 
                         threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
