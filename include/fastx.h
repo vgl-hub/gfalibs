@@ -78,12 +78,15 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                         lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
 
                         threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
-                        std::unique_lock<std::mutex> lck(mtx);
-                        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-                         
-                            it->print();
-                            object->logs.erase(it--);
-                            
+                        
+                        {
+                            std::unique_lock<std::mutex> lck(mtx);
+                            for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
+                                
+                                it->print();
+                                object->logs.erase(it--);
+                                
+                            }
                         }
                         
                         object->consolidate();

@@ -94,7 +94,7 @@ public:
     
     void hist();
     
-    bool countBuff(uint16_t m);
+    bool countBuff(Buf<uint64_t>* buf, uint16_t m);
     
     bool histogram(phmap::flat_hash_map<uint64_t, VALUE>& map);
     
@@ -315,38 +315,35 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
 
     lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
     
-    for(uint16_t m = 0; m<mapCount; ++m)
-        threadPool.queueJob([=]{ return countBuff(m); });
+    std::unique_lock<std::mutex> lck(mtx);
+    for(Buf<uint64_t>* buf : buffers) {
+        
+        for(uint16_t m = 0; m<mapCount; ++m)
+            threadPool.queueJob([=]{ return countBuff(&buf[m], m); });
+        
+    }
 
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-bool Kmap<INPUT, VALUE, TYPE>::countBuff(uint16_t m) {
+bool Kmap<INPUT, VALUE, TYPE>::countBuff(Buf<uint64_t>* thisBuf, uint16_t m) {
 
 //    only if sorted table is needed:
 //    std::sort(buff.begin(), buff.end());
     
-    Buf<uint64_t>* thisBuf;
-    
-    phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
-    
-    for(Buf<uint64_t>* buf : buffers) {
+    if (thisBuf->seq != NULL) {
         
-        thisBuf = &buf[m];
+        phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
         
-        if (thisBuf->seq != NULL) {
-            
-            thisMap = &map[m];
-            
-            uint64_t len = thisBuf->pos;
-            
-            for (uint64_t c = 0; c<len; ++c)
-                ++(*thisMap)[thisBuf->seq[c]];
-            
-            delete[] thisBuf->seq;
-            thisBuf->seq = NULL;
-            
-        }
+        thisMap = &map[m];
+        
+        uint64_t len = thisBuf->pos;
+        
+        for (uint64_t c = 0; c<len; ++c)
+            ++(*thisMap)[thisBuf->seq[c]];
+        
+        delete[] thisBuf->seq;
+        thisBuf->seq = NULL;
         
     }
     
