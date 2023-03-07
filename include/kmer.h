@@ -317,7 +317,7 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
     
     for(uint16_t m = 0; m<mapCount; ++m)
         threadPool.queueJob([=]{ return countBuff(m); });
-    
+
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
@@ -344,6 +344,7 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuff(uint16_t m) {
                 ++(*thisMap)[thisBuf->seq[c]];
             
             delete[] thisBuf->seq;
+            thisBuf->seq = NULL;
             
         }
         
