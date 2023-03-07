@@ -320,7 +320,10 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
         for(uint16_t m = 0; m<mapCount; ++m)
             countBuff(buffers.front(), m);
         
-        buffers.pop_front();
+        {
+            std::unique_lock<std::mutex> lck(mtx);
+            buffers.pop_front();
+        }
         
     }
     
