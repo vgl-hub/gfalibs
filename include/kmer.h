@@ -415,7 +415,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
     
     for (Sequence* sequence : readBatch->sequences) {
         
-        uint64_t len = sequence->sequence->size(), Kmap = len-k+1;
+        uint64_t len = sequence->sequence->size();
         
         if (len<k)
             continue;
@@ -423,56 +423,60 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
         unsigned char* first = (unsigned char*)sequence->sequence->c_str();
         
         uint8_t* str = new uint8_t[len];
-        uint8_t base;
+        uint64_t e = 0;
         
-        std::vector<uint8_t*> ungappedSequences;
-        uint64_t ungappedSequenceLen = 0;
-        
-        for (uint64_t i = 0; i<len; ++i) {
+        for (uint64_t p = 0; p<len; ++p) {
             
-            base = ctoi[*(first+i)];
+            str[p] = ctoi[*(first+p)];
             
-            if (base < 4) {
+            if (str[p] > 3 || p+1==len){
                 
-                str[i] = base;
-                ++ungappedSequenceLen;
+                if (e < k) { // beginning of a sequence or kmer too short, nothing to be done
+                    e = 0;
+                    continue;
+                }
+                uint64_t kcount = e-k+1;
                 
-            }else if (ungappedSequenceLen > 0){
+                if (p+1==len && str[p] < 4) // end of sequence, adjust index
+                    ++kcount;
                 
-                ungappedSequences.push_back(&str[i]);
-                ungappedSequenceLen = 0;
+                uint64_t key, i, newSize;
+                Buf<TYPE>* b;
+                TYPE* bufNew;
+                
+                for (uint64_t c = 0; c<kcount; ++c){
+                    
+                    key = hash(str+c+p-e);
+                    
+                    i = key / moduloMap;
+                    
+                    b = &buf[i];
+                    
+                    if (b->pos == b->size) {
+                        
+                        newSize = b->size * 2;
+                        bufNew = new TYPE[newSize];
+                        
+                        memcpy(bufNew, b->seq, b->size*sizeof(uint64_t));
+                        
+                        b->size = newSize;
+                        delete[] b->seq;
+                        b->seq = bufNew;
+                        
+                    }
+                    
+                    b->seq[b->pos++] = key;
+                    
+                }
+                
+                e = 0;
+                
+            }else{
+                
+                ++e;
                 
             }
-                
-        }
-        
-        uint64_t key, i, newSize;
-        Buf<TYPE>* b;
-        TYPE* bufNew;
-        
-        for (uint64_t c = 0; c<Kmap; ++c){
             
-            key = hash(str+c);
-            
-            i = key / moduloMap;
-            
-            b = &buf[i];
-                        
-            if (b->pos == b->size) {
-                
-                newSize = b->size * 2;
-                bufNew = new TYPE[newSize];
-
-                memcpy(bufNew, b->seq, b->size*sizeof(uint64_t));
-
-                b->size = newSize;
-                delete[] b->seq;
-                b->seq = bufNew;
-
-            }
-            
-            b->seq[b->pos++] = key;
-                        
         }
         
         delete[] str;
