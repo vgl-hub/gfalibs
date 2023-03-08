@@ -431,14 +431,17 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
             
             if (str[p] > 3 || p+1==len){
                 
-                if (e < k) { // beginning of a sequence or kmer too short, nothing to be done
+                if (p+1==len && str[p] < 4) { // end of sequence, adjust indexes
+                    ++e;
+                    ++p;
+                }
+                
+                if (e < k) { // beginning/end of a sequence or kmer too short, nothing to be done
                     e = 0;
                     continue;
                 }
-                uint64_t kcount = e-k+1;
                 
-                if (p+1==len && str[p] < 4) // end of sequence, adjust index
-                    ++kcount;
+                uint64_t kcount = e-k+1;
                 
                 uint64_t key, i, newSize;
                 Buf<TYPE>* b;
@@ -447,9 +450,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
                 for (uint64_t c = 0; c<kcount; ++c){
                     
                     key = hash(str+c+p-e);
-                    
                     i = key / moduloMap;
-                    
                     b = &buf[i];
                     
                     if (b->pos == b->size) {
