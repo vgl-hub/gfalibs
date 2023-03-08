@@ -8,7 +8,7 @@
 
 template<typename VALUE>
 struct Buf {
-    uint64_t pos = 0, size = 100000;
+    uint64_t pos = 0, size = 10000;
     VALUE *seq = new VALUE[size];
 };
 
@@ -423,9 +423,28 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
         unsigned char* first = (unsigned char*)sequence->sequence->c_str();
         
         uint8_t* str = new uint8_t[len];
+        uint8_t base;
         
-        for (uint64_t i = 0; i<len; ++i)
-            str[i] = ctoi[*(first+i)];
+        std::vector<uint8_t*> ungappedSequences;
+        uint64_t ungappedSequenceLen = 0;
+        
+        for (uint64_t i = 0; i<len; ++i) {
+            
+            base = ctoi[*(first+i)];
+            
+            if (base < 4) {
+                
+                str[i] = base;
+                ++ungappedSequenceLen;
+                
+            }else if (ungappedSequenceLen > 0){
+                
+                ungappedSequences.push_back(&str[i]);
+                ungappedSequenceLen = 0;
+                
+            }
+                
+        }
         
         uint64_t key, i, newSize;
         Buf<TYPE>* b;
@@ -438,7 +457,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
             i = key / moduloMap;
             
             b = &buf[i];
-            
+                        
             if (b->pos == b->size) {
                 
                 newSize = b->size * 2;
@@ -491,11 +510,8 @@ void Kmap<INPUT, VALUE, TYPE>::hashSegments() {
         
         uint8_t* str = new uint8_t[len];
         
-        for (uint64_t i = 0; i<len; ++i){
-            
+        for (uint64_t i = 0; i<len; ++i)
             str[i] = ctoi[*(first+i)];
-            
-        }
         
         uint64_t key, i, newSize;
         Buf<TYPE>* b;
