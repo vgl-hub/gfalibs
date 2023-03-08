@@ -19,7 +19,7 @@ protected:
     
     InSequences inSequences;
     
-    uint32_t batchSize = 10000;
+    uint32_t processedBuffers = 0;
 
     uint8_t k;
     
@@ -36,8 +36,6 @@ protected:
     phmap::flat_hash_map<uint64_t, VALUE>* map = new phmap::flat_hash_map<uint64_t, VALUE>[mapCount];
     
     phmap::flat_hash_map<uint64_t, uint64_t> histogram1, histogram2;
-    
-    uint32_t processedBuffers = 0;
     
     const uint8_t ctoi[256] = {
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,

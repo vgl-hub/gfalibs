@@ -51,8 +51,9 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                 
                 Sequences* readBatch = new Sequences;
 
-                while (getline(*stream, newLine)) { // file input
-
+                while (!stream->eof()) { // file input
+                    
+                    getline(*stream, newLine);
                     newLine.erase(0, 1);
                     seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
                     c = strtok(NULL,""); //read comment
@@ -69,7 +70,7 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
 
                     lg.verbose("Individual fastq sequence read: " + seqHeader);
                     
-                    if (seqPos % batchSize == 0 || stream->eof()) {
+                    if (seqPos % batchSize == 0 || stream->eof() || stream->peek() == EOF) {
 
                         readBatch->batchN = seqPos/batchSize;
                         if (seqPos % batchSize != 0)
@@ -89,7 +90,7 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                         
                         object->consolidate();
 			
-                        if (!stream->eof())
+                        if (!stream->eof() && !(stream->peek() == EOF))
                             readBatch = new Sequences;
 
                     }
