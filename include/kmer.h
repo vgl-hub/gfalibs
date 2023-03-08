@@ -37,6 +37,8 @@ protected:
     
     phmap::flat_hash_map<uint64_t, uint64_t> histogram1, histogram2;
     
+    uint32_t processedBuffers = 0;
+    
     const uint8_t ctoi[256] = {
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -315,11 +317,17 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
 
     lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
     
-    std::unique_lock<std::mutex> lck(mtx);
-    for(Buf<uint64_t>* buf : buffers) {
+    for(uint32_t i = processedBuffers; i < buffers.size(); ++i) {
         
-        for(uint16_t m = 0; m<mapCount; ++m)
-            threadPool.queueJob([=]{ return countBuff(&buf[m], m); });
+        for(uint16_t m = 0; m<mapCount; ++m) {
+            
+            Buf<uint64_t>* thisBuf = &buffers[i][m];
+            
+            threadPool.queueJob([=]{ return countBuff(thisBuf, m); });
+
+        }
+        
+        ++processedBuffers;
         
     }
 
