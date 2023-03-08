@@ -69,7 +69,7 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
 
                     lg.verbose("Individual fastq sequence read: " + seqHeader);
                     
-                    if (seqPos % batchSize == 0 || stream->peek() == EOF) {
+                    if (seqPos % batchSize == 0 || stream->eof()) {
 
                         readBatch->batchN = seqPos/batchSize;
                         if (seqPos % batchSize != 0)
@@ -88,8 +88,8 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                         }
                         
                         object->consolidate();
-                        
-                        if (stream->peek() != EOF)
+			
+                        if (!stream->eof())
                             readBatch = new Sequences;
 
                     }
