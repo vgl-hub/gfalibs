@@ -69,11 +69,9 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
 
                     lg.verbose("Individual fastq sequence read: " + seqHeader);
                     
-                    if (seqPos % batchSize == 0 || stream->eof() || stream->peek() == EOF) {
+                    if (seqPos % batchSize == 0) {
 
                         readBatch->batchN = seqPos/batchSize;
-                        if (seqPos % batchSize != 0)
-                            readBatch->batchN += 1;
                             
                         lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
 
@@ -88,12 +86,25 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                         }
                         
                         object->consolidate();
-			
-                        if (!stream->eof() && !(stream->peek() == EOF))
-                            readBatch = new Sequences;
+                        
+                        readBatch = new Sequences;
 
                     }
 
+                }
+                
+                readBatch->batchN = seqPos/batchSize+1;
+                    
+                lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
+
+                threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
+                
+                std::unique_lock<std::mutex> lck(mtx);
+                for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
+                 
+                    it->print();
+                    object->logs.erase(it--);
+                    
                 }
 
                 break;
