@@ -35,6 +35,8 @@ protected:
     
     phmap::flat_hash_map<uint64_t, VALUE>* map = new phmap::flat_hash_map<uint64_t, VALUE>[mapCount];
     
+    std::vector<bool> mapsInUse = std::vector<bool>(mapCount, false);
+    
     phmap::flat_hash_map<uint64_t, uint64_t> histogram1, histogram2;
     
     const uint8_t ctoi[256] = {
@@ -92,9 +94,13 @@ public:
     
     void consolidate();
     
+    void finalize();
+    
     void hist();
     
     bool countBuff(Buf<uint64_t>* buf, uint16_t m);
+    
+    bool countBuffs(uint16_t m);
     
     bool histogram(phmap::flat_hash_map<uint64_t, VALUE>& map);
     
@@ -315,19 +321,43 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
 
     lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
     
-    if (buffers.size() > 0) {
+    for (unsigned int i = 0; i<buffers.size(); ++i) {
+        
+        unsigned int counter = 0;
         
         for(uint16_t m = 0; m<mapCount; ++m) {
             
-            Buf<uint64_t>* thisBuf = &buffers[processedBuffers][m];
+            Buf<uint64_t>* thisBuf = &buffers[i][m];
             
-            countBuff(thisBuf, m);
+            if (thisBuf->seq != NULL && mapsInUse[m] == false) {
+                
+                mapsInUse[m] = true;
+                threadPool.queueJob([=]{ return countBuff(thisBuf, m); });
+                
+            }
             
+            if(thisBuf->seq == NULL){
+                
+                ++counter;
+                
+                if (counter == mapCount)
+                    buffers.erase(buffers.begin() + i);
+                
+            }
+
         }
         
-        ++processedBuffers;
-        
     }
+
+}
+
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::finalize() {
+
+    lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
+        
+    for(uint16_t m = 0; m<mapCount; ++m)
+        threadPool.queueJob([=]{ return countBuffs(m); });
 
 }
 
@@ -350,6 +380,43 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuff(Buf<uint64_t>* thisBuf, uint16_t m) {
         
         delete[] thisBuf->seq;
         thisBuf->seq = NULL;
+        
+    }
+    
+    std::unique_lock<std::mutex> lck(mtx);
+    mapsInUse[m] = false;
+    
+    return true;
+
+}
+
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::countBuffs(uint16_t m) {
+
+//    only if sorted table is needed:
+//    std::sort(buff.begin(), buff.end());
+    
+    Buf<uint64_t>* thisBuf;
+    
+    phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
+    
+    for(Buf<uint64_t>* buf : buffers) {
+            
+        thisBuf = &buf[m];
+        
+        if (thisBuf->seq != NULL) {
+            
+            thisMap = &map[m];
+            
+            uint64_t len = thisBuf->pos;
+            
+            for (uint64_t c = 0; c<len; ++c)
+                ++(*thisMap)[thisBuf->seq[c]];
+            
+            delete[] thisBuf->seq;
+            thisBuf->seq = NULL;
+            
+        }
         
     }
     
