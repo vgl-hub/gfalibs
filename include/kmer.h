@@ -315,14 +315,14 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
 
     lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
     
-    for(uint32_t i = processedBuffers; i < buffers.size(); ++i) {
+    if (buffers.size() > 0) {
         
         for(uint16_t m = 0; m<mapCount; ++m) {
             
-            Buf<uint64_t>* thisBuf = &buffers[i][m];
+            Buf<uint64_t>* thisBuf = &buffers[processedBuffers][m];
             
-            threadPool.queueJob([=]{ return countBuff(thisBuf, m); });
-
+            countBuff(thisBuf, m);
+            
         }
         
         ++processedBuffers;
