@@ -80,6 +80,12 @@ public:
     
     void load(INPUT& userInput);
     
+    void kunion(INPUT& userInput);
+    
+    bool mergeMaps(std::vector<std::string> prefixes, uint16_t m);
+    
+    bool unionSum(phmap::flat_hash_map<uint64_t, VALUE>& map1, phmap::flat_hash_map<uint64_t, VALUE>& map2);
+    
     bool traverseInReads(Sequences* readBatch);
     
     void appendSequence(Sequence* sequence);
@@ -155,6 +161,65 @@ void Kmap<INPUT, VALUE, TYPE>::load(INPUT& userInput){
     jobWait(threadPool);
     
 }
+
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::kunion(INPUT& userInput){
+        
+    for(uint16_t m = 0; m<mapCount; ++m)
+        threadPool.queueJob([=]{ return mergeMaps(userInput.iReadFileArg, m); });
+    
+    jobWait(threadPool);
+    
+    lg.verbose("Regenerate histogram");
+    
+    for(uint16_t m = 0; m<mapCount; ++m)
+        threadPool.queueJob([=]{ return histogram(map[m]); });
+    
+    jobWait(threadPool);
+    
+}
+
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint16_t m) {
+    
+    std::string prefix = prefixes[0]; // load the first map
+    prefix.append("/.kmap." + std::to_string(m) + ".bin");
+    
+    phmap::BinaryInputArchive ar_in(prefix.c_str());
+    map[m].phmap_load(ar_in);
+    
+    unsigned int numFiles = prefixes.size();
+
+    for (unsigned int i = 1; i < numFiles; i++) {
+        
+        std::string prefix = prefixes[i]; // load the next map
+        prefix.append("/.kmap." + std::to_string(m) + ".bin");
+        
+        phmap::flat_hash_map<uint64_t, VALUE> nextMap;
+        phmap::BinaryInputArchive ar_in(prefix.c_str());
+        nextMap.phmap_load(ar_in);
+        
+        unionSum(map[m], nextMap);
+        
+    }
+    
+    return true;
+
+}
+
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::unionSum(phmap::flat_hash_map<uint64_t, VALUE>& map1, phmap::flat_hash_map<uint64_t, VALUE>& map2) {
+    
+    std::vector<std::pair<uint64_t, uint64_t>> table(map2.begin(), map2.end());
+    std::sort(table.begin(), table.end());
+    
+    for (auto pair : table)
+        map1[pair.first] += pair.second;
+    
+    return true;
+    
+}
+
 
 template<class INPUT, typename VALUE, typename TYPE>
 bool Kmap<INPUT, VALUE, TYPE>::loadMap(std::string prefix, uint16_t m) { // loading prototype
