@@ -210,9 +210,7 @@ bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint
 template<class INPUT, typename VALUE, typename TYPE>
 bool Kmap<INPUT, VALUE, TYPE>::unionSum(phmap::flat_hash_map<uint64_t, VALUE>& map1, phmap::flat_hash_map<uint64_t, VALUE>& map2) {
     
-    std::vector<std::pair<uint64_t, uint64_t>> table(map2.begin(), map2.end());
-    
-    for (auto pair : table)
+    for (auto pair : map2)
         map1[pair.first] += pair.second;
     
     return true;
