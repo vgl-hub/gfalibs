@@ -6,6 +6,14 @@
 
 #include <fastx.h>
 
+template<typename T>
+inline void freeContainer(T& p_container)
+{
+    T empty;
+    using std::swap;
+    swap(p_container, empty);
+}
+
 template<typename VALUE>
 struct Buf {
     uint64_t pos = 0, size = 10000;
@@ -191,7 +199,7 @@ bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint
     
     histogram(map[m]);
     
-    map[m].clear();
+    freeContainer(map[m]);
     
     return true;
 
@@ -230,7 +238,7 @@ bool Kmap<INPUT, VALUE, TYPE>::dumpMap(std::string prefix, uint16_t m) {
     phmap::BinaryOutputArchive ar_out(prefix.c_str());
     map[m].phmap_dump(ar_out);
     
-    map[m].clear();
+    freeContainer(map[m]);
     
     return true;
     
