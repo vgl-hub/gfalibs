@@ -1,8 +1,9 @@
-#ifndef THREADPOOL
-#define THREADPOOL
+#ifndef THREADPOOL_H
+#define THREADPOOL_H
 
 #include <iostream>
 #include <condition_variable>
+#include "memory.h"
 
 extern Log lg;
 
@@ -162,7 +163,7 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
             
         }
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()), true);
+        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory usage: " + std::to_string((double) get_mem_usage() / (1024*1024*1024)) + " GB", true);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
     }
