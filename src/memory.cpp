@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
 
 #ifdef _WIN32
@@ -24,7 +26,6 @@ double get_mem_total(uint8_t unit){
 #include <sys/resource.h>
 #include <unistd.h>
 #include <cmath>
-#include <stdint.h>
 
 double get_mem_usage(uint8_t unit){
     
