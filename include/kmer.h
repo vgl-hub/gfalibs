@@ -37,7 +37,7 @@ protected:
     
     std::vector<bool> mapsInUse = std::vector<bool>(mapCount, false);
     
-    phmap::flat_hash_map<uint64_t, uint64_t> histogram1, histogram2;
+    phmap::flat_hash_map<uint64_t, uint64_t> finalHistogram;
     
     const uint8_t ctoi[256] = {
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -153,13 +153,6 @@ void Kmap<INPUT, VALUE, TYPE>::load(INPUT& userInput){
     
     jobWait(threadPool);
     
-    lg.verbose("Regenerate histogram");
-    
-    for(uint16_t m = 0; m<mapCount; ++m)
-        threadPool.queueJob([=]{ return histogram(map[m]); });
-    
-    jobWait(threadPool);
-    
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
@@ -167,13 +160,6 @@ void Kmap<INPUT, VALUE, TYPE>::kunion(INPUT& userInput){
         
     for(uint16_t m = 0; m<mapCount; ++m)
         threadPool.queueJob([=]{ return mergeMaps(userInput.iReadFileArg, m); });
-    
-    jobWait(threadPool);
-    
-    lg.verbose("Regenerate histogram");
-    
-    for(uint16_t m = 0; m<mapCount; ++m)
-        threadPool.queueJob([=]{ return histogram(map[m]); });
     
     jobWait(threadPool);
     
@@ -203,6 +189,10 @@ bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint
         
     }
     
+    histogram(map[m]);
+    
+    map[m].clear();
+    
     return true;
 
 }
@@ -226,6 +216,8 @@ bool Kmap<INPUT, VALUE, TYPE>::loadMap(std::string prefix, uint16_t m) { // load
     phmap::BinaryInputArchive ar_in(prefix.c_str());
     map[m].phmap_load(ar_in);
     
+    histogram(map[m]);
+    
     return true;
 
 }
@@ -237,6 +229,8 @@ bool Kmap<INPUT, VALUE, TYPE>::dumpMap(std::string prefix, uint16_t m) {
     
     phmap::BinaryOutputArchive ar_out(prefix.c_str());
     map[m].phmap_dump(ar_out);
+    
+    map[m].clear();
     
     return true;
     
@@ -512,7 +506,7 @@ bool Kmap<INPUT, VALUE, TYPE>::histogram(phmap::flat_hash_map<uint64_t, VALUE>& 
     
     for (auto pair : hist) {
         
-        histogram1[pair.first] += pair.second;
+        finalHistogram[pair.first] += pair.second;
         
         totKmers += pair.first * pair.second;
         
@@ -525,7 +519,7 @@ bool Kmap<INPUT, VALUE, TYPE>::histogram(phmap::flat_hash_map<uint64_t, VALUE>& 
 template<class INPUT, typename VALUE, typename TYPE>
 void Kmap<INPUT, VALUE, TYPE>::printHist(std::unique_ptr<std::ostream>& ostream) {
     
-    std::vector<std::pair<uint64_t, uint64_t>> table(histogram1.begin(), histogram1.end());
+    std::vector<std::pair<uint64_t, uint64_t>> table(finalHistogram.begin(), finalHistogram.end());
     std::sort(table.begin(), table.end());
     
     for (auto pair : table)
