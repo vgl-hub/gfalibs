@@ -1,6 +1,10 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-unsigned long int get_mem_usage();
+extern const char* memUnit[4];
+
+double get_mem_usage(uint8_t unit);
+
+double get_mem_total(uint8_t unit);
 
 #endif //MEMORY

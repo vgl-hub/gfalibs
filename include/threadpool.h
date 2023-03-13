@@ -155,6 +155,9 @@ short unsigned int ThreadPool<T>::totalThreads() {
 
 template<class T>
 void jobWait(ThreadPool<T>& threadPool) {
+    
+    double mem_usage, mem_total;
+    
     while (true) {
         
         if (threadPool.empty() && threadPool.jobsDone()) {
@@ -163,7 +166,10 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
             
         }
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory usage: " + std::to_string((double) get_mem_usage() / (1024*1024*1024)) + " GB", true);
+        
+        mem_usage = get_mem_usage(3);
+        mem_total = get_mem_total(3);
+        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(mem_usage) + "/" + std::to_string(mem_total) + " " + memUnit[3], true);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
     }
