@@ -613,7 +613,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
         
         delete[] str;
         
-        threadLog.add("Processed sequence: " + sequence->header);
+//        threadLog.add("Processed sequence: " + sequence->header);
         
     }
     

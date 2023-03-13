@@ -67,7 +67,7 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                     readBatch->sequences.push_back(new Sequence {seqHeader, seqComment, inSequence});
                     seqPos++;
 
-                    lg.verbose("Individual fastq sequence read: " + seqHeader);
+//                    lg.verbose("Individual fastq sequence read: " + seqHeader);
                     
                     if (seqPos % batchSize == 0) {
 
