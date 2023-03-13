@@ -24,6 +24,7 @@ double get_mem_total(uint8_t unit){
 #include <sys/resource.h>
 #include <unistd.h>
 #include <cmath>
+#include <stdint.h>
 
 double get_mem_usage(uint8_t unit){
     
