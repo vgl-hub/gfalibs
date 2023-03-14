@@ -170,6 +170,10 @@ void jobWait(ThreadPool<T>& threadPool) {
     
     while (true) {
         
+        mem_usage = get_mem_usage(3);
+        mem_total = get_mem_total(3);
+        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(mem_usage) + "/" + std::to_string(mem_total) + " " + memUnit[3], true);
+        
         if (threadPool.empty() && threadPool.jobsDone()) {
             
             lg.newlines(2);
@@ -178,10 +182,6 @@ void jobWait(ThreadPool<T>& threadPool) {
         }
         
         threadPool.execJob(); // have the master thread contribute
-        
-        mem_usage = get_mem_usage(3);
-        mem_total = get_mem_total(3);
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(mem_usage) + "/" + std::to_string(mem_total) + " " + memUnit[3], true);
         
     }
     
