@@ -418,7 +418,7 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
                 ++counter;
                 
                 if (counter == mapCount) {
-                    lg.verbose("Consolidating buffers");
+                    lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
                     buffers.erase(buffers.begin() + i);
                 }
                 
