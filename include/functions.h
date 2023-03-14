@@ -9,6 +9,7 @@
 #define FUNCTIONS_H
 
 #include <parallel_hashmap/phmap.h>
+#include <iostream>
 
 std::istream& ignore(std::istream& is, char dlm);
 
