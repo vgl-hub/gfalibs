@@ -29,6 +29,7 @@ public:
     unsigned int queueSize();
     void join();
     short unsigned int totalThreads();
+    void execJob();
     
 };
 
@@ -36,7 +37,6 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
-    bool exec = false;
     
     while (true) {
         
@@ -56,16 +56,11 @@ void ThreadPool<T>::threadLoop(int threadN) {
             
             threadStates[threadN] = false;
             
-            if(!jobs.empty()) {
-                job = jobs.front();
-                jobs.pop();
-                exec = true;
-            }else{
-                exec = false;
-            }
+            job = jobs.front();
+            jobs.pop();
+            
         }
-        if(exec)
-            job();
+        job();
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
@@ -154,6 +149,21 @@ short unsigned int ThreadPool<T>::totalThreads() {
 }
 
 template<class T>
+void ThreadPool<T>::execJob() {
+    
+    T job;
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        if (!jobs.empty()) {
+            job = jobs.front();
+            jobs.pop();
+        }else{return;}
+    }
+    job();
+
+}
+
+template<class T>
 void jobWait(ThreadPool<T>& threadPool) {
     
     double mem_usage, mem_total;
@@ -167,10 +177,11 @@ void jobWait(ThreadPool<T>& threadPool) {
             
         }
         
+        threadPool.execJob(); // have the master thread contribute
+        
         mem_usage = get_mem_usage(3);
         mem_total = get_mem_total(3);
         lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(mem_usage) + "/" + std::to_string(mem_total) + " " + memUnit[3], true);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         
     }
     
