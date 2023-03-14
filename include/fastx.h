@@ -129,4 +129,70 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
 
 }
 
+template<typename OBJECT>
+bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fileNum) { // load from FASTA/FASTQ to templated object, faster when we only need to retain kmers not the original reads
+    
+    // stream read variables
+    unsigned int batchSize = 100000000; // number of bases processed by a thread
+                
+    //stream objects
+    StreamObj streamObj;
+    std::shared_ptr<std::istream> stream;
+    stream = streamObj.openStream(userInput, type, fileNum);
+    
+    if (stream) {
+        
+        switch (stream->peek()) {
+                
+            case '>': {
+                
+                
+                break;
+                
+            }
+                
+            case '@': {
+                
+                while (*stream) { // file input
+                    
+                    std::string* readBatch = new std::string;
+                    
+                    getKmers(*stream, *readBatch, batchSize);
+
+                    threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
+                    
+                    std::unique_lock<std::mutex> lck(mtx);
+                    for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
+                     
+                        it->print();
+                        object->logs.erase(it--);
+                        
+                    }
+                    
+                    object->consolidate();
+
+                }
+
+                break;
+
+            }
+                
+        }
+        
+        //consolidate log
+        jobWait(threadPool);
+        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
+            
+            it->print();
+            object->logs.erase(it--);
+            
+        }
+        
+    }
+
+    
+    return true;
+
+}
+
 #endif /* FASTX_H */

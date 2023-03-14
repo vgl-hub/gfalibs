@@ -96,6 +96,8 @@ public:
     
     bool traverseInReads(Sequences* readBatch);
     
+    bool traverseInReads(std::string* readBatch);
+    
     void appendSequence(Sequence* sequence);
     
     void appendReads(Sequences* readBatch);
@@ -103,6 +105,8 @@ public:
     inline uint64_t hash(uint8_t* string, bool* isFw = NULL);
     
     void hashSequences(Sequences* readBatch);
+    
+    void hashSequences(std::string* readBatch);
     
     void hashSegments();
     
@@ -336,6 +340,17 @@ void Kmap<INPUT, VALUE, TYPE>::report(INPUT& userInput) {
 
 template<class INPUT, typename VALUE, typename TYPE>
 bool Kmap<INPUT, VALUE, TYPE>::traverseInReads(Sequences* readBatch) { // traverse the read
+
+    hashSequences(readBatch);
+    
+    delete readBatch;
+    
+    return true;
+    
+}
+
+template<class INPUT, typename VALUE, typename TYPE>
+bool Kmap<INPUT, VALUE, TYPE>::traverseInReads(std::string* readBatch) { // traverse the read
 
     hashSequences(readBatch);
     
@@ -616,6 +631,90 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) {
 //        threadLog.add("Processed sequence: " + sequence->header);
         
     }
+    
+    std::unique_lock<std::mutex> lck(mtx);
+    
+    buffers.push_back(buf);
+    
+    logs.push_back(threadLog);
+    
+}
+
+template<class INPUT, typename VALUE, typename TYPE>
+void Kmap<INPUT, VALUE, TYPE>::hashSequences(std::string* readBatch) {
+    
+    Log threadLog;
+    
+    Buf<TYPE>* buf = new Buf<TYPE>[mapCount];
+        
+    uint64_t len = readBatch->size();
+    
+    if (len<k)
+        return;
+    
+    unsigned char* first = (unsigned char*)readBatch->c_str();
+    
+    uint8_t* str = new uint8_t[len];
+    uint64_t e = 0;
+    
+    for (uint64_t p = 0; p<len; ++p) {
+        
+        str[p] = ctoi[*(first+p)];
+        
+        if (str[p] > 3 || p+1==len){
+            
+            if (p+1==len && str[p] < 4) { // end of sequence, adjust indexes
+                ++e;
+                ++p;
+            }
+            
+            if (e < k) { // beginning/end of a sequence or kmer too short, nothing to be done
+                e = 0;
+                continue;
+            }
+            
+            uint64_t kcount = e-k+1;
+            
+            uint64_t key, i, newSize;
+            Buf<TYPE>* b;
+            TYPE* bufNew;
+            
+            for (uint64_t c = 0; c<kcount; ++c){
+                
+                key = hash(str+c+p-e);
+                i = key / moduloMap;
+                b = &buf[i];
+                
+                if (b->pos == b->size) {
+                    
+                    newSize = b->size * 2;
+                    bufNew = new TYPE[newSize];
+                    
+                    memcpy(bufNew, b->seq, b->size*sizeof(uint64_t));
+                    
+                    b->size = newSize;
+                    delete[] b->seq;
+                    b->seq = bufNew;
+                    
+                }
+                
+                b->seq[b->pos++] = key;
+                
+            }
+            
+            e = 0;
+            
+        }else{
+            
+            ++e;
+            
+        }
+        
+    }
+    
+    delete[] str;
+        
+//        threadLog.add("Processed sequence: " + sequence->header);
     
     std::unique_lock<std::mutex> lck(mtx);
     

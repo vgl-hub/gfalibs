@@ -168,15 +168,11 @@ void jobWait(ThreadPool<T>& threadPool) {
     
     double mem_usage, mem_total;
     
-    mem_usage = get_mem_usage(3);
-    mem_total = get_mem_total(3);
-    lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(mem_usage) + "/" + std::to_string(mem_total) + " " + memUnit[3], false);
-    
     while (true) {
         
         mem_usage = get_mem_usage(3);
         mem_total = get_mem_total(3);
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(mem_usage) + "/" + std::to_string(mem_total) + " " + memUnit[3], true);
+        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(mem_usage) + "/" + std::to_string(mem_total) + " " + memUnit[3], false);
         
         if (threadPool.empty() && threadPool.jobsDone()) {
             
