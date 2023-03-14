@@ -397,10 +397,10 @@ inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer, bool *isFw) {
 
 template<class INPUT, typename VALUE, typename TYPE>
 void Kmap<INPUT, VALUE, TYPE>::consolidate() {
-
-    lg.verbose("Counting with " + std::to_string(mapCount) + " maps");
     
     for (unsigned int i = 0; i<buffers.size(); ++i) {
+        
+        lg.verbose("Consolidating");
         
         unsigned int counter = 0;
         
