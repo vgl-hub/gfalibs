@@ -52,14 +52,14 @@ std::istream& ignore(std::istream& is, char dlm) {
     
 }
 
-std::istream& getKmers(std::istream& is, std::string& str, unsigned int batchSize) { // a generic function extracting concatenated reads from FASTQ
+std::istream& getKmers(std::istream& is, std::string& str, int batchSize) { // a generic function extracting concatenated reads from FASTQ
     
     str.clear();
     std::ios_base::iostate err = std::ios_base::goodbit;
     std::streamsize extr = 0;
     int i = 0;
     
-    while (batchSize != 0) {
+    while (batchSize > 0) {
         
         ignore(is, '\n');
         

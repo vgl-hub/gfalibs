@@ -133,7 +133,7 @@ template<typename OBJECT>
 bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fileNum) { // load from FASTA/FASTQ to templated object, faster when we only need to retain kmers not the original reads
     
     // stream read variables
-    unsigned int batchSize = 100000000; // number of bases processed by a thread
+    int batchSize = 10000000; // number of bases processed by a thread
                 
     //stream objects
     StreamObj streamObj;
@@ -153,9 +153,11 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
                 
             case '@': {
                 
+                std::string* readBatch = new std::string;
+                
                 while (*stream) { // file input
                     
-                    std::string* readBatch = new std::string;
+                    readBatch = new std::string;
                     
                     getKmers(*stream, *readBatch, batchSize);
 
