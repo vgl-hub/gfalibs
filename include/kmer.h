@@ -418,7 +418,7 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
                 ++counter;
                 
                 if (counter == mapCount) {
-                    lg.verbose("Consolidating buffer " + std::to_string(i));
+                    lg.verbose("Consolidating buffers");
                     buffers.erase(buffers.begin() + i);
                 }
                 
