@@ -400,8 +400,6 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
     
     for (unsigned int i = 0; i<buffers.size(); ++i) {
         
-        lg.verbose("Consolidating");
-        
         unsigned int counter = 0;
         
         for(uint16_t m = 0; m<mapCount; ++m) {
@@ -419,8 +417,10 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() {
                 
                 ++counter;
                 
-                if (counter == mapCount)
+                if (counter == mapCount) {
+                    lg.verbose("Consolidating");
                     buffers.erase(buffers.begin() + i);
+                }
                 
             }
 
