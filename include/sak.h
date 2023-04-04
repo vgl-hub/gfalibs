@@ -146,7 +146,12 @@ public:
     }
 
     bool erase(InSequences& inSequences, Instruction &instruction) { // erases a portion of sequence
-        inSequences.inSegments[inSequences.headersToIds[instruction.contig1]]->trimSegment(instruction.start1, instruction.end1); // trim segment
+        unsigned int uId = inSequences.headersToIds[instruction.contig1], sIdx = 0;
+        auto sId = find_if(inSequences.inSegments.begin(), inSequences.inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node uId, find it
+
+        if (sId != inSequences.inSegments.end()) {sIdx = std::distance(inSequences.inSegments.begin(), sId);} // gives us the segment index
+        
+        inSequences.inSegments[sIdx]->trimSegment(instruction.start1, instruction.end1); // trim segment
         return true;
     }
 
