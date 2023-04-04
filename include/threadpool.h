@@ -1,8 +1,9 @@
-#ifndef THREADPOOL
-#define THREADPOOL
+#ifndef THREADPOOL_H
+#define THREADPOOL_H
 
 #include <iostream>
 #include <condition_variable>
+#include "memory.h"
 
 extern Log lg;
 
@@ -28,6 +29,7 @@ public:
     unsigned int queueSize();
     void join();
     short unsigned int totalThreads();
+    void execJob();
     
 };
 
@@ -35,7 +37,6 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
-    bool exec = false;
     
     while (true) {
         
@@ -55,16 +56,11 @@ void ThreadPool<T>::threadLoop(int threadN) {
             
             threadStates[threadN] = false;
             
-            if(!jobs.empty()) {
-                job = jobs.front();
-                jobs.pop();
-                exec = true;
-            }else{
-                exec = false;
-            }
+            job = jobs.front();
+            jobs.pop();
+            
         }
-        if(exec)
-            job();
+        job();
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
@@ -153,8 +149,26 @@ short unsigned int ThreadPool<T>::totalThreads() {
 }
 
 template<class T>
+void ThreadPool<T>::execJob() {
+    
+    T job;
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        if (!jobs.empty()) {
+            job = jobs.front();
+            jobs.pop();
+        }else{return;}
+    }
+    job();
+
+}
+
+template<class T>
 void jobWait(ThreadPool<T>& threadPool) {
+    
     while (true) {
+
+        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
         
         if (threadPool.empty() && threadPool.jobsDone()) {
             
@@ -162,8 +176,8 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
             
         }
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()), true);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        
+        threadPool.execJob(); // have the master thread contribute
         
     }
     

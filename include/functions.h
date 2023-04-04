@@ -11,11 +11,13 @@
 #include <parallel_hashmap/phmap.h>
 #include <iostream>
 
+std::istream& ignore(std::istream& is, char dlm);
+
+std::istream& getKmers(std::istream& is, std::string& str, int batchSize);
+
 std::istream& getline(std::istream& is, std::string& str);
 
 std::istream& getline(std::istream& is, std::string& str, char dlm);
-
-std::istream& ignore(std::istream& is, char dlm);
 
 double elapsedTime(); // compute runtime in verbose mode
 

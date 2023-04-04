@@ -36,15 +36,12 @@ std::string UserInput::file(char type, unsigned int* num) {
     
 }
 
-Sequences::~Sequences()
-{
-    for (Sequence* p : sequences)
-        delete p;
-    
+Sequences::~Sequences() {
+    for (Sequence* sequence : sequences)
+        delete sequence;
 }
 
-Sequence::~Sequence()
-{
+Sequence::~Sequence() {
     delete sequence;
     delete sequenceQuality;
 }
