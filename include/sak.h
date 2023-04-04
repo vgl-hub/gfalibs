@@ -111,7 +111,6 @@ public:
         inSequences.addGap(gap); // introduce the new gap
         inSequences.removeGaps(&instruction.contig1);
         inSequences.removeSegmentInPath(inSequences.headersToIds[instruction.contig1], gap); // removes the segment from the path
-            
         return true;
     }
 
@@ -122,7 +121,6 @@ public:
     bool remove(InSequences& inSequences, Instruction &instruction) { // removes a segment
         inSequences.removePathsFromSegment(inSequences.headersToIds[instruction.contig1]); // remove the paths involving contig1
         inSequences.deleteSegment(&instruction.contig1); // flag segment as deleted
-
         return true;
     }
     
@@ -132,7 +130,6 @@ public:
 
     bool exclude(InSequences& inSequences, Instruction &instruction) { // removes a segment
         inSequences.removePath(inSequences.headersToIds[instruction.path1], true); // remove the path and its components
-
         return true;
     }
 
@@ -146,6 +143,9 @@ public:
     }
 
     bool erase(InSequences& inSequences, Instruction &instruction) { // erases a portion of sequence
+        
+        lg.verbose("Erasing from " + instruction.contig1 + " coordinates " + std::to_string(instruction.start1) + ":" + std::to_string(instruction.end1));
+        
         unsigned int uId = inSequences.headersToIds[instruction.contig1], sIdx = 0;
         auto sId = find_if(inSequences.inSegments.begin(), inSequences.inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node uId, find it
 
@@ -166,7 +166,6 @@ public:
         if (sId != inSequences.inSegments.end()) {sIdx = std::distance(inSequences.inSegments.begin(), sId);} // gives us the segment index
         
         inSequences.inSegments[sIdx]->rvcpSegment(); // rvcp segment
-        
         return true;
     }
 
@@ -180,7 +179,6 @@ public:
 
         if (sId != inSequences.inSegments.end()) {sIdx = std::distance(inSequences.inSegments.begin(), sId);} // gives us the segment index
         inSequences.inSegments[sIdx]->invertSegment(); // invert segment
-        
         return true;
     }
 
@@ -204,7 +202,6 @@ public:
         std::vector<std::pair<unsigned long long int, unsigned long long int>> bedCoords;
         homopolymerCompress(sequence, bedCoords, instruction.compressThreshhold);
         compressStack.push(bedCoords);
-
         return true;
     }
 
