@@ -35,11 +35,11 @@ double get_mem_usage(uint8_t unit){
     
 #ifdef __linux__
     
-    return (thisUsage.ru_maxrss - freed) / pow(1024, unit - 1);
+    return thisUsage.ru_maxrss / pow(1024, unit - 1) - freed / pow(1024, unit);
 
 #else
     
-    return (thisUsage.ru_maxrss - freed) / pow(1024, unit);
+    return thisUsage.ru_maxrss / pow(1024, unit) - freed / pow(1024, unit);
 
 #endif
     
