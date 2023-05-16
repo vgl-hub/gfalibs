@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
+uint64_t freed = 0;
 
 #ifdef _WIN32
 
@@ -34,11 +35,11 @@ double get_mem_usage(uint8_t unit){
     
 #ifdef __linux__
     
-    return thisUsage.ru_maxrss / pow(1024, unit - 1);
+    return thisUsage.ru_maxrss / pow(1024, unit - 1) - freed;
 
 #else
     
-    return thisUsage.ru_maxrss / pow(1024, unit);
+    return thisUsage.ru_maxrss / pow(1024, unit) - freed;
 
 #endif
     
