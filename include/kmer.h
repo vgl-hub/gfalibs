@@ -15,7 +15,7 @@ inline void freeContainer(T& p_container) // this is a C++ trick to empty a cont
 
 template<typename VALUE> // this is a generic buffer, VALUE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
 struct Buf {
-    uint64_t pos = 0, size = 10000; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
+    uint64_t pos = 0, size = 10; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
     VALUE *seq = new VALUE[size]; // the actual container
 };
 
@@ -32,7 +32,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
     uint64_t totKmers = 0, totKmersUnique = 0, totKmersDistinct = 0; // summary statistics
     
-    const uint64_t mapCount = k < 28 ? pow(4,k/4) : pow(4,6); // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const uint64_t mapCount = k < 28 ? pow(4,k/5) : pow(4,5); // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     

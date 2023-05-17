@@ -8,9 +8,7 @@ uint64_t alloc = 0, freed = 0;
 #include <windows.h>
 
 double get_mem_usage(uint8_t unit){
-    
     return 0;
-    
 }
 
 double get_mem_total(uint8_t unit){
@@ -44,7 +42,7 @@ double get_mem_usage(uint8_t unit){
 #endif
     
 }
-
+#include <iostream>
 double get_mem_inuse(uint8_t unit){
     
     return (alloc - freed) / pow(1024, unit);
