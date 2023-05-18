@@ -216,6 +216,7 @@ template<class T>
 void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     
     bool end = false;
+    phmap::flat_hash_map<uint32_t, uint8_t>::const_iterator got;
     
     while (true) {
 
@@ -223,7 +224,14 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
         
         for (uint32_t dependency : dependencies) {
             
-            if (threadPool.queueJids[dependency] == 1) {
+            got = threadPool.queueJids.find(dependency);
+            
+            if (got == threadPool.queueJids.end()) {
+                std::cout<<"Warning: job dependency not found (id: "<<dependency<<")."<<std::endl;
+                exit(0);
+            }
+            
+            if (got->second == 1) {
                 end = false;
                 break;
             }else{
