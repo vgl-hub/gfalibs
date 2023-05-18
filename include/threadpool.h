@@ -205,7 +205,7 @@ void jobWait(ThreadPool<T>& threadPool) {
 }
 
 template<class T>
-void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t> dependencies) {
+void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     
     bool end = false;
     
@@ -224,8 +224,10 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t> dependencies) {
             
         }
         
-        if (end == true)
+        if (end == true) {
+            dependencies.clear();
             break;
+        }
         
         threadPool.execJob(); // have the master thread contribute
         
