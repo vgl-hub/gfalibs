@@ -161,7 +161,7 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
                     
                     getKmers(*stream, *readBatch, batchSize);
 
-                    threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
+                    object->traverseInReads(readBatch);
                     
                     {
                         std::unique_lock<std::mutex> lck(mtx);
