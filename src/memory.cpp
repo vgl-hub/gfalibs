@@ -1,7 +1,14 @@
 #include <stdint.h>
+#include <cmath>
 
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
 uint64_t alloc = 0, freed = 0;
+
+double get_mem_inuse(uint8_t unit){
+    
+    return (alloc - freed) / pow(1024, unit);
+    
+}
 
 #ifdef _WIN32
 
@@ -24,7 +31,6 @@ double get_mem_total(uint8_t unit){
 
 #include <sys/resource.h>
 #include <unistd.h>
-#include <cmath>
 
 double get_mem_usage(uint8_t unit){
     
@@ -40,12 +46,6 @@ double get_mem_usage(uint8_t unit){
     return thisUsage.ru_maxrss / pow(1024, unit);
 
 #endif
-    
-}
-#include <iostream>
-double get_mem_inuse(uint8_t unit){
-    
-    return (alloc - freed) / pow(1024, unit);
     
 }
 
