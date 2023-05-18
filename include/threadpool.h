@@ -42,6 +42,7 @@ public:
     void join();
     short unsigned int totalThreads();
     void execJob();
+    void status();
     
 };
 
@@ -189,11 +190,18 @@ void ThreadPool<T>::execJob() {
 }
 
 template<class T>
+void ThreadPool<T>::status() {
+    
+    lg.verbose("Jobs waiting/running: " + std::to_string(queueSize()) + "/" + std::to_string(running()) + " memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+    
+}
+
+template<class T>
 void jobWait(ThreadPool<T>& threadPool) {
     
     while (true) {
 
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+        threadPool.status();
         
         if (threadPool.empty() && threadPool.jobsDone())
             break;
@@ -211,7 +219,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     
     while (true) {
 
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+        threadPool.status();
         
         for (uint32_t dependency : dependencies) {
             
