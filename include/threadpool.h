@@ -50,6 +50,7 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
+    uint32_t jid;
     
     while (true) {
         
@@ -71,11 +72,11 @@ void ThreadPool<T>::threadLoop(int threadN) {
             
             JobWrapper<T> jobWrapper = jobs.front();
             job = jobWrapper.job;
+            jid = jobWrapper.jid;
             jobs.pop();
-            --queueJids[jobWrapper.jid];
-            
         }
         job();
+        --queueJids[jid];
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
@@ -176,16 +177,18 @@ template<class T>
 void ThreadPool<T>::execJob() {
     
     T job;
+    uint32_t jid;
     {
         std::unique_lock<std::mutex> lock(queueMutex);
         if (!jobs.empty()) {
             JobWrapper<T> jobWrapper = jobs.front();
             job = jobWrapper.job;
+            jid = jobWrapper.jid;
             jobs.pop();
-            --queueJids[jobWrapper.jid];
         }else{return;}
     }
     job();
+    --queueJids[jid];
 
 }
 
