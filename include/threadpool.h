@@ -5,7 +5,16 @@
 #include <condition_variable>
 #include "memory.h"
 
+#include "parallel_hashmap/phmap.h"
+
 extern Log lg;
+
+template<class T>
+struct JobWrapper {
+    uint32_t jid;
+    T job;
+    
+};
 
 template<class T>
 class ThreadPool {
@@ -13,16 +22,19 @@ private:
     int maxThreads;
     std::vector<std::thread> threads;
     std::vector<bool> threadStates;
-    std::queue<T> jobs;
+    std::queue<JobWrapper<T>> jobs;
     std::mutex queueMutex;
     std::condition_variable mutexCondition;
     bool done = false;
+    uint32_t uid = 0;
 
     void threadLoop(int threadN);
 
 public:
+    phmap::flat_hash_map<uint32_t, uint8_t> queueJids;
+    
     void init(int maxThreads);
-    void queueJob(const T& job);
+    uint32_t queueJob(const T& job);
     bool empty();
     bool jobsDone();
     short unsigned int running();
@@ -30,6 +42,7 @@ public:
     void join();
     short unsigned int totalThreads();
     void execJob();
+    void status();
     
 };
 
@@ -37,6 +50,7 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
+    uint32_t jid;
     
     while (true) {
         
@@ -56,11 +70,16 @@ void ThreadPool<T>::threadLoop(int threadN) {
             
             threadStates[threadN] = false;
             
-            job = jobs.front();
+            JobWrapper<T> jobWrapper = jobs.front();
+            job = jobWrapper.job;
+            jid = jobWrapper.jid;
             jobs.pop();
-            
         }
         job();
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            --queueJids[jid];
+        }
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
@@ -87,12 +106,21 @@ void ThreadPool<T>::init(int maxThreads) {
 }
 
 template<class T>
-void ThreadPool<T>::queueJob(const T& job) {
+uint32_t ThreadPool<T>::queueJob(const T& job) {
+    
+    uint32_t jid;
+    
     {
         std::unique_lock<std::mutex> lock(queueMutex);
-        jobs.push(job);
+        
+        jid = ++uid;
+        JobWrapper<T> jobWrapper{jid, job};
+        jobs.push(jobWrapper);
+        ++queueJids[jid];
     }
     mutexCondition.notify_one();
+    
+    return jid;
 }
 
 template<class T>
@@ -152,15 +180,29 @@ template<class T>
 void ThreadPool<T>::execJob() {
     
     T job;
+    uint32_t jid;
     {
         std::unique_lock<std::mutex> lock(queueMutex);
         if (!jobs.empty()) {
-            job = jobs.front();
+            JobWrapper<T> jobWrapper = jobs.front();
+            job = jobWrapper.job;
+            jid = jobWrapper.jid;
             jobs.pop();
         }else{return;}
     }
     job();
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        --queueJids[jid];
+    }
 
+}
+
+template<class T>
+void ThreadPool<T>::status() {
+    
+    lg.verbose("Jobs waiting/running: " + std::to_string(queueSize()) + "/" + std::to_string(running()) + " memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+    
 }
 
 template<class T>
@@ -168,13 +210,49 @@ void jobWait(ThreadPool<T>& threadPool) {
     
     while (true) {
 
-        lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+        threadPool.status();
         
-        if (threadPool.empty() && threadPool.jobsDone()) {
-            
-            lg.newlines(2);
+        if (threadPool.empty() && threadPool.jobsDone())
             break;
+        
+        threadPool.execJob(); // have the master thread contribute
+        
+    }
+    
+}
+
+template<class T>
+void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
+    
+    bool end = false;
+    phmap::flat_hash_map<uint32_t, uint8_t>::const_iterator got;
+    
+    while (true) {
+
+        threadPool.status();
+        
+        for (uint32_t dependency : dependencies) {
             
+            std::cout<<"hereeee"<<std::endl;
+            got = threadPool.queueJids.find(dependency);
+            
+            if (got == threadPool.queueJids.end()) {
+                std::cout<<"Warning: job dependency not found (id: "<<dependency<<")."<<std::endl;
+                exit(0);
+            }
+            
+            if (got->second == 1) {
+                end = false;
+                break;
+            }else{
+                end = true;
+            }
+            
+        }
+        
+        if (end == true) {
+            dependencies.clear();
+            break;
         }
         
         threadPool.execJob(); // have the master thread contribute
