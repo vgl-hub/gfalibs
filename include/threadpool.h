@@ -76,7 +76,10 @@ void ThreadPool<T>::threadLoop(int threadN) {
             jobs.pop();
         }
         job();
-        --queueJids[jid];
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            --queueJids[jid];
+        }
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
@@ -188,7 +191,10 @@ void ThreadPool<T>::execJob() {
         }else{return;}
     }
     job();
-    --queueJids[jid];
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        --queueJids[jid];
+    }
 
 }
 
@@ -227,6 +233,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
         
         for (uint32_t dependency : dependencies) {
             
+            std::cout<<"hereeee"<<std::endl;
             got = threadPool.queueJids.find(dependency);
             
             if (got == threadPool.queueJids.end()) {
