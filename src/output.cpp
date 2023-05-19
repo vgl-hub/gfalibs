@@ -29,7 +29,7 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
     std::vector<InSegment*>* inSegments = inSequences.getInSegments();
     std::vector<unsigned int> circularSegments = inSequences.getCircular();
     
-    std::cout<<output("Seq\tHeader\tComment\tTotal segment length\tA\tC\tG\tT\tGC content %\t# soft-masked bases");
+    std::cout<<output("Seq\tHeader\tComment\tTotal segment length\tA\tC\tG\tT\tGC content %\t# soft-masked bases\tIs circular");
     
     if (outSequence_flag) {
 
@@ -53,7 +53,7 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
 
         if (outSequence_flag) {
 
-            std::cout<<inSegment->getInSequence()<<"\t"<<inSegment->getInSequenceQuality()<<"\n";
+            std::cout<<"\t"<<inSegment->getInSequence()<<"\t"<<inSegment->getInSequenceQuality()<<"\n";
 
         }
         
