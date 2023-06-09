@@ -69,7 +69,7 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
     
 }
 
-bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLength) { // method to output new sequence opposed to sequence report
+bool Report::outFile(InSequences &inSequences, std::string file, UserInput &userInput, int splitLength) { // method to output new sequence opposed to sequence report
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 
@@ -94,8 +94,8 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
     bool outFile = false;
     
     // variable to handle output path and extension
-    std::string path = rmFileExt(userInput.outSequence);
-    std::string ext = getFileExt("." + userInput.outSequence);
+    std::string path = rmFileExt(file);
+    std::string ext = getFileExt("." + file);
     
     // depending on use input get output format
     if(getFileExt(ext) == ".gz") {
@@ -108,12 +108,11 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
     if (string_to_case.find(path) == string_to_case.end()) {
         
         outFile = true;
-        
         stats_flag = true; // since we write to file, let's output the stats
         
     }else{
         
-        ext = userInput.outSequence;
+        ext = file;
         
     }
     
@@ -123,7 +122,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
     std::unique_ptr<std::ostream> stream;
     
     // this stream outputs to file
-    std::ofstream ofs(userInput.outSequence);
+    std::ofstream ofs(file);
 
     // this stream outputs gzip compressed to file
     zstream::ogzstream zfout(ofs);
@@ -145,7 +144,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
         
         // we close and delete the file
         ofs.close();
-        remove(userInput.outSequence.c_str());
+        remove(file.c_str());
         
         if (gzip) { // if the output to stdout needs to be compressed we use the appropriate stream
             
@@ -658,7 +657,7 @@ bool Report::outFile(InSequences &inSequences, UserInput &userInput, int splitLe
             
         case 0: { // undefined case
             
-            std::cout<<"Unrecognized output format: "<<userInput.outSequence;
+            std::cout<<"Unrecognized output format: "<<file;
             
             break;
             

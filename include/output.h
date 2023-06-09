@@ -17,7 +17,7 @@ private:
 public:
     bool seqReport(InSequences &inSequences, int &outSequence_flag);
     
-    bool outFile(InSequences &inSequences, UserInput &userInput, int splitLength = 0);
+    bool outFile(InSequences &inSequences, std::string file, UserInput &userInput, int splitLength = 0);
     
     bool outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly = false);
     

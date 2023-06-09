@@ -10,25 +10,25 @@ std::string UserInput::file(char type, unsigned int* num) {
     
     switch (type) {
         case 'f':
-            filename = iSeqFileArg;
+            filename = inSequence;
             break;
         case 'r':
-            filename = iReadFileArg[*num];
+            filename = inReads[*num];
             break;
         case 'i':
-            filename = iBedIncludeFileArg;
+            filename = inBedInclude;
             break;
         case 'e':
-            filename = iBedExcludeFileArg;
+            filename = inBedExclude;
             break;
         case 'a':
-            filename = iAgpFileArg;
+            filename = inAgp;
             break;
         case 'k':
-            filename = iSakFileArg;
+            filename = inSak;
             break;
         case 'g':
-            filename = iAlignFileArg;
+            filename = inAlign;
             break;
     }
     

@@ -2,15 +2,15 @@
 #define STRUCT
 
 struct UserInput { // a container for user input
-  
+
     //files
-    std::string iSeqFileArg; // input file to evaluate
-    std::string iSakFileArg; // input of instructions for the swiss army knife
-    std::string iAgpFileArg; // input agp
-    std::string iBedIncludeFileArg; // input bed file of coordinates to include
-    std::string iBedExcludeFileArg; // input bed file of coordinates to exclude
-    std::vector<std::string> iReadFileArg; // input reads to evaluate
-    std::string iAlignFileArg;
+    std::string inSequence; // input file to evaluate
+    std::string inSak; // input of instructions for the swiss army knife
+    std::string inAgp; // input agp
+    std::string inBedInclude; // input bed file of coordinates to include
+    std::string inBedExclude; // input bed file of coordinates to exclude
+    std::vector<std::string> inReads; // input reads to evaluate
+    std::string inAlign;
     
     //coordinates
     BedCoordinates bedIncludeList;
@@ -19,10 +19,9 @@ struct UserInput { // a container for user input
     char pipeType = 'n'; // default pipe type null
     std::string sortType = "none"; // type of sorting (default: none)
     
-    std::string file(char type, unsigned int* fileNum = NULL);
+    int noSequence = 0; // output gfa without sequence
     
-    std::string outSequence;
-    int noSequence = 0;
+    std::string file(char type, unsigned int* fileNum = NULL);
     
 };
 
