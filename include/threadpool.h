@@ -212,8 +212,10 @@ void jobWait(ThreadPool<T>& threadPool) {
 
         threadPool.status();
         
-        if (threadPool.empty() && threadPool.jobsDone())
+        if (threadPool.empty() && threadPool.jobsDone()) {
+            lg.verbose("\n", true);
             break;
+        }
         
         threadPool.execJob(); // have the master thread contribute
         
@@ -233,11 +235,10 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
         
         for (uint32_t dependency : dependencies) {
             
-            std::cout<<"hereeee"<<std::endl;
             got = threadPool.queueJids.find(dependency);
             
             if (got == threadPool.queueJids.end()) {
-                std::cout<<"Warning: job dependency not found (id: "<<dependency<<")."<<std::endl;
+                std::cout<<"Error: job dependency not found (id: "<<dependency<<")."<<std::endl;
                 exit(0);
             }
             
@@ -251,6 +252,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
         }
         
         if (end == true) {
+            lg.verbose("\n", true);
             dependencies.clear();
             break;
         }
