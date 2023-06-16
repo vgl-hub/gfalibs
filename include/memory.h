@@ -2,7 +2,7 @@
 #define MEMORY_H
 
 extern const char* memUnit[4];
-extern uint64_t alloc, freed;
+extern int64_t alloc, freed;
 
 double get_mem_inuse(uint8_t unit);
 
