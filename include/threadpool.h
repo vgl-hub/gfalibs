@@ -218,7 +218,7 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
         }
         
-        threadPool.execJob(); // have the master thread contribute
+//        threadPool.execJob(); // have the master thread contribute
         
     }
     
