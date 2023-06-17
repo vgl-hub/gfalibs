@@ -31,7 +31,7 @@ private:
     void threadLoop(int threadN);
 
 public:
-    phmap::flat_hash_map<uint32_t, uint8_t> queueJids;
+    phmap::flat_hash_map<uint32_t, bool> queueJids;
     
     void init(int maxThreads);
     uint32_t queueJob(const T& job);
@@ -78,7 +78,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
         job();
         {
             std::unique_lock<std::mutex> lock(queueMutex);
-            --queueJids[jid];
+            queueJids[jid] = false;
         }
 #ifdef DEBUG
         std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
@@ -116,7 +116,7 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
         jid = ++uid;
         JobWrapper<T> jobWrapper{jid, job};
         jobs.push(jobWrapper);
-        ++queueJids[jid];
+        queueJids[jid] = true;
     }
     mutexCondition.notify_one();
     
@@ -183,7 +183,8 @@ void ThreadPool<T>::execJob() {
     uint32_t jid;
     {
         std::unique_lock<std::mutex> lock(queueMutex);
-        if (!jobs.empty()) {
+        if (!empty()) {
+            
             JobWrapper<T> jobWrapper = jobs.front();
             job = jobWrapper.job;
             jid = jobWrapper.jid;
@@ -193,7 +194,7 @@ void ThreadPool<T>::execJob() {
     job();
     {
         std::unique_lock<std::mutex> lock(queueMutex);
-        --queueJids[jid];
+        queueJids[jid] = false;
     }
 
 }
@@ -227,7 +228,7 @@ template<class T>
 void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     
     bool end = false;
-    phmap::flat_hash_map<uint32_t, uint8_t>::const_iterator got;
+    phmap::flat_hash_map<uint32_t, bool>::const_iterator got;
     
     while (true) {
 
@@ -242,7 +243,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
                 exit(0);
             }
             
-            if (got->second == 1) {
+            if (got->second) {
                 end = false;
                 break;
             }else{
@@ -257,7 +258,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
             break;
         }
         
-        threadPool.execJob(); // have the master thread contribute
+//        threadPool.execJob(); // have the master thread contribute
         
     }
     
