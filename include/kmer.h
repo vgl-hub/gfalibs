@@ -40,7 +40,7 @@ protected: // they are protected, so that they can be further specialized by inh
 
     std::vector<Buf<TYPE>*> buffers; // a vector for all buffers
     
-    phmap::flat_hash_map<uint64_t, VALUE>* map = new phmap::flat_hash_map<uint64_t, VALUE>[mapCount]; // all hash maps where VALUES are stored
+    std::vector<phmap::flat_hash_map<uint64_t, VALUE>*> maps; // all hash maps where VALUES are stored
     
     std::vector<bool> mapsInUse = std::vector<bool>(mapCount, false); // useful with multithreading to ensure non-concomitant write access to maps
     
@@ -76,11 +76,16 @@ public:
         for(uint8_t p = 0; p<k; ++p)
             pows[p] = (uint64_t) pow(4,p);
         
+        maps.reserve(maps.capacity() + mapCount);
+        std::generate_n(std::back_inserter(maps), mapCount,
+                    []() { return new phmap::flat_hash_map<uint64_t, VALUE>; });
+        
     };
     
     ~Kmap(){ // always need to call the destructor and delete for any object called with new to avoid memory leaks
         
-        delete[] map;
+        for (phmap::flat_hash_map<uint64_t, VALUE>* map : maps)
+            delete map;
         delete[] pows;
         
     }
@@ -172,9 +177,9 @@ bool Kmap<INPUT, VALUE, TYPE>::loadMap(std::string prefix, uint16_t m) { // load
     prefix.append("/.kmap." + std::to_string(m) + ".bin");
     
     phmap::BinaryInputArchive ar_in(prefix.c_str());
-    map[m].phmap_load(ar_in);
+    maps[m].phmap_load(ar_in);
     
-    histogram(map[m]);
+    histogram(maps[m]);
     
     return true;
 
@@ -197,7 +202,7 @@ bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint
     prefix.append("/.kmap." + std::to_string(m) + ".bin");
     
     phmap::BinaryInputArchive ar_in(prefix.c_str());
-    map[m].phmap_load(ar_in);
+    maps[m].phmap_load(ar_in);
     
     unsigned int numFiles = prefixes.size();
 
@@ -210,13 +215,13 @@ bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint
         phmap::BinaryInputArchive ar_in(prefix.c_str());
         nextMap.phmap_load(ar_in);
         
-        unionSum(map[m], nextMap); // unionSum operation between the existing map and the next map
+        unionSum(maps[m], nextMap); // unionSum operation between the existing map and the next map
         
     }
     
-    histogram(map[m]);
+    histogram(maps[m]);
     
-    freeContainer(map[m]);
+    freeContainer(maps[m]);
     
     return true;
 
@@ -238,9 +243,9 @@ bool Kmap<INPUT, VALUE, TYPE>::dumpMap(std::string prefix, uint16_t m) {
     prefix.append("/.kmap." + std::to_string(m) + ".bin");
     
     phmap::BinaryOutputArchive ar_out(prefix.c_str());
-    map[m].phmap_dump(ar_out);
+    maps[m].phmap_dump(ar_out);
     
-    freeContainer(map[m]);
+    freeContainer(maps[m]);
     
     return true;
     
@@ -445,7 +450,7 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuff(Buf<uint64_t>* thisBuf, uint16_t m) { /
     
     if (thisBuf->seq != NULL) { // sanity check that this buffer was not already processed
         
-        phmap::flat_hash_map<uint64_t, VALUE>* thisMap = &map[m]; // the map associated to this buffer
+        phmap::flat_hash_map<uint64_t, VALUE>* thisMap = &maps[m]; // the map associated to this buffer
         
         uint64_t len = thisBuf->pos; // how many positions in the buffer have data
         
@@ -480,7 +485,7 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuffs(uint16_t m) { // counts all residual b
         
         if (thisBuf->seq != NULL) {
             
-            thisMap = &map[m];
+            thisMap = &maps[m];
             uint64_t len = thisBuf->pos;
             
             for (uint64_t c = 0; c<len; ++c)
@@ -786,7 +791,7 @@ void Kmap<INPUT, VALUE, TYPE>::hist() {
     lg.verbose("Generate histogram");
     
     for(uint16_t m = 0; m<mapCount; ++m)
-        threadPool.queueJob([=]{ return histogram(map[m]); });
+        threadPool.queueJob([=]{ return histogram(maps[m]); });
     
     jobWait(threadPool);
     
