@@ -27,21 +27,21 @@ private:
     phmap::flat_hash_map<int, bool> visited, deleted;
     bool backward = false;
     
-    std::vector<unsigned long long int> scaffLens;
-    std::vector<unsigned long long int> contigLens;
-    std::vector<unsigned long long int> gapLens;
+    std::vector<uint64_t> scaffLens;
+    std::vector<uint64_t> contigLens;
+    std::vector<uint64_t> gapLens;
     
-    std::vector<unsigned long long int> scaffNstars   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint64_t> scaffNstars   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<unsigned int> scaffLstars   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    std::vector<unsigned long long int> scaffNGstars  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint64_t> scaffNGstars  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<unsigned int> scaffLGstars  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     
-    std::vector<unsigned long long int> contigNstars  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint64_t> contigNstars  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<unsigned int> contigLstars  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    std::vector<unsigned long long int> contigNGstars {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint64_t> contigNGstars {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<unsigned int> contigLGstars {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     
-    std::vector<unsigned long long int> gapNstars     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint64_t> gapNstars     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<unsigned int> gapLstars     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     
     double scaffAuN = 0, scaffAuNG = 0, contigAuN = 0, contigAuNG = 0, gapAuN = 0;
@@ -51,7 +51,7 @@ private:
     InEdge edge;
     InPath path;
     
-    unsigned long long int
+    uint64_t
     totScaffLen = 0,
     totContigLen = 0,
     totSegmentLen = 0,
@@ -70,7 +70,7 @@ private:
     //connectivity
     unsigned int deadEnds = 0;
     unsigned int disconnectedComponents = 0;
-    unsigned long long int lengthDisconnectedComponents = 0;
+    uint64_t lengthDisconnectedComponents = 0;
     
     std::vector<Bubble> bubbles;
     
@@ -87,7 +87,7 @@ public:
     
     InGap pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, unsigned int* dist, char sign, unsigned int uId1, unsigned int uId2);
     
-    InSegment* pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned long long int sStart, unsigned long long int sEnd, std::string* sequenceQuality = NULL);
+    InSegment* pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, uint64_t sStart, uint64_t sEnd, std::string* sequenceQuality = NULL);
     
     bool traverseInSequence(Sequence* sequence);
     
@@ -107,9 +107,9 @@ public:
     
     std::vector<InPath> getInPaths();
     
-    unsigned long long int getTotScaffLen();
+    uint64_t getTotScaffLen();
     
-    unsigned long long int getTotSegmentLen();
+    uint64_t getTotSegmentLen();
     
     void changeTotGapLen(unsigned int gapLen);
     
@@ -121,43 +121,43 @@ public:
     
     unsigned int getPathN();
     
-    void recordScaffLen(unsigned long long int seqLen);
+    void recordScaffLen(uint64_t seqLen);
     
     void recordGapLen(unsigned int gapLen);
     
-    void evalNstars(char type, unsigned long long int gSize = 0);
+    void evalNstars(char type, uint64_t gSize = 0);
     
-    void evalAuN(char type, unsigned long long int gSize = 0);
+    void evalAuN(char type, uint64_t gSize = 0);
     
-    void computeAuN(std::vector<unsigned long long int>& lens, double& auN, double* auNG = 0, unsigned long long int gSize = 0);
+    void computeAuN(std::vector<uint64_t>& lens, double& auN, double* auNG = 0, uint64_t gSize = 0);
     
     unsigned int getScaffN();
     
     unsigned int getTotContigN();
     
-    std::vector <unsigned long long int> getScaffNstars();
+    std::vector <uint64_t> getScaffNstars();
     
-    std::vector <unsigned long long int> getScaffNGstars();
+    std::vector <uint64_t> getScaffNGstars();
     
     std::vector <unsigned int> getScaffLstars();
     
     std::vector <unsigned int> getScaffLGstars();
     
-    std::vector <unsigned long long int> getContigNstars();
+    std::vector <uint64_t> getContigNstars();
     
-    std::vector <unsigned long long int> getContigNGstars();
+    std::vector <uint64_t> getContigNGstars();
     
     std::vector <unsigned int> getContigLstars();
     
     std::vector <unsigned int> getContigLGstars();
     
-    std::vector <unsigned long long int> getGapNstars();
+    std::vector <uint64_t> getGapNstars();
     
     std::vector <unsigned int> getGapLstars();
     
-    unsigned long long int getScaffN50();
+    uint64_t getScaffN50();
     
-    unsigned long long int getScaffNG50();
+    uint64_t getScaffNG50();
     
     unsigned int getScaffL50();
     
@@ -187,13 +187,13 @@ public:
     
     unsigned int getGapL50();
     
-    unsigned long long int getLargestScaffold();
+    uint64_t getLargestScaffold();
 
-    unsigned long long int getSmallestScaffold();
+    uint64_t getSmallestScaffold();
 
-    unsigned long long int getLargestContig();
+    uint64_t getLargestContig();
 
-    unsigned long long int getSmallestContig();
+    uint64_t getSmallestContig();
 
     unsigned int getLargestGap();
 
@@ -201,25 +201,25 @@ public:
     
     double computeAvgScaffLen();
     
-    unsigned long long int getTotContigLen();
+    uint64_t getTotContigLen();
 
     double computeAvgContigLen();
     
     double computeAvgSegmentLen();
     
-    unsigned long long int getTotGapLen();
+    uint64_t getTotGapLen();
     
     double computeAverageGapLen();
     
-    unsigned long long int getTotA();
+    uint64_t getTotA();
     
-    unsigned long long int getTotC();
+    uint64_t getTotC();
     
-    unsigned long long int getTotG();
+    uint64_t getTotG();
     
-    unsigned long long int getTotT();
+    uint64_t getTotT();
     
-    unsigned long long int getTotLowerCount();
+    uint64_t getTotLowerCount();
     
     double computeGCcontent();
     

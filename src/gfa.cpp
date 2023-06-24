@@ -56,7 +56,7 @@ InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHea
     
 }
 
-InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned long long int sStart, unsigned long long int sEnd, std::string* sequenceQuality) {
+InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, uint64_t sStart, uint64_t sEnd, std::string* sequenceQuality) {
     
     std::string* sequenceSubSeq = new std::string;
     
@@ -100,14 +100,14 @@ bool InSequences::traverseInSequence(Sequence* sequence) { // traverse the seque
     
     threadLog.setId(sequence->seqPos);
 
-    std::vector<std::pair<unsigned long long int, unsigned long long int>> bedCoords;
+    std::vector<std::pair<uint64_t, uint64_t>> bedCoords;
     if(hc_flag) {
         homopolymerCompress(sequence->sequence, bedCoords, hc_cutoff);
     }
     
     std::vector<InSegment*> newSegments;
     std::vector<InGap> newGaps;
-    unsigned long long int pos = 0, // current position in sequence
+    uint64_t pos = 0, // current position in sequence
     hc_index=0, // used with homopolymer compression
     A = 0, C = 0, G = 0, T = 0,
     lowerCount = 0;
@@ -158,7 +158,7 @@ bool InSequences::traverseInSequence(Sequence* sequence) { // traverse the seque
 
     }
 
-    unsigned long long int seqLen = sequence->sequence->size()-1;
+    uint64_t seqLen = sequence->sequence->size()-1;
     
     for (char &base : *sequence->sequence) {
 
@@ -316,7 +316,7 @@ bool InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSeque
     
     threadLog.setId(sequence->seqPos);
     
-    unsigned long long int A = 0, C = 0, G = 0, T = 0, lowerCount = 0;
+    uint64_t A = 0, C = 0, G = 0, T = 0, lowerCount = 0;
     unsigned int sUId = 0;
     
     for (char &base : *sequence->sequence) {
@@ -501,13 +501,13 @@ std::vector<InPath> InSequences::getInPaths() {
     
 }
 
-unsigned long long int InSequences::getTotScaffLen() {
+uint64_t InSequences::getTotScaffLen() {
     
     return totScaffLen;
     
 }
 
-unsigned long long int InSequences::getTotSegmentLen() {
+uint64_t InSequences::getTotSegmentLen() {
     
     for (std::vector<InSegment*>::iterator inSegment = inSegments.begin(); inSegment != inSegments.end(); inSegment++) {
         
@@ -549,7 +549,7 @@ unsigned int InSequences::getPathN() {
     
 }
 
-void InSequences::recordScaffLen(unsigned long long int seqLen) {
+void InSequences::recordScaffLen(uint64_t seqLen) {
     
     scaffLens.push_back(seqLen);
     
@@ -561,7 +561,7 @@ void InSequences::recordGapLen(unsigned int gapLen) {
     
 }
 
-void InSequences::evalNstars(char type, unsigned long long int gSize) { // switch between scaffold, contig, gap while computing N* statistics
+void InSequences::evalNstars(char type, uint64_t gSize) { // switch between scaffold, contig, gap while computing N* statistics
     
     switch(type) {
             
@@ -590,7 +590,7 @@ void InSequences::evalNstars(char type, unsigned long long int gSize) { // switc
     
 }
 
-void InSequences::evalAuN(char type, unsigned long long int gSize) { // switch between scaffold, contig, gap while computing N* statistics
+void InSequences::evalAuN(char type, uint64_t gSize) { // switch between scaffold, contig, gap while computing N* statistics
     
     switch(type) {
             
@@ -619,11 +619,11 @@ void InSequences::evalAuN(char type, unsigned long long int gSize) { // switch b
     
 }
 
-void InSequences::computeAuN(std::vector<unsigned long long int>& lens, double& auN, double* auNG, unsigned long long int gSize) {// compute N* statistics
+void InSequences::computeAuN(std::vector<uint64_t>& lens, double& auN, double* auNG, uint64_t gSize) {// compute N* statistics
     
-    unsigned long long int totLen = 0;
+    uint64_t totLen = 0;
     
-    for(std::vector<unsigned long long int>::iterator it = lens.begin(); it != lens.end(); ++it) // find total length
+    for(std::vector<uint64_t>::iterator it = lens.begin(); it != lens.end(); ++it) // find total length
         totLen += *it;
     
     for(unsigned int i = 0; i < lens.size(); i++) { // for each length
@@ -652,13 +652,13 @@ unsigned int InSequences::getTotContigN() {
     
 }
 
-std::vector <unsigned long long int> InSequences::getScaffNstars() {
+std::vector <uint64_t> InSequences::getScaffNstars() {
     
     return scaffNstars;
     
 }
 
-std::vector <unsigned long long int> InSequences::getScaffNGstars() {
+std::vector <uint64_t> InSequences::getScaffNGstars() {
     
     return scaffNGstars;
     
@@ -676,13 +676,13 @@ std::vector <unsigned int> InSequences::getScaffLGstars() {
     
 }
 
-std::vector <unsigned long long int> InSequences::getContigNstars() {
+std::vector <uint64_t> InSequences::getContigNstars() {
     
     return contigNstars;
     
 }
 
-std::vector <unsigned long long int> InSequences::getContigNGstars() {
+std::vector <uint64_t> InSequences::getContigNGstars() {
     
     return contigNGstars;
     
@@ -700,7 +700,7 @@ std::vector <unsigned int> InSequences::getContigLGstars() {
     
 }
 
-std::vector <unsigned long long int> InSequences::getGapNstars() {
+std::vector <uint64_t> InSequences::getGapNstars() {
     
     return gapNstars;
     
@@ -712,13 +712,13 @@ std::vector <unsigned int> InSequences::getGapLstars() {
     
 }
 
-unsigned long long int InSequences::getScaffN50() {
+uint64_t InSequences::getScaffN50() {
     
     return scaffNstars[4];
     
 }
 
-unsigned long long int InSequences::getScaffNG50() {
+uint64_t InSequences::getScaffNG50() {
     
     return scaffNGstars[4];
     
@@ -808,26 +808,26 @@ unsigned int InSequences::getGapL50() {
     
 }
 
-unsigned long long int InSequences::getLargestScaffold() {
+uint64_t InSequences::getLargestScaffold() {
     
     return scaffLens.size() == 0 ? 0 : scaffLens[0]; // sorted during N/L* computation
     
 }
 
-unsigned long long int InSequences::getSmallestScaffold() {
+uint64_t InSequences::getSmallestScaffold() {
     
     return scaffLens.size() == 0 ? 0 : scaffLens.back(); // sorted during N/L* computation
     
 }
 
 
-unsigned long long int InSequences::getLargestContig() {
+uint64_t InSequences::getLargestContig() {
     
     return contigLens.size() == 0 ? 0 : contigLens[0]; // sorted during N/L* computation
     
 }
 
-unsigned long long int InSequences::getSmallestContig() {
+uint64_t InSequences::getSmallestContig() {
     
     return contigLens.size() == 0 ? 0 : contigLens.back(); // sorted during N/L* computation
     
@@ -852,11 +852,11 @@ double InSequences::computeAvgScaffLen() {
     
 }
 
-unsigned long long int InSequences::getTotContigLen () {
+uint64_t InSequences::getTotContigLen () {
     
     totContigLen = 0;
     
-    for (std::vector<unsigned long long int>::iterator contigLen = contigLens.begin(); contigLen != contigLens.end(); contigLen++) {
+    for (std::vector<uint64_t>::iterator contigLen = contigLens.begin(); contigLen != contigLens.end(); contigLen++) {
         
         totContigLen += *contigLen;
         
@@ -878,11 +878,11 @@ double InSequences::computeAvgSegmentLen() {
     
 }
 
-unsigned long long int InSequences::getTotGapLen() {
+uint64_t InSequences::getTotGapLen() {
     
     totGapLen = 0;
     
-    for (std::vector<unsigned long long int>::iterator gapLen = gapLens.begin(); gapLen != gapLens.end(); gapLen++) {
+    for (std::vector<uint64_t>::iterator gapLen = gapLens.begin(); gapLen != gapLens.end(); gapLen++) {
         
         totGapLen += *gapLen;
         
@@ -898,27 +898,27 @@ double InSequences::computeAverageGapLen() {
     
 }
 
-unsigned long long int InSequences::getTotA() {
+uint64_t InSequences::getTotA() {
     
     return totA;
 }
 
-unsigned long long int InSequences::getTotC() {
+uint64_t InSequences::getTotC() {
     
     return totC;
 }
 
-unsigned long long int InSequences::getTotG() {
+uint64_t InSequences::getTotG() {
     
     return totG;
 }
 
-unsigned long long int InSequences::getTotT() {
+uint64_t InSequences::getTotT() {
     
     return totT;
 }
 
-unsigned long long int InSequences::getTotLowerCount() {
+uint64_t InSequences::getTotLowerCount() {
     
     return totLowerCount;
 }
