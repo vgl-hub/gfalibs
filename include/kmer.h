@@ -13,10 +13,10 @@ inline void freeContainer(T& p_container) // this is a C++ trick to empty a cont
     std::swap(p_container, empty); // swapping a container with an empty (NULL) container should release the associated memory
 }
 
-template<typename VALUE> // this is a generic buffer, VALUE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
+template<typename TYPE> // this is a generic buffer, VALUE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
 struct Buf {
     uint64_t pos = 0, size = 10; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
-    VALUE *seq = new VALUE[size]; // the actual container
+    TYPE *seq = new TYPE[size]; // the actual container
 };
 
 template<class INPUT, typename VALUE, typename TYPE> // INPUT is a specialized userInput type depending on the tool, VALUE is the type of elements we wish to store in the maps, e.g. uint64_t kmer counts, TYPE is the type of inputs, e.g. kmers hashed to sequences
