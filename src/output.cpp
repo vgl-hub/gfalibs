@@ -695,7 +695,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
     std::vector<unsigned int> seqBoundaries;
     
     unsigned int uId = 0, sIdx = 0, gIdx = 0;
-    unsigned long long int pos = 0;
+    uint64_t pos = 0;
 
     std::string pHeader;
     std::vector<InPath> inPaths = inSequences.getInPaths();
@@ -948,7 +948,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
     return true;
 }
 
-bool Report::reportStats(InSequences &inSequences, unsigned long long int gSize) { // method to output all summary statistics for the entire sequence set
+bool Report::reportStats(InSequences &inSequences, uint64_t gSize) { // method to output all summary statistics for the entire sequence set
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 
@@ -1096,12 +1096,12 @@ bool Report::reportStats(InSequences &inSequences, unsigned long long int gSize)
     
 }
 
-bool Report::nstarReport(InSequences &inSequences, unsigned long long int gSize) { // method to generate all N** reports
+bool Report::nstarReport(InSequences &inSequences, uint64_t gSize) { // method to generate all N** reports
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 
     int pos = 1;
-    std::vector <unsigned long long int> scaffNstars = inSequences.getScaffNstars();
+    std::vector <uint64_t> scaffNstars = inSequences.getScaffNstars();
     for (unsigned int val : scaffNstars) {
         std::cout<<output("Scaffold N"+std::to_string(pos*10))<<val<<"\n";
         pos++;
@@ -1117,7 +1117,7 @@ bool Report::nstarReport(InSequences &inSequences, unsigned long long int gSize)
     if (gSize > 0) {
         
         pos = 1;
-        std::vector <unsigned long long int> scaffNGstars = inSequences.getScaffNGstars();
+        std::vector <uint64_t> scaffNGstars = inSequences.getScaffNGstars();
         for (unsigned int val : scaffNGstars) {
             std::cout<<output("Scaffold NG"+std::to_string(pos*10))<<val<<"\n";
             pos++;
@@ -1133,7 +1133,7 @@ bool Report::nstarReport(InSequences &inSequences, unsigned long long int gSize)
     }
     
     pos = 1;
-    std::vector <unsigned long long int> contigNstars = inSequences.getContigNstars();
+    std::vector <uint64_t> contigNstars = inSequences.getContigNstars();
     for (unsigned int val : contigNstars) {
         std::cout<<output("Contig N"+std::to_string(pos*10))<<val<<"\n";
         pos++;
@@ -1149,7 +1149,7 @@ bool Report::nstarReport(InSequences &inSequences, unsigned long long int gSize)
     if (gSize > 0) {
         
         pos = 1;
-        std::vector <unsigned long long int> contigNGstars = inSequences.getContigNGstars();
+        std::vector <uint64_t> contigNGstars = inSequences.getContigNGstars();
         for (unsigned int val : contigNGstars) {
             std::cout<<output("Contig NG"+std::to_string(pos*10))<<val<<"\n";
             pos++;
@@ -1165,7 +1165,7 @@ bool Report::nstarReport(InSequences &inSequences, unsigned long long int gSize)
     }
     
     pos = 1;
-    std::vector <unsigned long long int> gapNstars = inSequences.getGapNstars();
+    std::vector <uint64_t> gapNstars = inSequences.getGapNstars();
     for (unsigned int val : gapNstars) {
         std::cout<<output("Gap N"+std::to_string(pos*10))<<val<<"\n";
         pos++;

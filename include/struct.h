@@ -78,8 +78,8 @@ struct PathComponent {
     PathType type;
     unsigned int id;
     char orientation;
-    unsigned long long int start;
-    unsigned long long int end;
+    uint64_t start;
+    uint64_t end;
     
 };
 

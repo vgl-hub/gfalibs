@@ -21,9 +21,9 @@ public:
     
     bool outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly = false);
     
-    bool reportStats(InSequences &inSequences, unsigned long long int gSize);
+    bool reportStats(InSequences &inSequences, uint64_t gSize);
     
-    bool nstarReport(InSequences &inSequences, unsigned long long int gSize);
+    bool nstarReport(InSequences &inSequences, uint64_t gSize);
     
 };
 

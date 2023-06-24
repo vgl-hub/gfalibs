@@ -54,19 +54,19 @@ bool isNumber(const std::string& str);
 void revComPathComponents(std::vector<PathComponent>& pathComponents);
 
 // bed coords are bed coords of compressed sequence
-void homopolymerCompress(std::string *sequence, std::vector<std::pair<unsigned long long int, unsigned long long int>> &bedCoords, unsigned int cutoff);
+void homopolymerCompress(std::string *sequence, std::vector<std::pair<uint64_t, uint64_t>> &bedCoords, unsigned int cutoff);
 
 // bed coords are bed coords of compressed sequence
-void homopolymerDecompress(std::string *sequence, const std::vector<std::pair<unsigned long long int, unsigned long long int>> &bedCoords);
+void homopolymerDecompress(std::string *sequence, const std::vector<std::pair<uint64_t, uint64_t>> &bedCoords);
 
 unsigned int homopolymerRunsCount(const std::string &sequence, unsigned int threshhold);
 
 // bed coords of uncompressed sequence
 void homopolymerBedCoords(std::string *sequence, std::vector<std::pair<unsigned int, unsigned int>> &bedCoords, unsigned int cutoff);
 
-void computeNstars(std::vector<unsigned long long int>& lens, // compute N/L* statistics, vector of all lengths
-                   std::vector<unsigned long long int>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
-                   std::vector<unsigned long long int>* NGstars = NULL, std::vector<unsigned int>* LGstars = NULL, unsigned long long int gSize = 0);
+void computeNstars(std::vector<uint64_t>& lens, // compute N/L* statistics, vector of all lengths
+                   std::vector<uint64_t>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
+                   std::vector<uint64_t>* NGstars = NULL, std::vector<unsigned int>* LGstars = NULL, uint64_t gSize = 0);
 
 void rmChrFromStr(std::string &str, const char* charsToRemove);
 

@@ -199,7 +199,7 @@ public:
 
     bool compress(InSequences &inSequences, Instruction &instruction) {
         std::string *sequence = headerToSequence(instruction.contig1, inSequences, instruction);
-        std::vector<std::pair<unsigned long long int, unsigned long long int>> bedCoords;
+        std::vector<std::pair<uint64_t, uint64_t>> bedCoords;
         homopolymerCompress(sequence, bedCoords, instruction.compressThreshhold);
         compressStack.push(bedCoords);
         return true;
@@ -211,7 +211,7 @@ public:
 
     bool decompress(InSequences &inSequences, Instruction &instruction) {
         std::string *sequence = headerToSequence(instruction.contig1, inSequences, instruction);
-        std::vector<std::pair<unsigned long long int, unsigned long long int>> bedCoords = compressStack.top();
+        std::vector<std::pair<uint64_t, uint64_t>> bedCoords = compressStack.top();
         compressStack.pop();
         homopolymerDecompress(sequence, bedCoords);
             
@@ -232,7 +232,7 @@ public:
 private:
 
     std::string sId1Header, sId2Header;
-    std::stack<std::vector<std::pair<unsigned long long int, unsigned long long int>>> compressStack; // decompress uses indices of corresponding compresses, last compress = first decompress
+    std::stack<std::vector<std::pair<uint64_t, uint64_t>>> compressStack; // decompress uses indices of corresponding compresses, last compress = first decompress
 
     // unordered map from sak instruction to corresponding read and execute functions
     const phmap::flat_hash_map<std::string, Funcs> string_to_funcs {

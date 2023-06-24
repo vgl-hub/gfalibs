@@ -453,7 +453,7 @@ void revComPathComponents(std::vector<PathComponent>& pathComponents) {
 }
 
 // bed coords are bed coords of compressed sequence
-void homopolymerCompress(std::string *sequence, std::vector<std::pair<unsigned long long int, unsigned long long int>> &bedCoords, unsigned int cutoff) {
+void homopolymerCompress(std::string *sequence, std::vector<std::pair<uint64_t, uint64_t>> &bedCoords, unsigned int cutoff) {
     unsigned int index=0, length, new_length=0;
 
     auto lambda = [&length, &index, &bedCoords, &sequence, &new_length, &cutoff](int i){
@@ -476,7 +476,7 @@ void homopolymerCompress(std::string *sequence, std::vector<std::pair<unsigned l
 }
 
 // bed coords are bed coords of compressed sequence
-void homopolymerDecompress(std::string *sequence, const std::vector<std::pair<unsigned long long int, unsigned long long int>> &bedCoords) {
+void homopolymerDecompress(std::string *sequence, const std::vector<std::pair<uint64_t, uint64_t>> &bedCoords) {
     std::string ret="";
     ret.reserve(sequence->length()*2); // random guess for final sequence length to reduce resizes
     for(unsigned int i=0, ci=0, len; i<sequence->length(); ++i) {
@@ -529,15 +529,15 @@ void homopolymerBedCoords(std::string *sequence, std::vector<std::pair<unsigned 
     }
 }
 
-void computeNstars(std::vector<unsigned long long int>& lens, // compute N/L* statistics, vector of all lengths
-                   std::vector<unsigned long long int>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
-                   std::vector<unsigned long long int>* NGstars, std::vector<unsigned int>* LGstars, unsigned long long int gSize) { // optional arguments are passed by pointer
+void computeNstars(std::vector<uint64_t>& lens, // compute N/L* statistics, vector of all lengths
+                   std::vector<uint64_t>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
+                   std::vector<uint64_t>* NGstars, std::vector<unsigned int>* LGstars, uint64_t gSize) { // optional arguments are passed by pointer
     
-    sort(lens.begin(), lens.end(), std::greater<unsigned long long int>()); // sort lengths Z-A
+    sort(lens.begin(), lens.end(), std::greater<uint64_t>()); // sort lengths Z-A
     
-    unsigned long long int sum = 0, totLen = 0;
+    uint64_t sum = 0, totLen = 0;
     
-    for(std::vector<unsigned long long int>::iterator it = lens.begin(); it != lens.end(); ++it) // find total length
+    for(std::vector<uint64_t>::iterator it = lens.begin(); it != lens.end(); ++it) // find total length
         totLen += *it;
     
     short int N = 1, NG = 1;
