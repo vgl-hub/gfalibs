@@ -7,7 +7,7 @@ protected:
     std::string seqComment;
     std::string* inSequence = NULL;
     std::string* inSequenceQuality = NULL;
-    unsigned long long int A = 0, C = 0, G = 0, T = 0, N = 0, lowerCount = 0;
+    uint64_t A = 0, C = 0, G = 0, T = 0, N = 0, lowerCount = 0;
     unsigned int uId = 0, iId = 0, seqPos = 0;
     std::vector<Tag> tags;
     
@@ -19,7 +19,7 @@ public:
     
     ~InSegment();
     
-    void set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned int seqPos, std::string* sequenceQuality = NULL, std::vector<Tag>* inSequenceTags = NULL, unsigned long long int* N = NULL);
+    void set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, unsigned int seqPos, std::string* sequenceQuality = NULL, std::vector<Tag>* inSequenceTags = NULL, uint64_t* N = NULL);
     
     void setSeqHeader(std::string* h);
     
@@ -51,27 +51,27 @@ public:
     
     unsigned int getSeqPos();
     
-    unsigned long long int getSegmentLen(unsigned long long int start = 0, unsigned long long int end = 0);
+    uint64_t getSegmentLen(uint64_t start = 0, uint64_t end = 0);
     
     unsigned int getuId(); // absolute id
     
     unsigned int getiId(); // temporary id, internal to scaffold
     
-    void setACGT(unsigned long long int* a, unsigned long long int* c, unsigned long long int* g, unsigned long long int* t, unsigned long long int* n = NULL);
+    void setACGT(uint64_t* a, uint64_t* c, uint64_t* g, uint64_t* t, uint64_t* n = NULL);
     
-    void setLowerCount(unsigned long long int* C);
+    void setLowerCount(uint64_t* C);
     
-    unsigned long long int getA();
+    uint64_t getA();
     
-    unsigned long long int getC();
+    uint64_t getC();
     
-    unsigned long long int getG();
+    uint64_t getG();
     
-    unsigned long long int getT();
+    uint64_t getT();
 
-    unsigned long long int getN();
+    uint64_t getN();
     
-    unsigned int getLowerCount(unsigned long long int start = 0, unsigned long long int end = 0);
+    unsigned int getLowerCount(uint64_t start = 0, uint64_t end = 0);
     
     double computeGCcontent();
     
@@ -89,7 +89,7 @@ public:
 
 class InGap {
 private:
-//    unsigned long long int lineN; // useful if we wish to sort as is the original input
+//    uint64_t lineN; // useful if we wish to sort as is the original input
     std::string gHeader;
     char sId1Or, sId2Or;
     unsigned int uId, iId, sId1, sId2, dist;
@@ -132,7 +132,7 @@ public:
 };
 class InEdge {
     private:
-//    unsigned long long int lineN; // useful if we wish to sort as is the original input
+//    uint64_t lineN; // useful if we wish to sort as is the original input
     std::string cigar, eHeader;
     char sId1Or, sId2Or;
     unsigned int eUId, eId, sId1, sId2;
@@ -183,12 +183,12 @@ public:
 class InPath {
     
 private:
-//    unsigned long long int lineN; // useful if we wish to sort as is the original input
+//    uint64_t lineN; // useful if we wish to sort as is the original input
     std::string pHeader, pComment;
     std::vector<PathComponent> pathComponents;
     unsigned int pUId, contigN = 0, seqPos;
     
-    unsigned long long int length = 0, segmentLength = 0, lowerCount = 0, A = 0, C = 0, G = 0, T = 0;
+    uint64_t length = 0, segmentLength = 0, lowerCount = 0, A = 0, C = 0, G = 0, T = 0;
     
     friend class SAK;
     friend class InSequences;
@@ -203,7 +203,7 @@ public:
     
     void setComment(std::string c);
     
-    void add(PathType type, unsigned int UId, char sign = '+', unsigned long long int start = 0, unsigned long long int end = 0);
+    void add(PathType type, unsigned int UId, char sign = '+', uint64_t start = 0, uint64_t end = 0);
     
     void append(std::vector<PathComponent> components);
     
@@ -225,19 +225,19 @@ public:
     
     unsigned int getContigN();
     
-    unsigned long long int getLen();
+    uint64_t getLen();
     
-    unsigned long long int getA();
+    uint64_t getA();
     
-    unsigned long long int getC();
+    uint64_t getC();
     
-    unsigned long long int getG();
+    uint64_t getG();
     
-    unsigned long long int getT();
+    uint64_t getT();
     
-    unsigned long long int getSegmentLen();
+    uint64_t getSegmentLen();
     
-    unsigned long long int getLowerCount();
+    uint64_t getLowerCount();
     
     void revCom();
     
@@ -245,19 +245,19 @@ public:
     
     void increaseGapN();
     
-    void increaseLen(unsigned long long int n);
+    void increaseLen(uint64_t n);
     
-    void increaseSegmentLen(unsigned long long int n);
+    void increaseSegmentLen(uint64_t n);
     
-    void increaseLowerCount(unsigned long long int n);
+    void increaseLowerCount(uint64_t n);
     
-    void increaseA(unsigned long long int n);
+    void increaseA(uint64_t n);
     
-    void increaseC(unsigned long long int n);
+    void increaseC(uint64_t n);
     
-    void increaseG(unsigned long long int n);
+    void increaseG(uint64_t n);
     
-    void increaseT(unsigned long long int n);
+    void increaseT(uint64_t n);
     
 };
 

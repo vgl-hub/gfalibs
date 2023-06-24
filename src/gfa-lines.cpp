@@ -17,11 +17,11 @@ InSegment::~InSegment()
     delete inSequenceQuality;
 }
 
-void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, unsigned long long int* A, unsigned long long int* C, unsigned long long int* G, unsigned long long int* T, unsigned long long int* lowerCount, unsigned int seqPos, std::string* sequenceQuality, std::vector<Tag>* inSequenceTags, unsigned long long int* N) {
+void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, unsigned int seqPos, std::string* sequenceQuality, std::vector<Tag>* inSequenceTags, uint64_t* N) {
     
     threadLog->add("Processing segment: " + seqHeader + " (uId: " + std::to_string(uId) + ", iId: " + std::to_string(iId) + ")");
     
-    unsigned long long int seqSize = 0;
+    uint64_t seqSize = 0;
     
     this->setiId(iId); // set temporary sId internal to scaffold
     
@@ -163,7 +163,7 @@ unsigned int InSegment::getSeqPos() {
 
 }
 
-unsigned long long int InSegment::getSegmentLen(unsigned long long int start, unsigned long long int end) {
+uint64_t InSegment::getSegmentLen(uint64_t start, uint64_t end) {
     
     if (inSequence == NULL) {
         
@@ -187,7 +187,7 @@ unsigned int InSegment::getiId() { // temporary id, internal to scaffold
     return iId;
 }
 
-void InSegment::setACGT(unsigned long long int* a, unsigned long long int* c, unsigned long long int* g, unsigned long long int* t, unsigned long long int* n) {
+void InSegment::setACGT(uint64_t* a, uint64_t* c, uint64_t* g, uint64_t* t, uint64_t* n) {
     
     A = *a;
     C = *c;
@@ -198,39 +198,39 @@ void InSegment::setACGT(unsigned long long int* a, unsigned long long int* c, un
     
 }
 
-void InSegment::setLowerCount(unsigned long long int* C) {
+void InSegment::setLowerCount(uint64_t* C) {
     
     lowerCount = *C;
     
 }
 
-unsigned long long int InSegment::getA() {
+uint64_t InSegment::getA() {
     
     return A;
 }
 
-unsigned long long int InSegment::getC() {
+uint64_t InSegment::getC() {
     
     return C;
 }
 
-unsigned long long int InSegment::getG() {
+uint64_t InSegment::getG() {
     
     return G;
 }
 
-unsigned long long int InSegment::getT() {
+uint64_t InSegment::getT() {
     
     return T;
 }
 
 
-unsigned long long int InSegment::getN() {
+uint64_t InSegment::getN() {
 
     return N;
 }
 
-unsigned int InSegment::getLowerCount(unsigned long long int start, unsigned long long int end) {
+unsigned int InSegment::getLowerCount(uint64_t start, uint64_t end) {
     
     if (start == 0 || end == 0) {
         
@@ -238,7 +238,7 @@ unsigned int InSegment::getLowerCount(unsigned long long int start, unsigned lon
         
     }else{
         
-        unsigned long long int lowerCountSubset = 0;
+        uint64_t lowerCountSubset = 0;
         
         for (char base : *inSequence) { // need to fix this loop
             
@@ -549,7 +549,7 @@ void InPath::setComment(std::string c) {
     pComment = c;
 }
 
-void InPath::add(PathType type, unsigned int UId, char sign, unsigned long long int start, unsigned long long int end) {
+void InPath::add(PathType type, unsigned int UId, char sign, uint64_t start, uint64_t end) {
     
     pathComponents.push_back({type, UId, sign, start, end});
     
@@ -615,43 +615,43 @@ unsigned int InPath::getContigN() {
     
 }
 
-unsigned long long int InPath::getLen() {
+uint64_t InPath::getLen() {
     
     return length;
     
 }
 
-unsigned long long int InPath::getA() {
+uint64_t InPath::getA() {
     
     return A;
     
 }
 
-unsigned long long int InPath::getC() {
+uint64_t InPath::getC() {
     
     return C;
     
 }
 
-unsigned long long int InPath::getG() {
+uint64_t InPath::getG() {
     
     return G;
     
 }
 
-unsigned long long int InPath::getT() {
+uint64_t InPath::getT() {
     
     return T;
     
 }
 
-unsigned long long int InPath::getSegmentLen() {
+uint64_t InPath::getSegmentLen() {
     
     return segmentLength;
     
 }
 
-unsigned long long int InPath::getLowerCount() {
+uint64_t InPath::getLowerCount() {
     
     return lowerCount;
     
@@ -675,43 +675,43 @@ void InPath::increaseGapN() {
 
 }
 
-void InPath::increaseLen(unsigned long long int n) {
+void InPath::increaseLen(uint64_t n) {
     
     length += n;
 
 }
 
-void InPath::increaseSegmentLen(unsigned long long int n) {
+void InPath::increaseSegmentLen(uint64_t n) {
     
     segmentLength += n;
 
 }
 
-void InPath::increaseLowerCount(unsigned long long int n) {
+void InPath::increaseLowerCount(uint64_t n) {
     
     lowerCount += n;
 
 }
 
-void InPath::increaseA(unsigned long long int n) {
+void InPath::increaseA(uint64_t n) {
     
     A += n;
 
 }
 
-void InPath::increaseC(unsigned long long int n) {
+void InPath::increaseC(uint64_t n) {
     
     C += n;
 
 }
 
-void InPath::increaseG(unsigned long long int n) {
+void InPath::increaseG(uint64_t n) {
     
     G += n;
 
 }
 
-void InPath::increaseT(unsigned long long int n) {
+void InPath::increaseT(uint64_t n) {
     
     T += n;
 
