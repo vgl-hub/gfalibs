@@ -1,8 +1,9 @@
 #include <stdint.h>
 #include <cmath>
+#include <atomic>
 
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
-int64_t alloc = 0, freed = 0;
+std::atomic<int64_t> alloc(0), freed(0);
 
 double get_mem_inuse(uint8_t unit){
     
