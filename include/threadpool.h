@@ -218,7 +218,7 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
         }
         
-        threadPool.execJob(); // have the master thread contribute
+//        threadPool.execJob(); // have the master thread contribute
         
     }
     
@@ -258,7 +258,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
             break;
         }
         
-        threadPool.execJob(); // have the master thread contribute
+//        threadPool.execJob(); // have the master thread contribute
         
     }
     
