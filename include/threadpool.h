@@ -59,6 +59,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
 #ifdef DEBUG
             std::cout<<"Thread "<<std::to_string(threadN)<<" waiting"<<std::endl;
 #endif
+            threadStates[threadN] = true;
             
             mutexCondition.wait(lock, [this] {
                 return !jobs.empty() || done;
@@ -75,9 +76,8 @@ void ThreadPool<T>::threadLoop(int threadN) {
             jobs.pop();
         }
         job();
-        threadStates[threadN] = true;
         {
-            std::lock_guard<std::mutex> lock(queueMutex);
+            std::unique_lock<std::mutex> lock(queueMutex);
             queueJids[jid] = false;
         }
 #ifdef DEBUG
@@ -168,7 +168,7 @@ short unsigned int ThreadPool<T>::running() {
 template<class T>
 void ThreadPool<T>::join() {
     {
-        std::lock_guard<std::mutex> lock(queueMutex);
+        std::unique_lock<std::mutex> lock(queueMutex);
         done = true;
     }
     mutexCondition.notify_all();
@@ -200,7 +200,7 @@ void ThreadPool<T>::execJob() {
     }
     job();
     {
-        std::lock_guard<std::mutex> lock(queueMutex);
+        std::unique_lock<std::mutex> lock(queueMutex);
         queueJids[jid] = false;
     }
 
@@ -225,7 +225,7 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
         }
         
-//        threadPool.execJob(); // have the master thread contribute
+        //threadPool.execJob(); // have the master thread contribute
         
     }
     
@@ -240,7 +240,6 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     while (true) {
 
         threadPool.status();
-        empty();
         
         for (uint32_t dependency : dependencies) {
             
@@ -266,7 +265,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
             break;
         }
         
-//        threadPool.execJob(); // have the master thread contribute
+        //threadPool.execJob(); // have the master thread contribute
         
     }
     
