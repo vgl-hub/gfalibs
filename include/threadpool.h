@@ -127,7 +127,7 @@ template<class T>
 bool ThreadPool<T>::empty() {
     
     if (!jobs.empty())
-        mutexCondition.notify_one();
+        mutexCondition.notify_all();
     
     return jobs.empty();
     
