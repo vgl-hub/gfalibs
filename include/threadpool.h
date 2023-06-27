@@ -59,13 +59,15 @@ void ThreadPool<T>::threadLoop(int threadN) {
 #ifdef DEBUG
             std::cout<<"Thread "<<std::to_string(threadN)<<" waiting"<<std::endl;
 #endif
-            threadStates[threadN] = false;
+            
             mutexCondition.wait(lock, [this] {
                 return !jobs.empty() || done;
             });
             if (done) {
                 return;
             }
+            
+            threadStates[threadN] = false;
             
             JobWrapper<T> jobWrapper = jobs.front();
             job = jobWrapper.job;
@@ -122,7 +124,14 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
 }
 
 template<class T>
-bool ThreadPool<T>::empty() {return jobs.empty();}
+bool ThreadPool<T>::empty() {
+    
+    if (!jobs.empty())
+        mutexCondition.notify_one();
+    
+    return jobs.empty();
+    
+}
 
 template<class T>
 unsigned int ThreadPool<T>::queueSize() {return jobs.size();}
