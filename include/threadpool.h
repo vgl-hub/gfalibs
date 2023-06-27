@@ -240,6 +240,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     while (true) {
 
         threadPool.status();
+        empty();
         
         for (uint32_t dependency : dependencies) {
             
