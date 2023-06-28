@@ -68,21 +68,35 @@ void ThreadPool<T>::threadLoop(int threadN) {
                 return;
             }
             
-            threadStates[threadN] = false;
+        }
+        
+        while(!jobs.empty()) {
             
-            JobWrapper<T> jobWrapper = jobs.front();
-            job = jobWrapper.job;
-            jid = jobWrapper.jid;
-            jobs.pop();
-        }
-        job();
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            queueJids[jid] = false;
-        }
+            {
+                
+                std::unique_lock<std::mutex> lock(queueMutex);
+                
+                if (jobs.empty())
+                    break;
+                
+                threadStates[threadN] = false;
+                
+                JobWrapper<T> jobWrapper = jobs.front();
+                job = jobWrapper.job;
+                jid = jobWrapper.jid;
+                jobs.pop();
+                
+            }
+            job();
+            {
+                std::unique_lock<std::mutex> lock(queueMutex);
+                queueJids[jid] = false;
+            }
 #ifdef DEBUG
-        std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
+            std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
+            
+        }
 
     }
 }
@@ -126,8 +140,8 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
 template<class T>
 bool ThreadPool<T>::empty() {
     
-    if (!jobs.empty())
-        mutexCondition.notify_all();
+//    if (!jobs.empty())
+//        mutexCondition.notify_all();
     
     return jobs.empty();
     
@@ -240,7 +254,11 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     while (true) {
 
         threadPool.status();
-        threadPool.empty();
+
+        if (threadPool.empty() && threadPool.jobsDone()) {
+            lg.verbose("\n", true);
+            break;
+        }
         
         for (uint32_t dependency : dependencies) {
             
