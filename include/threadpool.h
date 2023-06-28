@@ -140,8 +140,8 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
 template<class T>
 bool ThreadPool<T>::empty() {
     
-//    if (!jobs.empty())
-//        mutexCondition.notify_all();
+    if (!jobs.empty())
+        mutexCondition.notify_all();
     
     return jobs.empty();
     
