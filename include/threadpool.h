@@ -74,7 +74,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
             
             {
                 
-                std::unique_lock<std::mutex> lock(queueMutex);
+                std::lock_guard<std::mutex> lock(queueMutex);
                 
                 if (jobs.empty())
                     break;
@@ -89,7 +89,7 @@ void ThreadPool<T>::threadLoop(int threadN) {
             }
             job();
             {
-                std::unique_lock<std::mutex> lock(queueMutex);
+                std::lock_guard<std::mutex> lock(queueMutex);
                 queueJids[jid] = false;
             }
 #ifdef DEBUG
@@ -125,7 +125,7 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
     uint32_t jid;
     
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::lock_guard<std::mutex> lock(queueMutex);
         
         jid = ++uid;
         JobWrapper<T> jobWrapper{jid, job};
@@ -140,8 +140,8 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
 template<class T>
 bool ThreadPool<T>::empty() {
     
-//    if (!jobs.empty())
-//        mutexCondition.notify_all();
+    if (!jobs.empty())
+        mutexCondition.notify_all();
     
     return jobs.empty();
     
@@ -182,7 +182,7 @@ short unsigned int ThreadPool<T>::running() {
 template<class T>
 void ThreadPool<T>::join() {
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::lock_guard<std::mutex> lock(queueMutex);
         done = true;
     }
     mutexCondition.notify_all();
@@ -203,7 +203,7 @@ void ThreadPool<T>::execJob() {
     T job;
     uint32_t jid;
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::lock_guard<std::mutex> lock(queueMutex);
         if (!empty()) {
             
             JobWrapper<T> jobWrapper = jobs.front();
@@ -214,7 +214,7 @@ void ThreadPool<T>::execJob() {
     }
     job();
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::lock_guard<std::mutex> lock(queueMutex);
         queueJids[jid] = false;
     }
 
