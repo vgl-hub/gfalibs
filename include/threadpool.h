@@ -125,7 +125,7 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
     uint32_t jid;
     
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::lock_guard<std::mutex> lock(queueMutex);
         
         jid = ++uid;
         JobWrapper<T> jobWrapper{jid, job};
@@ -182,7 +182,7 @@ short unsigned int ThreadPool<T>::running() {
 template<class T>
 void ThreadPool<T>::join() {
     {
-        std::unique_lock<std::mutex> lock(queueMutex);
+        std::lock_guard<std::mutex> lock(queueMutex);
         done = true;
     }
     mutexCondition.notify_all();
