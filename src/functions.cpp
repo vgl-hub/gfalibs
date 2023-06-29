@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <string>
 #include <sys/stat.h>
+#include <fstream>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -598,4 +599,15 @@ unsigned int fileCount(const char *dir) {
     }
     closedir(fd);
     return i;
+}
+
+uint64_t fileSize(std::string path) {
+    
+    std::ifstream file(path, std::ios::binary);
+    const auto begin = file.tellg();
+    file.seekg(0, std::ios::end);
+    const auto end = file.tellg();
+    
+    return end-begin;
+    
 }

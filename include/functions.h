@@ -74,6 +74,8 @@ void make_dir(const char* name);
 
 unsigned int fileCount(const char *dir);
 
+uint64_t fileSize(std::string path);
+
 template<typename K, typename V>
 void printMap(phmap::flat_hash_map<K, V> const &m)
 {
