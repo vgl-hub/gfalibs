@@ -10,4 +10,6 @@ double get_mem_usage(uint8_t unit);
 
 double get_mem_total(uint8_t unit);
 
+double convert_memory(int64_t value, uint8_t unit);
+
 #endif //MEMORY

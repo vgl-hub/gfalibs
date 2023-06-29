@@ -11,6 +11,12 @@ double get_mem_inuse(uint8_t unit){
     
 }
 
+double convert_memory(int64_t value, uint8_t unit) {
+    
+    return value / pow(1024, unit);
+    
+}
+
 #ifdef _WIN32
 
 #include <windows.h>
