@@ -583,6 +583,14 @@ void make_dir(const char* name) {
 #endif
 }
 
+void rm_dir(const char* name) {
+#ifdef _WIN32
+    _rmdir(name);
+#else
+    rmdir(name);
+#endif
+}
+
 unsigned int fileCount(const char *dir) {
     struct dirent *dp;
     DIR *fd;
