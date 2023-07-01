@@ -163,15 +163,15 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
 
                     object->traverseInReads(readBatch);
                     
-                    {
-                        std::lock_guard<std::mutex> lck(mtx);
-                        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-                            
-                            it->print();
-                            object->logs.erase(it--);
-                            
-                        }
-                    }
+//                    {
+//                        std::lock_guard<std::mutex> lck(mtx);
+//                        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
+//
+//                            it->print();
+//                            object->logs.erase(it--);
+//
+//                        }
+//                    }
                     
                     object->consolidate();
 
