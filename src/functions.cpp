@@ -591,6 +591,11 @@ void rm_dir(const char* name) {
 #endif
 }
 
+bool fileExists(const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
+
 unsigned int fileCount(const char *dir) {
     struct dirent *dp;
     DIR *fd;

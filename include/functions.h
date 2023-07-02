@@ -74,6 +74,8 @@ void make_dir(const char* name);
 
 void rm_dir(const char* name);
 
+bool fileExists(const std::string& name);
+
 unsigned int fileCount(const char *dir);
 
 uint64_t fileSize(std::string path);
