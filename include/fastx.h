@@ -184,13 +184,13 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
         }
         
         //consolidate log
-        jobWait(threadPool);
-        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-            
-            it->print();
-            object->logs.erase(it--);
-            
-        }
+//        jobWait(threadPool);
+//        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
+//            
+//            it->print();
+//            object->logs.erase(it--);
+//            
+//        }
         
     }
 
