@@ -4,16 +4,16 @@
 #include <stack>
 
 struct Instruction {
-    std::string action;
-    std::string path1;
-    std::string path2;
-    std::string path3;
-    std::string contig1;
-    std::string contig2;
-    std::string gap1;
-    std::string comment1;
-    std::string comment2;
-    std::string gHeader = "";
+    std::string action,
+                path1,
+                path2,
+                path3,
+                contig1,
+                contig2,
+                gap1,
+                comment1,
+                comment2,
+                gHeader;
     
     int compressThreshhold;
     char pId1Or, pId2Or, sId1Or, sId2Or;
@@ -160,12 +160,30 @@ public:
     }
 
     bool rvcp(InSequences& inSequences, Instruction &instruction) { // reverse complement sequence
-        unsigned int uId = inSequences.headersToIds[instruction.contig1], sIdx = 0;
-        auto sId = find_if(inSequences.inSegments.begin(), inSequences.inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node uId, find it
-
-        if (sId != inSequences.inSegments.end()) {sIdx = std::distance(inSequences.inSegments.begin(), sId);} // gives us the segment index
         
-        inSequences.inSegments[sIdx]->rvcpSegment(); // rvcp segment
+        unsigned int uId = inSequences.headersToIds[instruction.contig1], sIdx = 0;
+        
+        auto sId = find_if(inSequences.inSegments.begin(), inSequences.inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node uId, find it
+        
+        auto pId = find_if(inSequences.inPaths.begin(), inSequences.inPaths.end(), [uId](InPath obj) {return obj.getpUId() == uId;}); // given a node uId, find it
+
+        if (sId != inSequences.inSegments.end()) {
+            
+            sIdx = std::distance(inSequences.inSegments.begin(), sId); // gives us the segment index
+            
+            inSequences.inSegments[sIdx]->rvcpSegment(); // rvcp segment
+            
+        }else if (pId != inSequences.inPaths.end()){
+            
+            inSequences.revComPath(uId);
+            
+        }else{
+            
+            fprintf(stderr, "Error: couldn't find (%s). Terminating.\n", instruction.contig1.c_str());
+            exit(1);
+            
+        }
+        
         return true;
     }
 
