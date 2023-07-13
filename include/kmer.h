@@ -15,7 +15,7 @@ inline void freeContainer(T& p_container) // this is a C++ trick to empty a cont
 
 template<typename TYPE> // this is a generic buffer, VALUE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
 struct Buf {
-    uint64_t pos = 0, size = 10; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
+    uint64_t pos = 0, size = pow(2,18); // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
     TYPE *seq = new TYPE[size]; // the actual container
 };
 
