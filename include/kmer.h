@@ -385,12 +385,12 @@ inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer, bool *isFw) { // h
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
     for(uint8_t c = 0; c<k; ++c) // for each position up to klen
-        fw += *kmer++ << c; // base * 2^N
+        fw += *kmer++ * pows[c]; // base * 2^N
     
     --kmer;
     
     for(uint8_t c = 0; c<k; ++c)
-        rv += (3-(*kmer--)) << c; // we walk the kmer backward to compute the rvcp
+        rv += (3-(*kmer--)) * pows[c]; // we walk the kmer backward to compute the rvcp
     
     if (isFw != NULL)
         *isFw = fw < rv ? true : false; // we preserve the actual orientation for DBG applications
