@@ -17,6 +17,7 @@ template<typename TYPE> // this is a generic buffer, VALUE is the type of the el
 struct Buf {
     uint64_t pos = 0, size = pow(2,18); // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
     TYPE *seq = new TYPE[size]; // the actual container
+    Buf(uint64_t size) : size(size){}
 };
 
 template<class INPUT, typename VALUE, typename TYPE> // INPUT is a specialized userInput type depending on the tool, VALUE is the type of elements we wish to store in the maps, e.g. uint64_t kmer counts, TYPE is the type of inputs, e.g. kmers hashed to sequences
