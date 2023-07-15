@@ -28,6 +28,7 @@ private:
     bool done = false;
     uint32_t uid = 0;
     std::chrono::high_resolution_clock::time_point past;
+    std::chrono::seconds time{1};
 
     void threadLoop(int threadN);
 
@@ -227,7 +228,7 @@ void ThreadPool<T>::status() {
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
     past = std::chrono::high_resolution_clock::now();
     
-    if (elapsed.count() > 1)
+    if (elapsed.count() > time)
         lg.verbose("Jobs waiting/running: " + std::to_string(queueSize()) + "/" + std::to_string(running()) + " memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
     
 }
