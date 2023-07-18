@@ -17,10 +17,7 @@ void membuf::openFile(std::string file) {
     
     fi = gzopen(file.c_str(), "rb");
     
-    std::thread t(&membuf::decompressBuf, this);
-    decompressor = &t;
-    
-    decompressor->detach();
+    decompressor = new std::thread(&membuf::decompressBuf, this);
     
     wait();
     
@@ -84,7 +81,13 @@ int membuf::uflow() {
     
     semaphore.notify_one();
     
-    if (sgetc() == EOF) {return EOF;}
+    if (sgetc() == EOF) {
+        if (decompressor->joinable()) {
+            decompressor->join();
+            delete decompressor;
+        }
+        return EOF;
+    }
     gbump(1);
     return gptr()[-1];
     

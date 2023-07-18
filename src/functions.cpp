@@ -63,6 +63,8 @@ std::istream& getKmers(std::istream& is, std::string& str, int batchSize) { // a
     while (batchSize > 0) {
         
         ignore(is, '\n');
+        if (is.rdstate() != std::ios_base::goodbit)
+            break;
         
         while (true) {
             
@@ -84,12 +86,15 @@ std::istream& getKmers(std::istream& is, std::string& str, int batchSize) { // a
             }
             
         }
-        
-        if (err != std::ios_base::goodbit)
+
+        ignore(is, '\n');
+        if (is.rdstate() != std::ios_base::goodbit)
             break;
         
         ignore(is, '\n');
-        ignore(is, '\n');
+        if (is.rdstate() != std::ios_base::goodbit)
+            break;
+        
         str.push_back('N');
         
     }
