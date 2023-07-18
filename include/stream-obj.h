@@ -19,6 +19,7 @@ class membuf : public std::streambuf {
     bool decompressed1 = false, decompressed2 = false, start = false, eof = false, whichBuf = 0;
     std::mutex semMtx;
     std::condition_variable semaphore;
+    std::thread *decompressor;
     
 public:
     

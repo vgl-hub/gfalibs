@@ -16,9 +16,11 @@ void membuf::openFile(std::string file) {
 //    std::cout<<"file open: "<<file<<std::endl;
     
     fi = gzopen(file.c_str(), "rb");
-    std::thread decompressor(&membuf::decompressBuf, this);
     
-    decompressor.detach();
+    std::thread t(&membuf::decompressBuf, this);
+    decompressor = &t;
+    
+    decompressor->detach();
     
     wait();
     
