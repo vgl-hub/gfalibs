@@ -16,7 +16,9 @@ void membuf::openFile(std::string file) {
 //    std::cout<<"file open: "<<file<<std::endl;
     
     fi = gzopen(file.c_str(), "rb");
-    threadPool.queueJob([=]{ return decompressBuf(); });
+    std::thread decompressor(&membuf::decompressBuf, this);
+    
+    decompressor.detach();
     
     wait();
     
