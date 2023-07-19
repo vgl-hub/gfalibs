@@ -33,7 +33,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
     uint64_t totKmers = 0, totKmersUnique = 0, totKmersDistinct = 0; // summary statistics
     
-    const uint16_t mapCount = k < 28 ? pow(4,k/4) : pow(4,5); // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const uint16_t mapCount = k < 28 ? pow(4,k/5) : pow(4,5); // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
