@@ -82,9 +82,10 @@ int membuf::uflow() {
     semaphore.notify_one();
     
     if (sgetc() == EOF) {
-        if (decompressor->joinable()) {
+        if (decompressor != NULL && decompressor->joinable()) {
             decompressor->join();
             delete decompressor;
+            decompressor = NULL;
         }
         return EOF;
     }
