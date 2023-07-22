@@ -77,9 +77,8 @@ public:
         for(uint8_t p = 0; p<k; ++p)
             pows[p] = (uint64_t) pow(4,p);
         
-        maps.reserve(maps.capacity() + mapCount);
-        std::generate_n(std::back_inserter(maps), mapCount,
-                    []() { return new phmap::flat_hash_map<uint64_t, VALUE>; });
+        for(uint16_t m = 0; m<mapCount; ++m)
+            maps.push_back(new phmap::flat_hash_map<uint64_t, VALUE>);
         
     };
     
