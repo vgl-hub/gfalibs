@@ -278,7 +278,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
             
             if (got->second) {
                 end = false;
-                break;
+                break; // check this doesn't look right, i.e. case where dep is found
             }else{
                 end = true;
             }

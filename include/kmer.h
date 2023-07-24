@@ -15,9 +15,30 @@ inline void freeContainer(T& p_container) // this is a C++ trick to empty a cont
 
 template<typename TYPE> // this is a generic buffer, VALUE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
 struct Buf {
-    uint64_t pos = 0, size = pow(2,18); // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
+    uint64_t pos = 0, size; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
     TYPE *seq = new TYPE[size]; // the actual container
+    
+    Buf() : size(pow(2,18)){}
     Buf(uint64_t size) : size(size){}
+    
+    uint64_t newPos() {
+        
+        if (pos == size) {
+            
+            uint64_t newSize = size*2;
+            TYPE* seqNew = new TYPE[newSize];
+            
+            memcpy(seqNew, seq, size*sizeof(TYPE));
+            
+            size = newSize;
+            delete[] seq;
+            seq = seqNew;
+            
+        }
+        
+        return pos++;
+        
+    }
 };
 
 template<class INPUT, typename VALUE, typename TYPE> // INPUT is a specialized userInput type depending on the tool, VALUE is the type of elements we wish to store in the maps, e.g. uint64_t kmer counts, TYPE is the type of inputs, e.g. kmers hashed to sequences
@@ -33,7 +54,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
     uint64_t totKmers = 0, totKmersUnique = 0, totKmersDistinct = 0; // summary statistics
     
-    const uint16_t mapCount = k < 28 ? pow(4,k/4) : pow(4,5); // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
