@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <condition_variable>
+#include <future>
 #include "memory.h"
 
 #include "parallel_hashmap/phmap.h"
@@ -36,6 +37,7 @@ public:
     
     void init(int maxThreads);
     uint32_t queueJob(const T& job);
+    std::vector<uint32_t> queueJobs(const std::vector<T> &jobs);
     bool empty();
     bool jobsDone();
     short unsigned int running();
@@ -136,6 +138,30 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
     mutexCondition.notify_one();
     
     return jid;
+}
+
+template<class T>
+std::vector<uint32_t> ThreadPool<T>::queueJobs(const std::vector<T> &newJobs) {
+    
+    std::vector<uint32_t> jids;
+    uint32_t jid;
+    
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        
+        for (const T &job : newJobs) {
+            
+            jid = ++uid;
+            JobWrapper<T> jobWrapper{jid, job};
+            jobs.push(jobWrapper);
+            queueJids[jid] = true;
+            jids.push_back(jid);
+            
+        }
+    }
+    mutexCondition.notify_all();
+    
+    return jids;
 }
 
 template<class T>
