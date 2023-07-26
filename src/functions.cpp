@@ -101,7 +101,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, uint32_t batchSize) { //
         err |= std::ios_base::failbit;
     is.setstate(err);
     
-    str->len = pos + 1;
+    str->len = pos;
     
     return is;
     

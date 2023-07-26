@@ -133,7 +133,7 @@ template<typename OBJECT>
 bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fileNum) { // load from FASTA/FASTQ to templated object, faster when we only need to retain kmers not the original reads
     
     // stream read variables
-    uint32_t batchSize = 10000000; // number of bases processed
+    uint32_t batchSize = 10000; // number of bases processed
                 
     //stream objects
     StreamObj streamObj;
