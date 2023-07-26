@@ -234,6 +234,9 @@ void ThreadPool<T>::execJob() {
         std::lock_guard<std::mutex> lock(queueMutex);
         
         queueJids[jid] = false;
+        
+        if (empty())
+            return;
             
         JobWrapper<T> jobWrapper = jobs.front();
         job = jobWrapper.job;
