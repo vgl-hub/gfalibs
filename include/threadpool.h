@@ -27,7 +27,7 @@ private:
     std::mutex queueMutex;
     std::condition_variable mutexCondition;
     bool done = false;
-    uint32_t uid = 0;
+    uint32_t uid = 1;
     std::chrono::high_resolution_clock::time_point past;
 
     void threadLoop(int threadN);
@@ -53,7 +53,7 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
-    uint32_t jid;
+    uint32_t jid = 0;
     
     while (true) {
         
@@ -73,28 +73,26 @@ void ThreadPool<T>::threadLoop(int threadN) {
             
         }
         
-        while(!jobs.empty()) {
+        while (true) {
             
             {
                 
                 std::lock_guard<std::mutex> lock(queueMutex);
                 
-                if (jobs.empty())
+                queueJids[jid] = false; // set the job as executed
+                
+                if (jobs.empty()) // return to wait if no more jobs available
                     break;
                 
-                threadStates[threadN] = false;
+                threadStates[threadN] = false; // thread unavailable
                 
-                JobWrapper<T> jobWrapper = jobs.front();
+                JobWrapper<T> jobWrapper = jobs.front(); // get the job
                 job = jobWrapper.job;
                 jid = jobWrapper.jid;
                 jobs.pop();
                 
             }
-            job();
-            {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                queueJids[jid] = false;
-            }
+            job(); // execute the job
 #ifdef DEBUG
             std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
