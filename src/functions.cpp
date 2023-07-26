@@ -61,7 +61,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, uint32_t batchSize) { //
     uint32_t pos = 0;
     uint8_t *chars = str->chars;
     
-    while (pos < batchSize) {
+    while (pos < batchSize - 1) {
         
         if (i == '@') {
 
