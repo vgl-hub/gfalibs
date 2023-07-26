@@ -88,4 +88,6 @@ void printMap(phmap::flat_hash_map<K, V> const &m)
     }
 }
 
+std::vector<uint32_t> sortedIndex(std::vector<uint64_t> vec, bool largest = false);
+
 #endif /* FUNCTIONS_H */

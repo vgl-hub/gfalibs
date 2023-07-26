@@ -10,6 +10,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <fstream>
+#include <numeric>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -627,5 +628,18 @@ uint64_t fileSize(std::string path) {
     const auto end = file.tellg();
     
     return end-begin;
+    
+}
+
+std::vector<uint32_t> sortedIndex(std::vector<uint64_t> vec, bool largest) {
+    
+    std::vector<uint32_t> idx(vec.size());
+    std::iota(idx.begin(),idx.end(),0);
+    if (largest)
+        sort(idx.begin(), idx.end(), [&](int i,int j){return vec[i]>vec[j];} );
+    else
+        sort(idx.begin(), idx.end(), [&](int i,int j){return vec[i]<vec[j];} );
+    
+    return idx;
     
 }
