@@ -13,7 +13,7 @@
 
 std::istream& ignore(std::istream& is, char dlm);
 
-std::istream& getKmers(std::istream& is, baseStr*& str, uint32_t batchSize);
+std::istream& getKmers(std::istream& is, std::string& str, int batchSize);
 
 std::istream& getline(std::istream& is, std::string& str);
 
