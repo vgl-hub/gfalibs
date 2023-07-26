@@ -235,10 +235,10 @@ void ThreadPool<T>::execJob() {
         if (empty())
             return;
             
-        JobWrapper<T> jobWrapper = jobs.front();
-        job = jobWrapper.job;
-        jid = jobWrapper.jid;
-        jobs.pop();
+            JobWrapper<T> jobWrapper = jobs.front();
+            job = jobWrapper.job;
+            jid = jobWrapper.jid;
+            jobs.pop();
 
     }
     job();
