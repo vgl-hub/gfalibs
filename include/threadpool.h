@@ -261,7 +261,7 @@ void ThreadPool<T>::status() {
 }
 
 template<class T>
-void jobWait(ThreadPool<T>& threadPool) {
+void jobWait(ThreadPool<T>& threadPool, bool master = false) {
     
     while (true) {
 
@@ -272,14 +272,15 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
         }
         
-        //threadPool.execJob(); // have the master thread contribute
+        if (master)
+            threadPool.execJob(); // have the master thread contribute
         
     }
     
 }
 
 template<class T>
-void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
+void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, bool master = false) {
     
     bool end = false;
     phmap::flat_hash_map<uint32_t, bool>::const_iterator got;
@@ -317,7 +318,8 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
             break;
         }
         
-        //threadPool.execJob(); // have the master thread contribute
+        if (master)
+            threadPool.execJob(); // have the master thread contribute
         
     }
     
