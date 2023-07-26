@@ -80,8 +80,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a ge
             if (i == '\n')
                 break;
             
-            chars[extr] = i;
-            ++extr;
+            chars[extr++] = i;
             
             if (extr == batchSize)
                 break;
@@ -96,8 +95,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a ge
         if (is.rdstate() != std::ios_base::goodbit)
             break;
         
-        chars[extr] = 'N';
-        ++extr;
+        chars[extr++] = 'N';
         
     }
     
@@ -106,6 +104,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a ge
     is.setstate(err);
     
     str->len = extr;
+    std::cout<<str->len<<std::endl;
     
     return is;
     
