@@ -225,15 +225,15 @@ short unsigned int ThreadPool<T>::totalThreads() {
 template<class T>
 void ThreadPool<T>::execJob() {
     
+    if (empty())
+        return;
+    
     T job;
     uint32_t jid = 0;
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         
         queueJids[jid] = false;
-        
-        if (empty())
-            return;
             
         JobWrapper<T> jobWrapper = jobs.front();
         job = jobWrapper.job;
