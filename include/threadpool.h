@@ -225,9 +225,6 @@ short unsigned int ThreadPool<T>::totalThreads() {
 template<class T>
 void ThreadPool<T>::execJob() {
     
-    if (empty())
-        return;
-    
     T job;
     uint32_t jid = 0;
     {
