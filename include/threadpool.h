@@ -226,22 +226,22 @@ template<class T>
 void ThreadPool<T>::execJob() {
     
     T job;
-    uint32_t jid;
+    uint32_t jid = 0;
     {
         std::lock_guard<std::mutex> lock(queueMutex);
-        if (!empty()) {
+        
+        queueJids[jid] = false;
+        
+        if (empty())
+            return;
             
             JobWrapper<T> jobWrapper = jobs.front();
             job = jobWrapper.job;
             jid = jobWrapper.jid;
             jobs.pop();
-        }else{return;}
+
     }
     job();
-    {
-        std::lock_guard<std::mutex> lock(queueMutex);
-        queueJids[jid] = false;
-    }
 
 }
 
