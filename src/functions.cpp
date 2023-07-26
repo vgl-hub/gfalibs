@@ -97,6 +97,8 @@ std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a ge
         
         chars[extr++] = 'N';
         
+        std::cout<<extr<<std::endl;
+        
     }
     
     if (extr == 0)
@@ -104,7 +106,6 @@ std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a ge
     is.setstate(err);
     
     str->len = extr - 1;
-    std::cout<<str->len<<std::endl;
     
     return is;
     
