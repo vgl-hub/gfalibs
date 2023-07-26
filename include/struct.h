@@ -87,4 +87,12 @@ struct Bubble {
     unsigned int id0, id1, id2, id3;
 };
 
+struct baseStr {
+  
+    uint64_t pos = 0, size;
+    uint8_t *chars = new uint8_t[size];
+    
+    baseStr(uint64_t size) : size(size){}
+};
+
 #endif //STRUCT

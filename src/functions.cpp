@@ -54,15 +54,16 @@ std::istream& ignore(std::istream& is, char dlm) {
     
 }
 
-std::istream& getKmers(std::istream& is, std::string& str, int batchSize) { // a generic function extracting concatenated reads from FASTQ
+std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a generic function extracting concatenated reads from FASTQ
     
-    str.clear();
-    str.reserve(batchSize);
+//    str.clear();
+//    str.reserve(batchSize);
     std::ios_base::iostate err = std::ios_base::goodbit;
     std::streamsize extr = 0;
-    int i = 0;
+    char i = 0;
+    uint8_t *chars = str->chars;
     
-    while (batchSize > 0) {
+    while (extr < batchSize) {
         
         ignore(is, '\n');
         if (is.rdstate() != std::ios_base::goodbit)
@@ -75,17 +76,12 @@ std::istream& getKmers(std::istream& is, std::string& str, int batchSize) { // a
                 err |= std::ios_base::eofbit;
                 break;
             }
-            ++extr;
-            --batchSize;
             
             if (i == '\n')
                 break;
             
-            str.push_back(i);
-            if (str.size() == str.max_size()) {
-                err |= std::ios_base::failbit;
-                break;
-            }
+            chars[extr] = i;
+            ++extr;
             
         }
 
@@ -97,13 +93,16 @@ std::istream& getKmers(std::istream& is, std::string& str, int batchSize) { // a
         if (is.rdstate() != std::ios_base::goodbit)
             break;
         
-        str.push_back('N');
+        chars[extr] = 'N';
+        ++extr;
         
     }
     
     if (extr == 0)
         err |= std::ios_base::failbit;
     is.setstate(err);
+    
+    str->pos = extr;
     
     return is;
     

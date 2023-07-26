@@ -153,13 +153,11 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
                 
             case '@': {
                 
-                std::string* readBatch;
-                
                 while (*stream) { // file input
                     
-                    readBatch = new std::string;
+                    baseStr *readBatch = new baseStr(batchSize);
                     
-                    getKmers(*stream, *readBatch, batchSize);
+                    getKmers(*stream, readBatch, batchSize);
 
                     object->traverseInReads(readBatch);
                     
