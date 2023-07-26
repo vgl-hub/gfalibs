@@ -61,7 +61,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, uint32_t batchSize) { //
     uint32_t pos = 0;
     uint8_t *chars = str->chars;
     
-    while (pos < batchSize - 1) {
+    while (pos < batchSize) {
         
         if (i == '@') {
 
@@ -72,11 +72,6 @@ std::istream& getKmers(std::istream &is, baseStr*& str, uint32_t batchSize) { //
         }
             
         i = is.rdbuf()->sbumpc();
-        if (i == EOF) {
-            err |= std::ios_base::eofbit;
-            break;
-        }
-        
         if (i == '\n') {
             
             ignore(is, '\n');
@@ -88,10 +83,17 @@ std::istream& getKmers(std::istream &is, baseStr*& str, uint32_t batchSize) { //
                 break;
             
             chars[pos++] = 'N';
-            continue;
+
+        }else if (i == EOF){
+            
+            err |= std::ios_base::eofbit;
+            break;
+            
+        }else{
+            
+            chars[pos++] = i;
             
         }
-        chars[pos++] = i;
         
     }
     
@@ -99,7 +101,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, uint32_t batchSize) { //
         err |= std::ios_base::failbit;
     is.setstate(err);
     
-    str->len = pos;
+    str->len = pos + 1;
     
     return is;
     
