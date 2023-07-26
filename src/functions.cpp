@@ -54,55 +54,52 @@ std::istream& ignore(std::istream& is, char dlm) {
     
 }
 
-std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a generic function extracting concatenated reads from FASTQ
+std::istream& getKmers(std::istream &is, baseStr*& str, uint32_t batchSize) { // a generic function extracting concatenated reads from FASTQ
     
-//    str.clear();
-//    str.reserve(batchSize);
     std::ios_base::iostate err = std::ios_base::goodbit;
-    std::streamsize extr = 0;
     char i = 0;
+    uint32_t pos = 0;
     uint8_t *chars = str->chars;
     
-    while (extr < batchSize) {
+    while (pos < batchSize) {
         
-        ignore(is, '\n');
-        if (is.rdstate() != std::ios_base::goodbit)
-            break;
-        
-        while (extr < batchSize) {
-            
-            i = is.rdbuf()->sbumpc();
-            if (i == EOF) {
-                err |= std::ios_base::eofbit;
+        if (i == '@') {
+
+            ignore(is, '\n');
+            if (is.rdstate() != std::ios_base::goodbit)
                 break;
-            }
-            
-            if (i == '\n')
-                break;
-            
-            chars[extr++] = i;
             
         }
-
-        ignore(is, '\n');
-        if (is.rdstate() != std::ios_base::goodbit)
+            
+        i = is.rdbuf()->sbumpc();
+        if (i == EOF) {
+            err |= std::ios_base::eofbit;
             break;
+        }
         
-        ignore(is, '\n');
-        if (is.rdstate() != std::ios_base::goodbit)
-            break;
-        
-        chars[extr++] = 'N';
+        if (i == '\n') {
+            
+            ignore(is, '\n');
+            if (is.rdstate() != std::ios_base::goodbit)
+                break;
+            
+            ignore(is, '\n');
+            if (is.rdstate() != std::ios_base::goodbit)
+                break;
+            
+            chars[pos++] = 'N';
+            continue;
+            
+        }
+        chars[pos++] = i;
         
     }
     
-    if (extr == 0)
+    if (pos == 0)
         err |= std::ios_base::failbit;
     is.setstate(err);
     
-    str->len = extr - 1;
-    
-    std::cout<<extr<<std::endl;
+    str->len = pos;
     
     return is;
     
