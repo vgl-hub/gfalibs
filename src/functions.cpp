@@ -83,6 +83,9 @@ std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a ge
             chars[extr] = i;
             ++extr;
             
+            if (extr == batchSize)
+                break;
+            
         }
 
         ignore(is, '\n');
@@ -102,7 +105,7 @@ std::istream& getKmers(std::istream &is, baseStr*& str, int batchSize) { // a ge
         err |= std::ios_base::failbit;
     is.setstate(err);
     
-    str->pos = extr;
+    str->len = extr;
     
     return is;
     

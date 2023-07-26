@@ -89,7 +89,7 @@ struct Bubble {
 
 struct baseStr {
   
-    uint64_t pos = 0, size;
+    uint64_t len = 0, size;
     uint8_t *chars = new uint8_t[size];
     
     baseStr(uint64_t size) : size(size){}
