@@ -21,9 +21,9 @@ struct Buf {
     Buf() : size(pow(2,8)){}
     Buf(uint64_t size) : size(size){}
     
-    uint64_t newPos() {
+    uint64_t newPos(uint8_t bytes) {
         
-        if (pos == size) {
+        if (pos + bytes > size) {
             
             uint64_t newSize = size*2;
             TYPE* seqNew = new TYPE[newSize];
@@ -36,7 +36,7 @@ struct Buf {
             
         }
         
-        return pos++;
+        return pos += bytes;
         
     }
 };
