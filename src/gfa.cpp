@@ -15,8 +15,7 @@
 
 #include "gfa.h"
 
-InSequences::~InSequences()
-{
+InSequences::~InSequences() {
     
     for (InSegment* p : inSegments)
         delete p;

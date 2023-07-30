@@ -60,7 +60,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
     uint64_t* pows = new uint64_t[k]; // storing precomputed values of each power significantly speeds up hashing
 
-    std::vector<Buf<TYPE>*> buffers; // a vector for all buffers
+    std::vector<Buf<TYPE>*> buffersVec; // a vector for all buffers
     
     std::vector<phmap::flat_hash_map<uint64_t, VALUE>*> maps; // all hash maps where VALUES are stored
     
@@ -418,13 +418,13 @@ inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer, bool *isFw) { // h
 template<class INPUT, typename VALUE, typename TYPE>
 void Kmap<INPUT, VALUE, TYPE>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
     
-    for (unsigned int i = 0; i<buffers.size(); ++i) { // for each buffer
+    for (unsigned int i = 0; i<buffersVec.size(); ++i) { // for each buffer
         
         unsigned int counter = 0;
         
         for(uint16_t m = 0; m<mapCount; ++m) { // for each map
             
-            Buf<uint64_t>* thisBuf = &buffers[i][m];
+            Buf<uint64_t>* thisBuf = &buffersVec[i][m];
             
             if (thisBuf->seq != NULL && mapsInUse[m] == false) { // if the buffer was not counted and the associated map is not in use we process it
                 
@@ -439,7 +439,7 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() { // to reduce memory footprint we 
                 
                 if (counter == mapCount) {
                     lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
-                    buffers.erase(buffers.begin() + i);
+                    buffersVec.erase(buffersVec.begin() + i);
                 }
                 
             }
@@ -497,7 +497,7 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuffs(uint16_t m) { // counts all residual b
     
     phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
     
-    for(Buf<uint64_t>* buf : buffers) {
+    for(Buf<uint64_t>* buf : buffersVec) {
             
         thisBuf = &buf[m];
         
@@ -648,7 +648,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) { // hashes a
     
     std::unique_lock<std::mutex> lck(mtx);
     
-    buffers.push_back(buf); // stores all the new buffers just generated
+    buffersVec.push_back(buf); // stores all the new buffers just generated
     
     logs.push_back(threadLog);
     
@@ -732,7 +732,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(std::string* readBatch) { // same a
     
     std::unique_lock<std::mutex> lck(mtx);
     
-    buffers.push_back(buf);
+    buffersVec.push_back(buf);
     
     logs.push_back(threadLog);
     
@@ -799,7 +799,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSegments() { // hashes (gapless) segments, no
     
     std::unique_lock<std::mutex> lck(mtx);
     
-    buffers.push_back(buf);
+    buffersVec.push_back(buf);
     
 }
 

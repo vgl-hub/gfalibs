@@ -10,7 +10,7 @@
 
 class InSequences { //collection of InSegment and inGap objects and their summary statistics
     
-private:
+protected:
 
     std::vector<Log> logs;
     
