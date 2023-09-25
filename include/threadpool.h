@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <condition_variable>
+#include <future>
 #include "memory.h"
 
 #include "parallel_hashmap/phmap.h"
@@ -26,7 +27,7 @@ private:
     std::mutex queueMutex;
     std::condition_variable mutexCondition;
     bool done = false;
-    uint32_t uid = 0;
+    uint32_t uid = 1;
     std::chrono::high_resolution_clock::time_point past;
 
     void threadLoop(int threadN);
@@ -36,6 +37,7 @@ public:
     
     void init(int maxThreads);
     uint32_t queueJob(const T& job);
+    std::vector<uint32_t> queueJobs(const std::vector<T> &jobs);
     bool empty();
     bool jobsDone();
     short unsigned int running();
@@ -51,7 +53,7 @@ template<class T>
 void ThreadPool<T>::threadLoop(int threadN) {
     
     T job;
-    uint32_t jid;
+    uint32_t jid = 0;
     
     while (true) {
         
@@ -71,28 +73,26 @@ void ThreadPool<T>::threadLoop(int threadN) {
             
         }
         
-        while(!jobs.empty()) {
+        while (true) {
             
             {
                 
                 std::lock_guard<std::mutex> lock(queueMutex);
                 
-                if (jobs.empty())
+                queueJids[jid] = false; // set the job as executed
+                
+                if (jobs.empty()) // return to wait if no more jobs available
                     break;
                 
-                threadStates[threadN] = false;
+                threadStates[threadN] = false; // thread unavailable
                 
-                JobWrapper<T> jobWrapper = jobs.front();
+                JobWrapper<T> jobWrapper = jobs.front(); // get the job
                 job = jobWrapper.job;
                 jid = jobWrapper.jid;
                 jobs.pop();
                 
             }
-            job();
-            {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                queueJids[jid] = false;
-            }
+            job(); // execute the job
 #ifdef DEBUG
             std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
@@ -136,6 +136,30 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
     mutexCondition.notify_one();
     
     return jid;
+}
+
+template<class T>
+std::vector<uint32_t> ThreadPool<T>::queueJobs(const std::vector<T> &newJobs) {
+    
+    std::vector<uint32_t> jids;
+    uint32_t jid;
+    
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        
+        for (const T &job : newJobs) {
+            
+            jid = ++uid;
+            JobWrapper<T> jobWrapper{jid, job};
+            jobs.push(jobWrapper);
+            queueJids[jid] = true;
+            jids.push_back(jid);
+            
+        }
+    }
+    mutexCondition.notify_all();
+    
+    return jids;
 }
 
 template<class T>
@@ -202,22 +226,22 @@ template<class T>
 void ThreadPool<T>::execJob() {
     
     T job;
-    uint32_t jid;
+    uint32_t jid = 0;
     {
         std::lock_guard<std::mutex> lock(queueMutex);
-        if (!empty()) {
+        
+        queueJids[jid] = false;
+        
+        if (empty())
+            return;
             
-            JobWrapper<T> jobWrapper = jobs.front();
-            job = jobWrapper.job;
-            jid = jobWrapper.jid;
-            jobs.pop();
-        }else{return;}
+        JobWrapper<T> jobWrapper = jobs.front();
+        job = jobWrapper.job;
+        jid = jobWrapper.jid;
+        jobs.pop();
+
     }
     job();
-    {
-        std::lock_guard<std::mutex> lock(queueMutex);
-        queueJids[jid] = false;
-    }
 
 }
 
@@ -235,7 +259,7 @@ void ThreadPool<T>::status() {
 }
 
 template<class T>
-void jobWait(ThreadPool<T>& threadPool) {
+void jobWait(ThreadPool<T>& threadPool, bool master = false) {
     
     while (true) {
 
@@ -246,14 +270,15 @@ void jobWait(ThreadPool<T>& threadPool) {
             break;
         }
         
-        //threadPool.execJob(); // have the master thread contribute
+        if (master)
+            threadPool.execJob(); // have the master thread contribute
         
     }
     
 }
 
 template<class T>
-void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
+void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, bool master = false) {
     
     bool end = false;
     phmap::flat_hash_map<uint32_t, bool>::const_iterator got;
@@ -278,7 +303,7 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
             
             if (got->second) {
                 end = false;
-                break;
+                break; // check this doesn't look right, i.e. case where dep is found
             }else{
                 end = true;
             }
@@ -291,7 +316,8 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
             break;
         }
         
-        //threadPool.execJob(); // have the master thread contribute
+        if (master)
+            threadPool.execJob(); // have the master thread contribute
         
     }
     

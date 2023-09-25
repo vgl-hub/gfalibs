@@ -10,6 +10,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <fstream>
+#include <numeric>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -56,6 +57,7 @@ std::istream& ignore(std::istream& is, char dlm) {
 std::istream& getKmers(std::istream& is, std::string& str, int batchSize) { // a generic function extracting concatenated reads from FASTQ
     
     str.clear();
+    str.reserve(batchSize);
     std::ios_base::iostate err = std::ios_base::goodbit;
     std::streamsize extr = 0;
     int i = 0;
@@ -627,5 +629,18 @@ uint64_t fileSize(std::string path) {
     const auto end = file.tellg();
     
     return end-begin;
+    
+}
+
+std::vector<uint32_t> sortedIndex(std::vector<uint64_t> vec, bool largest) {
+    
+    std::vector<uint32_t> idx(vec.size());
+    std::iota(idx.begin(),idx.end(),0);
+    if (largest)
+        sort(idx.begin(), idx.end(), [&](int i,int j){return vec[i]>vec[j];} );
+    else
+        sort(idx.begin(), idx.end(), [&](int i,int j){return vec[i]<vec[j];} );
+    
+    return idx;
     
 }

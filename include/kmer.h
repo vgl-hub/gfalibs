@@ -15,9 +15,30 @@ inline void freeContainer(T& p_container) // this is a C++ trick to empty a cont
 
 template<typename TYPE> // this is a generic buffer, VALUE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
 struct Buf {
-    uint64_t pos = 0, size = pow(2,18); // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
+    uint64_t pos = 0, size; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
     TYPE *seq = new TYPE[size]; // the actual container
+    
+    Buf() : size(pow(2,8)){}
     Buf(uint64_t size) : size(size){}
+    
+    uint64_t newPos(uint8_t bytes) {
+        
+        if (pos + bytes > size) {
+            
+            uint64_t newSize = size*2;
+            TYPE* seqNew = new TYPE[newSize];
+            
+            memcpy(seqNew, seq, size*sizeof(TYPE));
+            
+            size = newSize;
+            delete[] seq;
+            seq = seqNew;
+            
+        }
+        
+        return pos += bytes;
+        
+    }
 };
 
 template<class INPUT, typename VALUE, typename TYPE> // INPUT is a specialized userInput type depending on the tool, VALUE is the type of elements we wish to store in the maps, e.g. uint64_t kmer counts, TYPE is the type of inputs, e.g. kmers hashed to sequences
@@ -33,13 +54,13 @@ protected: // they are protected, so that they can be further specialized by inh
     
     uint64_t totKmers = 0, totKmersUnique = 0, totKmersDistinct = 0; // summary statistics
     
-    const uint16_t mapCount = k < 28 ? pow(4,k/5) : pow(4,5); // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
     uint64_t* pows = new uint64_t[k]; // storing precomputed values of each power significantly speeds up hashing
 
-    std::vector<Buf<TYPE>*> buffers; // a vector for all buffers
+    std::vector<Buf<TYPE>*> buffersVec; // a vector for all buffers
     
     std::vector<phmap::flat_hash_map<uint64_t, VALUE>*> maps; // all hash maps where VALUES are stored
     
@@ -77,9 +98,8 @@ public:
         for(uint8_t p = 0; p<k; ++p)
             pows[p] = (uint64_t) pow(4,p);
         
-        maps.reserve(maps.capacity() + mapCount);
-        std::generate_n(std::back_inserter(maps), mapCount,
-                    []() { return new phmap::flat_hash_map<uint64_t, VALUE>; });
+        for(uint16_t m = 0; m<mapCount; ++m)
+            maps.push_back(new phmap::flat_hash_map<uint64_t, VALUE>);
         
     };
     
@@ -398,13 +418,13 @@ inline uint64_t Kmap<INPUT, VALUE, TYPE>::hash(uint8_t *kmer, bool *isFw) { // h
 template<class INPUT, typename VALUE, typename TYPE>
 void Kmap<INPUT, VALUE, TYPE>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
     
-    for (unsigned int i = 0; i<buffers.size(); ++i) { // for each buffer
+    for (unsigned int i = 0; i<buffersVec.size(); ++i) { // for each buffer
         
         unsigned int counter = 0;
         
         for(uint16_t m = 0; m<mapCount; ++m) { // for each map
             
-            Buf<uint64_t>* thisBuf = &buffers[i][m];
+            Buf<uint64_t>* thisBuf = &buffersVec[i][m];
             
             if (thisBuf->seq != NULL && mapsInUse[m] == false) { // if the buffer was not counted and the associated map is not in use we process it
                 
@@ -419,7 +439,7 @@ void Kmap<INPUT, VALUE, TYPE>::consolidate() { // to reduce memory footprint we 
                 
                 if (counter == mapCount) {
                     lg.verbose("Jobs waiting/running: " + std::to_string(threadPool.queueSize()) + "/" + std::to_string(threadPool.running()) + " memory used/total: " + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
-                    buffers.erase(buffers.begin() + i);
+                    buffersVec.erase(buffersVec.begin() + i);
                 }
                 
             }
@@ -477,7 +497,7 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuffs(uint16_t m) { // counts all residual b
     
     phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
     
-    for(Buf<uint64_t>* buf : buffers) {
+    for(Buf<uint64_t>* buf : buffersVec) {
             
         thisBuf = &buf[m];
         
@@ -628,7 +648,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(Sequences* readBatch) { // hashes a
     
     std::unique_lock<std::mutex> lck(mtx);
     
-    buffers.push_back(buf); // stores all the new buffers just generated
+    buffersVec.push_back(buf); // stores all the new buffers just generated
     
     logs.push_back(threadLog);
     
@@ -712,7 +732,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSequences(std::string* readBatch) { // same a
     
     std::unique_lock<std::mutex> lck(mtx);
     
-    buffers.push_back(buf);
+    buffersVec.push_back(buf);
     
     logs.push_back(threadLog);
     
@@ -779,7 +799,7 @@ void Kmap<INPUT, VALUE, TYPE>::hashSegments() { // hashes (gapless) segments, no
     
     std::unique_lock<std::mutex> lck(mtx);
     
-    buffers.push_back(buf);
+    buffersVec.push_back(buf);
     
 }
 
