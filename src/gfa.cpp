@@ -2313,6 +2313,8 @@ void InSequences::walkPath(InPath* path) {
     
     std::vector<PathComponent> pathComponents = path->getComponents();
     
+    path->reinitializeCounts();
+    
     for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
             
         cUId = component->id;
@@ -2785,4 +2787,86 @@ std::vector<unsigned int> InSequences::getCircular() {
     
 }
 
+void InSequences::maskPath(std::string pHeader, unsigned int start, unsigned int end, unsigned int dist) {
+    
+    unsigned int pUId = 0;
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
+    
+    if (got == headersToIds.end()) { // this is the first time we see this path
+        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str()); exit(1);
+    }else{
+        pUId = got->second;
+    }
+    
+    auto pathIt = find_if(inPaths.begin(), inPaths.end(), [pUId](InPath& obj) {return obj.getpUId() == pUId;}); // given a path pUId, find it
+    std::vector<PathComponent>* pathComponents = pathIt->getComponentsByRef();
+    
+    if(start == 0 || end == 0) {
+        lg.verbose("Nothing to mask. Skipping.");
+        return;
+    }
+    
+    lg.verbose("Masking path (start: " + std::to_string(start) + ", end: " + std::to_string(end) + ")");
+    
+    unsigned int traversedSize = 0, actualSize = 0, compSize = 0, newCompSize = 0;
+    
+    for (std::vector<PathComponent>::iterator component = pathComponents->begin(); component != pathComponents->end(); component++) {
+        
+        walkPath(&(*pathIt));
+        
+        lg.verbose("Path size before iteration: " + std::to_string(pathIt->getLen()));
+        
+        lg.verbose("Checking original coordinates of component (uId: " + std::to_string(component->id) + ", start: " + std::to_string(component->start) + ", end: " + std::to_string(component->end) + ")");
+        
+        compSize = getComponentSize(*component, false);
+        
+        if (traversedSize + compSize > start) {
+            
+            if (traversedSize + compSize < end) {fprintf(stderr, "Error: end coordinate exceeds length of component (%u). Terminating.\n", end); exit(1);}
+            
+            lg.verbose("Component to mask identified. Splitting");
+            
+            component->end = traversedSize + component->start + start;
+            
+            component->start = component->start + 1;
+            
+            lg.verbose("Adding gap of size: " + std::to_string(dist));
+            
+            InGap gap;
+            
+            gap.newGap(uId.get(), component->id, component->id, '+', '+', dist, getInSegment(component->id)->getSeqHeader() + ".innerGap");
+            
+            addGap(gap); // introduce the new gap
+            
+            unsigned int gUId = gap.getuId(), sUId = component->id, newStart = traversedSize + component->start + end, newEnd = compSize;
+            char orientation = component->orientation;
+            
+            insertHash(gap.getgHeader(), gUId);
+            
+            pathComponents->insert(std::next(component), {GAP, gUId, '0', 0, 0});
+            
+            lg.verbose("Adding residual component of size: " + std::to_string(newEnd - newStart));
+            
+            auto componentIt = find_if(pathComponents->begin(), pathComponents->end(), [gUId](PathComponent& obj) {return obj.id == gUId;});
+            
+            pathComponents->insert(std::next(componentIt), {SEGMENT, sUId, orientation, newStart, newEnd});
+        
+            newCompSize = getComponentSize(*component, false);
+            lg.verbose("Component size before gap: " + std::to_string(newCompSize));
+            lg.verbose("Gap component size: " + std::to_string(dist));
+            lg.verbose("Component size after gap: " + std::to_string(newEnd - newStart + 1));
+            
+            walkPath(&(*pathIt));
+            lg.verbose("Path size after iteration: " + std::to_string(pathIt->getLen()));
 
+            break;
+            
+        }
+        
+    }
+        
+    lg.verbose("Final path size: " + std::to_string(actualSize));
+    
+    //if (actualSize != end-start+1) {fprintf(stderr, "Error: Path size after trimming (%u) differs from expected size after trimming (%u). Terminating.\n", actualSize, end-start+1); exit(1);}
+
+}

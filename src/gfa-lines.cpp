@@ -562,6 +562,12 @@ void InPath::append(std::vector<PathComponent> components) {
     
 }
 
+void InPath::insert(std::vector<PathComponent>::iterator prevComponent, PathComponent newComponent) {
+
+    pathComponents.insert(prevComponent, newComponent);
+    
+}
+
 void InPath::clearPath() {
     
     pathComponents.clear();
@@ -715,5 +721,11 @@ void InPath::increaseG(uint64_t n) {
 void InPath::increaseT(uint64_t n) {
     
     T += n;
+
+}
+
+void InPath::reinitializeCounts() {
+    
+    length = 0, segmentLength = 0, lowerCount = 0, A = 0, C = 0, G = 0, T = 0;
 
 }

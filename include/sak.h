@@ -246,6 +246,23 @@ public:
         
         return true;
     }
+    
+    void readMask(Instruction &instruction, std::vector<std::string> &arguments) {
+        instruction.path1 = arguments[1];
+        instruction.start1 = stoi(arguments[2]);
+        instruction.end1 = stoi(arguments[3]);
+        if (arguments[4] != "") {
+            instruction.dist = stoi(arguments[4]);
+        }else{
+            instruction.dist = instruction.end1 - instruction.start1;
+        }
+    }
+    
+    bool mask(InSequences &inSequences, Instruction &instruction) {
+        inSequences.maskPath(instruction.path1, instruction.start1, instruction.end1, instruction.dist);
+        
+        return true;
+    }
 
 private:
 
@@ -264,7 +281,8 @@ private:
         {"COMPRESS",    {&SAK::readCompress,    &SAK::compress  } },
         {"DECOMPRESS",  {&SAK::readDecompress,  &SAK::decompress} },
         {"EXCLUDE",     {&SAK::readExclude,     &SAK::exclude   } },
-        {"RESIZE",      {&SAK::readResize,      &SAK::resize    } }
+        {"RESIZE",      {&SAK::readResize,      &SAK::resize    } },
+        {"MASK",        {&SAK::readMask,        &SAK::mask    } }
     };
 
 public:

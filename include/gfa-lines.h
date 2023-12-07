@@ -207,6 +207,8 @@ public:
     
     void append(std::vector<PathComponent> components);
     
+    void insert(std::vector<PathComponent>::iterator prevComponent, PathComponent newComponent);
+    
     void clearPath();
     
     void setComponents(std::vector<PathComponent> newComponents);
@@ -258,6 +260,8 @@ public:
     void increaseG(uint64_t n);
     
     void increaseT(uint64_t n);
+    
+    void reinitializeCounts();
     
 };
 

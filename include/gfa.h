@@ -345,6 +345,8 @@ public:
     
     std::vector<unsigned int> getCircular();
     
+    void maskPath(std::string pHeader, unsigned int start, unsigned int end, unsigned int dist);
+    
 };
 
 #endif /* GFA_H */
