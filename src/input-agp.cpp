@@ -22,7 +22,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
 
     inSequences.updateStats();
 
-    std::string pHeaderNew, pHeader1, pHeader2, gHeader, instruction, coord1, coord2, line;
+    std::string pHeaderNew, pHeaderPrev, pHeader1, pHeader2, gHeader, instruction, coord1, coord2, line;
     char pId1Or = '+', pId2Or;
 
     unsigned int pUId = 0, pUId1 = 0, pUId2 = 0, gUId = 0, dist = 0, seqLen, pathLen, start1 = 0, end1 = 0, start2 = 0, end2 = 0;
@@ -63,7 +63,9 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         
         arguments = readDelimited(line, "\t", "#"); // read the columns in the line
         
-        if (arguments.size() == 0) {continue;}
+        if (arguments.size() == 0) {continue;} // skip empty lines
+        
+        pHeaderPrev = pHeaderNew;
         
         pHeaderNew = arguments[0]; // this is the current header
         
@@ -116,6 +118,8 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
             
             if(getline(*stream, line))
                 nextLines.push(line);
+            else
+                break;
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
             
@@ -153,6 +157,13 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         
             
         }else if(arguments[4] == "N" || arguments[4] == "U"){
+            
+            if (pHeaderPrev == "" || (pHeaderNew != pHeaderPrev)) { // skip initial gap
+                
+                fprintf(stderr, "Warning: AGP is trying to introduce a terminal gap at the beginning of a scaffold (%s). Skipping.\n", arguments[4].c_str());
+                continue;
+                
+            }
 
             hash = inSequences.getHash1();
             
@@ -197,11 +208,24 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
             
             dist = stoi(arguments[5]);
             
-            getline(*stream, line);
+            if(getline(*stream, line))
+                nextLines.push(line);
+            else
+                break;
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
             
             if (arguments.size() == 0) {continue;}
+            
+            if(pHeaderNew != arguments[0]) { // terminal gap
+                
+                fprintf(stderr, "Warning: AGP is trying to introduce a terminal gap at the end of a scaffold (%s). Skipping.\n", pHeaderNew.c_str());
+                
+                continue;
+                
+            }
+            
+            nextLines.pop(); // we remove the line since we are going to use it
             
             if (!discoverPaths_flag) {
             
