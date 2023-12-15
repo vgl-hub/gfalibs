@@ -948,11 +948,11 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
     return true;
 }
 
-bool Report::reportStats(InSequences &inSequences, uint64_t gSize) { // method to output all summary statistics for the entire sequence set
+bool Report::reportStats(InSequences &inSequences, uint64_t gSize, int outBubbles_flag) { // method to output all summary statistics for the entire sequence set
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 
-    if (!userInput.tabular_flag) {
+    if (!tabular_flag) {
     
         std::cout<<output("+++Assembly summary+++")<<"\n";
     
@@ -1073,7 +1073,7 @@ bool Report::reportStats(InSequences &inSequences, uint64_t gSize) { // method t
         
         std::cout<<output("# bubbles")<<inSequences.getBubbles()->size()<<"\n";
         
-        if (userInput.outBubbles_flag) {
+        if (outBubbles_flag) {
             
             phmap::flat_hash_map<unsigned int, std::string> idsToHeaders = *inSequences.getHash2();
             

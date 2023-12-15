@@ -21,7 +21,7 @@ public:
     
     bool outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly = false);
     
-    bool reportStats(InSequences &inSequences, uint64_t gSize);
+    bool reportStats(InSequences &inSequences, uint64_t gSize, int outBubbles_flag);
     
     bool nstarReport(InSequences &inSequences, uint64_t gSize);
     

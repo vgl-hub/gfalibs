@@ -15,14 +15,13 @@
 //global time
 extern std::chrono::high_resolution_clock::time_point start;
 
-// flags are global variables
-extern short int tabular_flag;
+//global variables
 extern int verbose_flag;
-extern int maxThreads;
-
 extern Log lg;
+extern int tabular_flag;
+
+extern int maxThreads;
 extern std::mutex mtx;
 extern ThreadPool<std::function<bool()>> threadPool;
-extern UserInput userInput;
 
 #endif /* GLOBAL_H */

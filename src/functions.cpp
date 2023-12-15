@@ -226,7 +226,7 @@ std::vector<unsigned int> intervalSizes(std::vector<unsigned int> &intervalVec){
 
 std::string output(std::string output){ // use tab delimiter if tabular flag is true
     
-    if (userInput.tabular_flag) {
+    if (tabular_flag) {
         
         output = output + "\t";
         

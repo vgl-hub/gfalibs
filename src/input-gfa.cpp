@@ -68,7 +68,7 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                         
                         sequence->seqPos = seqPos; // remember the order
                         
-                        inSequences.appendSequence(sequence);
+                        inSequences.appendSequence(sequence, userInput.hc_cutoff);
                         
                         seqPos++;
                         
@@ -109,7 +109,7 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                         
                         sequence->seqPos = seqPos; // remember the order
                     
-                        inSequences.appendSequence(sequence);
+                        inSequences.appendSequence(sequence, userInput.hc_cutoff);
                         
                         seqPos++;
                         

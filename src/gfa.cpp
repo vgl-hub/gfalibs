@@ -93,16 +93,15 @@ InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InP
     
 }
 
-bool InSequences::traverseInSequence(Sequence* sequence) { // traverse the sequence to split at gaps and measure sequence properties
+bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // traverse the sequence to split at gaps and measure sequence properties
     
     Log threadLog;
     
     threadLog.setId(sequence->seqPos);
 
     std::vector<std::pair<uint64_t, uint64_t>> bedCoords;
-    if(userInput.hc_flag) {
-        homopolymerCompress(sequence->sequence, bedCoords, userInput.hc_cutoff);
-    }
+    if(hc_cutoff != -1)
+        homopolymerCompress(sequence->sequence, bedCoords, hc_cutoff);
     
     std::vector<InSegment*> newSegments;
     std::vector<InGap> newGaps;
@@ -162,7 +161,7 @@ bool InSequences::traverseInSequence(Sequence* sequence) { // traverse the seque
     for (char &base : *sequence->sequence) {
 
         count = 1;
-        if(userInput.hc_flag && hc_index < bedCoords.size() && pos == bedCoords[hc_index].first) {
+        if(hc_cutoff != -1 && hc_index < bedCoords.size() && pos == bedCoords[hc_index].first) {
             count = bedCoords[hc_index].second - bedCoords[hc_index].first;
             ++hc_index;
         }
@@ -408,9 +407,9 @@ bool InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSeque
     
 }
 
-void InSequences::appendSequence(Sequence* sequence) { // method to append a new sequence from a fasta
+void InSequences::appendSequence(Sequence* sequence, int hc_cutoff) { // method to append a new sequence from a fasta
         
-    threadPool.queueJob([=]{ return traverseInSequence(sequence); });
+    threadPool.queueJob([=]{ return traverseInSequence(sequence, hc_cutoff); });
     
     if(verbose_flag) {std::cerr<<"\n";};
     
