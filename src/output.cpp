@@ -952,7 +952,7 @@ bool Report::reportStats(InSequences &inSequences, uint64_t gSize) { // method t
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
 
-    if (!tabular_flag) {
+    if (!userInput.tabular_flag) {
     
         std::cout<<output("+++Assembly summary+++")<<"\n";
     
