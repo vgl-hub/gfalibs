@@ -1,8 +1,8 @@
 #ifndef KMER_H
 #define KMER_H
 
-#include <parallel_hashmap/phmap.h>
-#include "parallel_hashmap/phmap_dump.h"
+#include <parallel-hashmap/phmap.h>
+#include "parallel-hashmap/phmap_dump.h"
 
 #include <fastx.h>
 

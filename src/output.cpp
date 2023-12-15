@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <fstream>
 
-#include <parallel_hashmap/phmap.h>
+#include <parallel-hashmap/phmap.h>
 
 #include "bed.h"
 #include "struct.h"

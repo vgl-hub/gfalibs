@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include <parallel_hashmap/phmap.h>
+#include <parallel-hashmap/phmap.h>
 
 #include "log.h"
 #include "global.h"
@@ -1959,8 +1959,6 @@ void InSequences::joinPaths(std::string pHeader, unsigned int pUId1, unsigned in
 
 InPath InSequences::joinPathsByComponent(std::string seqHeader, unsigned int uId1, unsigned int uId2, unsigned int uId3) {
     
-    int i = 0;
-    
     InPath newPath;
     newPath.setHeader(seqHeader);
     
@@ -1977,8 +1975,6 @@ InPath InSequences::joinPathsByComponent(std::string seqHeader, unsigned int uId
             break;
             
         }
-        
-        ++i;
         
     }
     
@@ -1997,8 +1993,6 @@ InPath InSequences::joinPathsByComponent(std::string seqHeader, unsigned int uId
             break;
             
         }
-        
-        ++i;
         
     }
     

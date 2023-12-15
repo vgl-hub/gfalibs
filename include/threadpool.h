@@ -6,7 +6,7 @@
 #include <future>
 #include "memory.h"
 
-#include "parallel_hashmap/phmap.h"
+#include "parallel-hashmap/phmap.h"
 
 extern Log lg;
 
