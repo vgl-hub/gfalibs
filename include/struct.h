@@ -23,6 +23,9 @@ struct UserInput { // a container for user input
     
     std::string file(char type, unsigned int* fileNum = NULL);
     
+    bool hc_flag, discoverPaths_flag, stats_flag, outBubbles_flag;
+    int hc_cutoff;
+    
 };
 
 struct Sequence { // a generic sequence container

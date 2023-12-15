@@ -71,7 +71,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         
         if (arguments[4] == "W") { // this is an old path
             
-            if (!discoverPaths_flag) {
+            if (!userInput.discoverPaths_flag) {
             
                 pHeader1 = arguments[5];
             
@@ -227,7 +227,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
             
             nextLines.pop(); // we remove the line since we are going to use it
             
-            if (!discoverPaths_flag) {
+            if (!userInput.discoverPaths_flag) {
             
                 pHeader2 = arguments[5];
             

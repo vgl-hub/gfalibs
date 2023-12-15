@@ -108,7 +108,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
     if (string_to_case.find(path) == string_to_case.end()) {
         
         outFile = true;
-        stats_flag = true; // since we write to file, let's output the stats
+        userInput.stats_flag = true; // since we write to file, let's output the stats
         
     }else{
         
@@ -1073,7 +1073,7 @@ bool Report::reportStats(InSequences &inSequences, uint64_t gSize) { // method t
         
         std::cout<<output("# bubbles")<<inSequences.getBubbles()->size()<<"\n";
         
-        if (outBubbles_flag) {
+        if (userInput.outBubbles_flag) {
             
             phmap::flat_hash_map<unsigned int, std::string> idsToHeaders = *inSequences.getHash2();
             

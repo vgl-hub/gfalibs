@@ -100,8 +100,8 @@ bool InSequences::traverseInSequence(Sequence* sequence) { // traverse the seque
     threadLog.setId(sequence->seqPos);
 
     std::vector<std::pair<uint64_t, uint64_t>> bedCoords;
-    if(hc_flag) {
-        homopolymerCompress(sequence->sequence, bedCoords, hc_cutoff);
+    if(userInput.hc_flag) {
+        homopolymerCompress(sequence->sequence, bedCoords, userInput.hc_cutoff);
     }
     
     std::vector<InSegment*> newSegments;
@@ -162,7 +162,7 @@ bool InSequences::traverseInSequence(Sequence* sequence) { // traverse the seque
     for (char &base : *sequence->sequence) {
 
         count = 1;
-        if(hc_flag && hc_index < bedCoords.size() && pos == bedCoords[hc_index].first) {
+        if(userInput.hc_flag && hc_index < bedCoords.size() && pos == bedCoords[hc_index].first) {
             count = bedCoords[hc_index].second - bedCoords[hc_index].first;
             ++hc_index;
         }
