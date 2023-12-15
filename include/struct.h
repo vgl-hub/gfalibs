@@ -23,7 +23,7 @@ struct UserInput { // a container for user input
     
     std::string file(char type, unsigned int* fileNum = NULL);
     
-    bool hc_flag, discoverPaths_flag, stats_flag, outBubbles_flag;
+    bool hc_flag, discoverPaths_flag, stats_flag, outBubbles_flag, tabular_flag;
     int hc_cutoff;
     
 };
