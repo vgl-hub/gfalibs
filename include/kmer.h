@@ -123,7 +123,7 @@ public:
     
     bool traverseInReads(std::string* readBatch);
     
-    void appendSequence(Sequence* sequence);
+    void appendSequence(Sequence* sequence, int hc_cutoff);
     
     void appendReads(Sequences* readBatch);
     
@@ -160,9 +160,9 @@ public:
 };
 
 template<class INPUT, typename VALUE, typename TYPE>
-void Kmap<INPUT, VALUE, TYPE>::appendSequence(Sequence* sequence) { // method to append a new sequence from a fasta
+void Kmap<INPUT, VALUE, TYPE>::appendSequence(Sequence* sequence, int hc_cutoff) { // method to append a new sequence from a fasta
     
-    threadPool.queueJob([=]{ return inSequences.traverseInSequence(sequence); }); // generic method to add a new job to the queue
+    threadPool.queueJob([=]{ return inSequences.traverseInSequence(sequence, hc_cutoff); }); // generic method to add a new job to the queue
     
     if(verbose_flag) {std::cerr<<"\n";};
     
