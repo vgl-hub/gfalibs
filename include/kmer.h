@@ -31,8 +31,9 @@ struct Buf {
             
             memcpy(seqNew, seq, size*sizeof(TYPE));
             
-            size = newSize;
             delete[] seq;
+            freed += size*sizeof(TYPE);
+            size = newSize;
             seq = seqNew;
             
         }
