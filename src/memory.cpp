@@ -66,3 +66,12 @@ double get_mem_total(uint8_t unit){
 }
 
 #endif
+
+bool allocMemory(int64_t amount) {
+    
+    while (get_mem_inuse(3) + convert_memory(amount, 3) > get_mem_total(3)){}
+    alloc += amount;
+    
+    return true;
+    
+}

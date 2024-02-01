@@ -26,6 +26,7 @@ struct Buf {
         if (pos + bytes > size) {
             
             uint64_t newSize = size*2;
+            allocMemory(newSize*sizeof(TYPE));
             TYPE* seqNew = new TYPE[newSize];
             
             memcpy(seqNew, seq, size*sizeof(TYPE));

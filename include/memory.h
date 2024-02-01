@@ -12,4 +12,6 @@ double get_mem_total(uint8_t unit);
 
 double convert_memory(int64_t value, uint8_t unit);
 
+bool allocMemory(int64_t amount);
+
 #endif //MEMORY
