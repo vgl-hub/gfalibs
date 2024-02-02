@@ -71,7 +71,7 @@ double get_mem_total(uint8_t unit){
 
 bool allocMemory(int64_t amount) {
     
-    while (get_mem_inuse(3) + convert_memory(amount, 3) > maxMem){std::cout<<maxMem<<std::endl;}
+    while (get_mem_inuse(3) + convert_memory(amount, 3) > maxMem){}
     alloc += amount;
     
     return true;
