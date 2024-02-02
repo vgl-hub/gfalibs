@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <cmath>
 #include <atomic>
+#include <iostream>
 
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
 std::atomic<int64_t> alloc(0), freed(0);
