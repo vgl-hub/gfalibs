@@ -4,6 +4,7 @@
 
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
 std::atomic<int64_t> alloc(0), freed(0);
+int64_t maxMem;
 
 double get_mem_inuse(uint8_t unit){
     
@@ -69,7 +70,7 @@ double get_mem_total(uint8_t unit){
 
 bool allocMemory(int64_t amount) {
     
-    while (get_mem_inuse(3) + convert_memory(amount, 3) > get_mem_total(3)){}
+    while (get_mem_inuse(3) + convert_memory(amount, 3) > maxMem){}
     alloc += amount;
     
     return true;
