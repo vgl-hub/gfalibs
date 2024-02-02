@@ -2,7 +2,8 @@
 #define MEMORY_H
 
 extern const char* memUnit[4];
-extern int64_t alloc, freed, maxMem;
+extern int64_t alloc, freed;
+extern double maxMem;
 
 double get_mem_inuse(uint8_t unit);
 

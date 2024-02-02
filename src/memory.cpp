@@ -5,7 +5,7 @@
 
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
 std::atomic<int64_t> alloc(0), freed(0);
-int64_t maxMem = 0;
+double maxMem = 0;
 
 double get_mem_inuse(uint8_t unit){
     
