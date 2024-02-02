@@ -157,6 +157,7 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
                 
                 while (*stream) { // file input
                     
+                    allocMemory(batchSize * sizeof(char));
                     readBatch = new std::string;
                     
                     getKmers(*stream, *readBatch, batchSize);

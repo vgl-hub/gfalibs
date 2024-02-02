@@ -18,8 +18,12 @@ struct Buf {
     uint64_t pos = 0, size; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
     TYPE *seq = new TYPE[size]; // the actual container
     
-    Buf() : size(pow(2,8)){}
-    Buf(uint64_t size) : size(size){}
+    Buf() : size(pow(2,8)){
+        allocMemory(size*sizeof(TYPE));
+    }
+    Buf(uint64_t size) : size(size){
+        allocMemory(size*sizeof(TYPE));
+    }
     
     uint64_t newPos(uint8_t bytes) {
         
