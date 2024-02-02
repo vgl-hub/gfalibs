@@ -19,10 +19,10 @@ struct Buf {
     TYPE *seq = new TYPE[size]; // the actual container
     
     Buf() : size(pow(2,8)){
-        allocMemory(size*sizeof(TYPE));
+        alloc += size*sizeof(TYPE);
     }
     Buf(uint64_t size) : size(size){
-        allocMemory(size*sizeof(TYPE));
+        alloc += size*sizeof(TYPE);
     }
     
     uint64_t newPos(uint8_t bytes) {
@@ -30,7 +30,7 @@ struct Buf {
         if (pos + bytes > size) {
             
             uint64_t newSize = size*2;
-            allocMemory(newSize*sizeof(TYPE));
+            alloc += newSize*sizeof(TYPE);
             TYPE* seqNew = new TYPE[newSize];
             
             memcpy(seqNew, seq, size*sizeof(TYPE));
