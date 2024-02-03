@@ -12,7 +12,7 @@ double get_mem_inuse(uint8_t unit){
     
     int64_t inUse = (alloc - freed);
     
-    if (inUse == maxMem)
+    if (inUse > maxMem)
         freeMemory = true;
     else if (inUse < maxMem * 0.1)
         freeMemory = false;
