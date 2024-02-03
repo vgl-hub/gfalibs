@@ -5,9 +5,17 @@
 
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
 std::atomic<int64_t> alloc(0), freed(0);
+std::atomic<bool> freeMemory(false);
 double maxMem = 0;
 
 double get_mem_inuse(uint8_t unit){
+    
+    int64_t inUse = (alloc - freed);
+    
+    if (inUse == maxMem)
+        freeMemory = true;
+    else if (inUse < maxMem * 0.1)
+        freeMemory = false;
     
     return (alloc - freed) / pow(1024, unit);
     
