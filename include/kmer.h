@@ -68,7 +68,7 @@ protected: // they are protected, so that they can be further specialized by inh
 
     std::vector<Buf<TYPE>*> buffersVec; // a vector for all buffers
     
-    std::vector<phmap::flat_hash_map<uint64_t, VALUE>*> maps; // all hash maps where VALUES are stored
+    std::vector<phmap::parallel_flat_hash_map<uint64_t, VALUE>*> maps; // all hash maps where VALUES are stored
     
     std::vector<bool> mapsInUse = std::vector<bool>(mapCount, false); // useful with multithreading to ensure non-concomitant write access to maps
     
@@ -105,13 +105,13 @@ public:
             pows[p] = (uint64_t) pow(4,p);
         
         for(uint16_t m = 0; m<mapCount; ++m)
-            maps.push_back(new phmap::flat_hash_map<uint64_t, VALUE>);
+            maps.push_back(new phmap::parallel_flat_hash_map<uint64_t, VALUE>);
         
     };
     
     ~Kmap(){ // always need to call the destructor and delete for any object called with new to avoid memory leaks
         
-        for (phmap::flat_hash_map<uint64_t, VALUE>* map : maps)
+        for (phmap::parallel_flat_hash_map<uint64_t, VALUE>* map : maps)
             delete map;
         delete[] pows;
         
@@ -123,7 +123,7 @@ public:
     
     bool mergeMaps(std::vector<std::string> prefixes, uint16_t m);
     
-    bool unionSum(phmap::flat_hash_map<uint64_t, VALUE>& map1, phmap::flat_hash_map<uint64_t, VALUE>& map2);
+    bool unionSum(phmap::parallel_flat_hash_map<uint64_t, VALUE>& map1, phmap::parallel_flat_hash_map<uint64_t, VALUE>& map2);
     
     bool traverseInReads(Sequences* readBatch);
     
@@ -151,7 +151,7 @@ public:
     
     bool countBuffs(uint16_t m);
     
-    bool histogram(phmap::flat_hash_map<uint64_t, VALUE>& map);
+    bool histogram(phmap::parallel_flat_hash_map<uint64_t, VALUE>& map);
     
     void resizeBuff(Buf<uint64_t>* buff);
     
@@ -238,7 +238,7 @@ bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint
         std::string prefix = prefixes[i]; // loads the next map
         prefix.append("/.kmap." + std::to_string(m) + ".bin");
         
-        phmap::flat_hash_map<uint64_t, VALUE> nextMap;
+        phmap::parallel_flat_hash_map<uint64_t, VALUE> nextMap;
         phmap::BinaryInputArchive ar_in(prefix.c_str());
         nextMap.phmap_load(ar_in);
         
@@ -255,7 +255,7 @@ bool Kmap<INPUT, VALUE, TYPE>::mergeMaps(std::vector<std::string> prefixes, uint
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-bool Kmap<INPUT, VALUE, TYPE>::unionSum(phmap::flat_hash_map<uint64_t, VALUE>& map1, phmap::flat_hash_map<uint64_t, VALUE>& map2) {
+bool Kmap<INPUT, VALUE, TYPE>::unionSum(phmap::parallel_flat_hash_map<uint64_t, VALUE>& map1, phmap::parallel_flat_hash_map<uint64_t, VALUE>& map2) {
     
     for (auto pair : map2) // for each element in map2, find it in map1 and increase its value
         map1[pair.first] += pair.second;
@@ -281,7 +281,7 @@ bool Kmap<INPUT, VALUE, TYPE>::dumpMap(std::string prefix, uint16_t m) {
 template<class INPUT, typename VALUE, typename TYPE>
 void Kmap<INPUT, VALUE, TYPE>::report(INPUT& userInput) { // generates the output from the program
     
-    const static phmap::flat_hash_map<std::string,int> string_to_case{ // different outputs available
+    const static phmap::parallel_flat_hash_map<std::string,int> string_to_case{ // different outputs available
         {"stats",1},
         {"hist",2},
         {"kc",3}
@@ -474,7 +474,7 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuff(Buf<uint64_t>* thisBuf, uint16_t m) { /
     
     if (thisBuf->seq != NULL) { // sanity check that this buffer was not already processed
         
-        phmap::flat_hash_map<uint64_t, VALUE>* thisMap = &maps[m]; // the map associated to this buffer
+        phmap::parallel_flat_hash_map<uint64_t, VALUE>* thisMap = &maps[m]; // the map associated to this buffer
         
         uint64_t len = thisBuf->pos; // how many positions in the buffer have data
         
@@ -501,7 +501,7 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuffs(uint16_t m) { // counts all residual b
     
     Buf<uint64_t>* thisBuf;
     
-    phmap::flat_hash_map<uint64_t, VALUE>* thisMap;
+    phmap::parallel_flat_hash_map<uint64_t, VALUE>* thisMap;
     
     for(Buf<uint64_t>* buf : buffersVec) {
             
@@ -527,11 +527,11 @@ bool Kmap<INPUT, VALUE, TYPE>::countBuffs(uint16_t m) { // counts all residual b
 }
 
 template<class INPUT, typename VALUE, typename TYPE>
-bool Kmap<INPUT, VALUE, TYPE>::histogram(phmap::flat_hash_map<uint64_t, VALUE>& map) { // extracts information from each map to build histogram
+bool Kmap<INPUT, VALUE, TYPE>::histogram(phmap::parallel_flat_hash_map<uint64_t, VALUE>& map) { // extracts information from each map to build histogram
     
     uint64_t kmersUnique = 0, kmersDistinct = 0;
     
-    phmap::flat_hash_map<uint64_t, VALUE> hist;
+    phmap::parallel_flat_hash_map<uint64_t, VALUE> hist;
     
     for (auto pair : map) {
         
