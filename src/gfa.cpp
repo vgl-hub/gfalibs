@@ -1134,6 +1134,16 @@ void InSequences::insertHash(const std::string &segHeader, unsigned int i) {
     idsToHeaders.insert({i, segHeader});
 }
 
+void InSequences::updateHash(const std::string &segHeader, unsigned int i) {
+    headersToIds[segHeader] = i;
+    idsToHeaders[i] = segHeader;
+}
+
+void InSequences::eraseHash(const std::string &segHeader, unsigned int i) {
+    headersToIds.erase(segHeader);
+    idsToHeaders.erase(i);
+}
+
 unsigned int InSequences::getuId() {
 
     return uId.get();
@@ -2862,4 +2872,38 @@ void InSequences::maskPath(std::string pHeader, unsigned int start, unsigned int
     
     //if (actualSize != end-start+1) {fprintf(stderr, "Error: Path size after trimming (%u) differs from expected size after trimming (%u). Terminating.\n", actualSize, end-start+1); exit(1);}
 
+}
+
+std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint64_t start, std::string sHeader2, std::string sHeader3, std::string eHeader1) {
+    
+    InSegment *inSegment1 = getInSegment(sUId);
+    InSegment *inSegment2 = new InSegment(*inSegment1);
+    
+    lg.verbose("Segment1 size before trimming: " + std::to_string(inSegment1->getSegmentLen()));
+    inSegment1->trimSegment(start, inSegment1->getSegmentLen());
+    inSegment1->setSeqHeader(sHeader2);
+    inSegment1->setuId(uId.get());
+    insertHash(sHeader2, uId.get());
+    uId.next();
+    lg.verbose("Segment1 size after trimming: " + std::to_string(inSegment1->getSegmentLen()));
+
+    
+    lg.verbose("Segment2 size before trimming: " + std::to_string(inSegment2->getSegmentLen()));
+    inSegment2->trimSegment(0, start);
+    inSegment2->setSeqHeader(sHeader3);
+    inSegment2->setuId(uId.get());
+    insertHash(sHeader3, uId.get());
+    uId.next();
+    inSegments.push_back(inSegment2);
+    lg.verbose("Segment2 size after trimming: " + std::to_string(inSegment2->getSegmentLen()));
+    
+    if (eHeader1 != "") {
+        
+        edge.newEdge(this->uId.next(), inSegment1->getuId(), inSegment2->getuId(), '+', '+', "0M", eHeader1);
+        this->appendEdge(edge);
+        
+    }
+    
+    return std::make_pair(inSegment1, inSegment2);
+    
 }

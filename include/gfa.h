@@ -251,6 +251,10 @@ public:
     //gfa methods
     void insertHash(const std::string &segHeader, unsigned int i);
     
+    void updateHash(const std::string &segHeader, unsigned int i);
+    
+    void eraseHash(const std::string &segHeader, unsigned int i);
+    
     unsigned int getuId();
     
     phmap::flat_hash_map<std::string, unsigned int>* getHash1();
@@ -346,6 +350,8 @@ public:
     std::vector<unsigned int> getCircular();
     
     void maskPath(std::string pHeader, unsigned int start, unsigned int end, unsigned int dist);
+    
+    std::pair<InSegment*,InSegment*> cleaveSegment(uint32_t sUId, uint64_t start, std::string sHeader2, std::string sHeader3, std::string eHeader1);
     
 };
 
