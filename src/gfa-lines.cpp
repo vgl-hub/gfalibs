@@ -30,7 +30,7 @@ void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::str
     
     this->setSeqPos(seqPos); // set original order
     
-    this->setSeqHeader(&seqHeader);
+    this->setSeqHeader(seqHeader);
     
     if (*seqComment != "") {
         
@@ -80,8 +80,8 @@ void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::str
     
 }
     
-void InSegment::setSeqHeader(std::string* h) {
-    seqHeader = *h;
+void InSegment::setSeqHeader(std::string h) {
+    seqHeader = h;
 }
 
 void InSegment::setSeqComment(std::string c) {

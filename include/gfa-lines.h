@@ -17,11 +17,24 @@ protected:
     
 public:
     
+    InSegment() {};
+    
+    InSegment(InSegment &inSegment) {
+        seqHeader = inSegment.seqHeader;
+        seqComment = inSegment.seqComment;
+        inSequence = new std::string(*inSegment.inSequence);
+        if (inSegment.inSequenceQuality != NULL)
+            inSequenceQuality = new std::string(*inSegment.inSequenceQuality);
+        A = inSegment.A, C = inSegment.C, G = inSegment.G, T = inSegment.T, N = inSegment.N, lowerCount = inSegment.lowerCount;
+        uId = inSegment.uId, iId = inSegment.iId, seqPos = inSegment.seqPos;
+        tags = inSegment.tags;
+    };
+    
     ~InSegment();
     
     void set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, unsigned int seqPos, std::string* sequenceQuality = NULL, std::vector<Tag>* inSequenceTags = NULL, uint64_t* N = NULL);
     
-    void setSeqHeader(std::string* h);
+    void setSeqHeader(std::string h);
     
     void setSeqComment(std::string c);
     
