@@ -10,10 +10,12 @@ struct Instruction {
                 path3,
                 contig1,
                 contig2,
+                contig3,
                 gap1,
                 comment1,
                 comment2,
-                gHeader;
+                gHeader,
+                edge1;
     
     int compressThreshhold;
     char pId1Or, pId2Or, sId1Or, sId2Or;
@@ -263,6 +265,22 @@ public:
         
         return true;
     }
+    
+    void readCleave(Instruction &instruction, std::vector<std::string> &arguments) {
+        instruction.contig1 = arguments[1];
+        instruction.start1 = stoi(arguments[2]);
+        instruction.contig2 = arguments[3];
+        instruction.contig3 = arguments[4];
+        if (arguments[5] != "") {
+            instruction.edge1 = arguments[5];
+        }
+    }
+    
+    bool cleave(InSequences &inSequences, Instruction &instruction) {
+        inSequences.cleaveSegment(inSequences.headersToIds[instruction.contig1], instruction.start1, instruction.contig2, instruction.contig3, instruction.edge1);
+        
+        return true;
+    }
 
 private:
 
@@ -282,7 +300,8 @@ private:
         {"DECOMPRESS",  {&SAK::readDecompress,  &SAK::decompress} },
         {"EXCLUDE",     {&SAK::readExclude,     &SAK::exclude   } },
         {"RESIZE",      {&SAK::readResize,      &SAK::resize    } },
-        {"MASK",        {&SAK::readMask,        &SAK::mask    } }
+        {"MASK",        {&SAK::readMask,        &SAK::mask      } },
+        {"CLEAVE",      {&SAK::readCleave,      &SAK::cleave    } }
     };
 
 public:
