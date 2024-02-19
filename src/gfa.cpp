@@ -377,7 +377,7 @@ bool InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSeque
     
     lck.lock();
     
-    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find (sequence->header); // get the headers to uIds table to look for the header
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(sequence->header); // get the headers to uIds table to look for the header
     
     if (got == headersToIds.end()) { // this is the first time we see this segment
         
@@ -2874,6 +2874,38 @@ void InSequences::maskPath(std::string pHeader, unsigned int start, unsigned int
 
 }
 
+void InSequences::updateEdgeSUId(uint32_t sUId, uint32_t new_sUId, char vertex) {
+    
+    for (InEdge &edge: inEdges) {
+        
+        if (vertex == 'L') {
+            
+            std::cout<<"hello"<<std::endl;
+            
+            if (edge.getsId1() == sUId && edge.getsId1Or() == '-')
+                edge.setsId1(new_sUId);
+            
+            if (edge.getsId2() == sUId && edge.getsId1Or() == '+')
+                edge.setsId2(new_sUId);
+            
+        }else if (vertex == 'R') {
+            
+            if (edge.getsId1() == sUId && edge.getsId1Or() == '+')
+                edge.setsId1(new_sUId);
+            
+            if (edge.getsId2() == sUId && edge.getsId1Or() == '-')
+                edge.setsId2(new_sUId);
+            
+        }else{
+            
+            fprintf(stderr, "Error: unknown vertex (%c). Terminating.\n", vertex); exit(1);
+            
+        }
+        
+    }
+    
+}
+
 std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint64_t start, std::string sHeader2, std::string sHeader3, std::string eHeader1) {
     
     InSegment *inSegment1 = getInSegment(sUId);
@@ -2883,6 +2915,7 @@ std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint6
     inSegment1->trimSegment(start, inSegment1->getSegmentLen());
     inSegment1->setSeqHeader(sHeader2);
     inSegment1->setuId(uId.get());
+    updateEdgeSUId(sUId, uId.get(), 'L');
     insertHash(sHeader2, uId.get());
     uId.next();
     lg.verbose("Segment1 size after trimming: " + std::to_string(inSegment1->getSegmentLen()));
@@ -2892,6 +2925,7 @@ std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint6
     inSegment2->trimSegment(0, start);
     inSegment2->setSeqHeader(sHeader3);
     inSegment2->setuId(uId.get());
+    updateEdgeSUId(sUId, uId.get(), 'R');
     insertHash(sHeader3, uId.get());
     uId.next();
     inSegments.push_back(inSegment2);

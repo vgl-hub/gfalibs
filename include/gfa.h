@@ -351,6 +351,8 @@ public:
     
     void maskPath(std::string pHeader, unsigned int start, unsigned int end, unsigned int dist);
     
+    void updateEdgeSUId(uint32_t sUId, uint32_t new_sUId, char vertex);
+    
     std::pair<InSegment*,InSegment*> cleaveSegment(uint32_t sUId, uint64_t start, std::string sHeader2, std::string sHeader3, std::string eHeader1);
     
 };
