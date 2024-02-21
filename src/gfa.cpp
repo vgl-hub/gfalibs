@@ -2880,8 +2880,6 @@ void InSequences::updateEdgeSUId(uint32_t sUId, uint32_t new_sUId, char vertex) 
         
         if (vertex == 'L') {
             
-            std::cout<<"hello"<<std::endl;
-            
             if (edge.getsId1() == sUId && edge.getsId1Or() == '-')
                 edge.setsId1(new_sUId);
             
