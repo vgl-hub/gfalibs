@@ -2156,9 +2156,9 @@ void InSequences::trimPath(std::vector<PathComponent>* pathComponents, unsigned 
             
             lg.verbose("Start coordinate exceeds component, removing it");
             
-            pathComponents->erase(component);
-            
             component--;
+            
+            pathComponents->erase(std::next(component));
             
             traversedSize += compSize;
             
