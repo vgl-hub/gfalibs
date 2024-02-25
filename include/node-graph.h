@@ -17,34 +17,52 @@ struct GraphNode {
 struct StringGraph {
     
     GraphNode *root = new GraphNode(5);
-    std::vector<GraphNode*> leaves;
     uint8_t *seq;
     uint8_t k;
-    uint64_t pos = k-1;
-    GraphNode *prev;
-    
+    uint64_t pos = 0;
     
     StringGraph(uint8_t *seq, uint8_t k) : seq(seq), k(k) {
         
         GraphNode *prev = root;
         
-        for (uint8_t pos = 0; pos < k-1; ++pos) {
-            GraphNode *graphNode = new GraphNode(seq[pos]);
+        for (uint8_t p = 0; p < k-1; ++p) {
+            GraphNode *graphNode = new GraphNode(seq[p]);
             prev->addNext(graphNode);
-            this->prev = prev;
             prev = graphNode;
+            ++pos;
         }
-        leaves.push_back(prev);
 
     }
+    
+    void backtrack(uint8_t *seq, uint8_t k, uint64_t b){
+        
+        deleteStringGraph(root);
+        
+        root = new GraphNode(5);
+        pos -= k+b;
+        GraphNode *prev = root;
+        
+        for (uint8_t p = 0; p < k; ++p) {
+            GraphNode *graphNode = new GraphNode(seq[pos+p]);
+            prev->addNext(graphNode);
+        }
+        pos += k;
+        
+    }
 
+    uint8_t currentPos() {
+        
+        return pos;
+        
+    }
+    
     uint8_t peek() {
         
         return seq[pos];
         
     }
     
-    void pop_back() {
+    void pop_front() {
         
         if (root->next.size() > 0) {
             std::vector<GraphNode*> tmp = root->next[0]->next;
@@ -54,55 +72,72 @@ struct StringGraph {
         }
     }
     
-    void appendNode() {
+    void appendNext() {
         
         GraphNode* newLeaf = new GraphNode(seq[pos++]);
-        for (GraphNode* leaf : leaves)
-            leaf->addNext(newLeaf);
-        leaves.clear();
-        leaves.push_back(newLeaf);
-        this->prev = newLeaf;
-            
+        addNext(root, newLeaf);
+        
     }
     
-    void addAlt(std::vector<uint8_t> alts) {
+    void addNext(GraphNode* nextNode, GraphNode* newLeaf) {
         
-        leaves.clear();
+//        std::cout<<+nextNode->base<<std::endl;
         
-        for (uint8_t alt : alts) {
-            
-            GraphNode *newLeaf = new GraphNode(alt);
-            this->prev->addNext(newLeaf);
-            leaves.push_back(newLeaf);
-            
+        if (nextNode->next.size() != 0) {
+//            std::cout<<"size "<<nextNode->next.size()<<std::endl;
+            for (GraphNode *nextGraphNode : nextNode->next)
+                addNext(nextGraphNode, newLeaf);
+        }else{
+            if (nextNode != newLeaf)
+                nextNode->addNext(newLeaf);
+//            std::cout<<"end"<<std::endl;
         }
-        
-        ++pos;
-        pop_back();
             
     }
     
-    void addIns(uint8_t altBase) {
+    void appendAlts(std::vector<uint8_t> alts) {
         
-
+        addAlt(root, alts);
+        pop_front();
+        ++pos;
+            
+    }
+    
+    void addAlt(GraphNode* nextNode, std::vector<uint8_t> alts) {
+        
+        if (nextNode->next.size() != 0) {
+            addAlt(nextNode->next[0], alts);
+        }else{
+            for (uint8_t alt : alts) {
+                GraphNode *newLeaf = new GraphNode(alt);
+                nextNode->addNext(newLeaf);
+            }
+        }
     }
     
     std::vector<std::vector<uint8_t>> walkStringGraph(GraphNode *graphNode, std::vector<uint8_t> currentPath){
         
+//        std::cout<<+graphNode->base<<std::endl;
+        
         std::vector<std::vector<uint8_t>> paths;
-        if (graphNode->base != 4 && graphNode->base != 5 )
+        if (graphNode->base != 4 && graphNode->base != 5)
             currentPath.push_back(graphNode->base);
         
         for (GraphNode *nextGraphNode : graphNode->next) {
             if (nextGraphNode->next.size() == 0) {
-                currentPath.push_back(nextGraphNode->base);
-                currentPath.push_back(seq[pos]);
-                currentPath.push_back(seq[pos+1]);
-                paths.push_back(currentPath);
-                break;
+                std::vector<uint8_t> newPath = currentPath;
+                if (graphNode->base != 4)
+                    newPath.push_back(nextGraphNode->base);
+                newPath.push_back(seq[pos]);
+                newPath.push_back(seq[pos+1]);
+                newPath.push_back(seq[pos+2]);
+                newPath.push_back(seq[pos+3]);
+                paths.push_back(newPath);
+            }else{
+//                std::cout<<std::to_string(graphNode->next.size())<<std::endl;
+                std::vector<std::vector<uint8_t>> discoveredPaths = walkStringGraph(nextGraphNode, currentPath);
+                paths.insert(paths.end(), discoveredPaths.begin(), discoveredPaths.end());
             }
-            std::vector<std::vector<uint8_t>> discoveredPaths = walkStringGraph(nextGraphNode, currentPath);
-            paths.insert(paths.end(), discoveredPaths.begin(), discoveredPaths.end());
         }
         return paths;
     }
