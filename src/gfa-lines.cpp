@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <inttypes.h>
 
 #include "log.h"
 
@@ -267,7 +268,8 @@ double InSegment::computeGCcontent() {
 bool InSegment::trimSegment(uint64_t start, uint64_t end) {
     
     if (end < start) {
-        fprintf(stderr, "Trim segment start (%llu) > end (%llu). Exiting.\n", start, end);
+        fprintf(stderr, "Trim segment start (%" PRIu64 ") > end (%" PRIu64 "). Exiting.\n", start, end);
+        
         exit(EXIT_FAILURE);
     }
     
