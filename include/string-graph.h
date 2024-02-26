@@ -64,6 +64,12 @@ struct StringGraph {
         
     }
     
+    void advancePos(uint64_t n) {
+        
+        pos += n;
+        
+    }
+    
     uint8_t peek() {
         
         return seq[pos];
