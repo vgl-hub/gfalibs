@@ -644,3 +644,7 @@ std::vector<uint32_t> sortedIndex(std::vector<uint64_t> vec, bool largest) {
     return idx;
     
 }
+
+void unmaskSequence (std::string &sequence) {
+    std::transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
+}

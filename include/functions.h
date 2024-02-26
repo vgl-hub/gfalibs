@@ -81,13 +81,14 @@ unsigned int fileCount(const char *dir);
 uint64_t fileSize(std::string path);
 
 template<typename K, typename V>
-void printMap(phmap::flat_hash_map<K, V> const &m)
-{
+void printMap(phmap::flat_hash_map<K, V> const &m) {
     for (auto const &pair: m) {
         std::cout << "{" << pair.first << ": " << pair.second << "}\n";
     }
 }
 
 std::vector<uint32_t> sortedIndex(std::vector<uint64_t> vec, bool largest = false);
+
+void unmaskSequence (std::string &sequence);
 
 #endif /* FUNCTIONS_H */
