@@ -28,7 +28,7 @@ std::vector<Log> InSequences::getLogs() {
 
 }
 
-InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, unsigned int* dist, char sign, unsigned int uId1, unsigned int uId2) {
+InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t dist, char sign, unsigned int uId1, unsigned int uId2) {
     
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
     
@@ -38,7 +38,7 @@ InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHea
     
     InGap gap;
     
-    gap.newGap(uId.get(), uId1, uId2, '+', sign, *dist, *seqHeader+"."+std::to_string(*iId));
+    gap.newGap(uId.get(), uId1, uId2, '+', sign, dist, *seqHeader+"."+std::to_string(*iId));
     
     insertHash(*seqHeader+"."+std::to_string(*iId), uId.get());
     
@@ -198,7 +198,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
 
                     sign = '-';
                     
-                    newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, &dist, sign, currId, currId));
+                    newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, dist, sign, currId, currId));
 
                 }
 
@@ -255,7 +255,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                     if (newSegments.size() == 0) currId = nextId;
 
                     sStart = pos;
-                    newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, &dist, sign, currId, nextId));
+                    newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, dist, sign, currId, nextId));
                     
                     currId = nextId;
 

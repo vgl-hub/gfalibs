@@ -105,14 +105,15 @@ private:
 //    uint64_t lineN; // useful if we wish to sort as is the original input
     std::string gHeader;
     char sId1Or, sId2Or;
-    unsigned int uId, iId, sId1, sId2, dist;
+    unsigned int uId, iId, sId1, sId2;
+    uint64_t dist;
     std::vector<Tag> tags;
     
     friend class SAK;
     friend class InSequences;
     
 public:
-    void newGap(unsigned int uId, unsigned int sId1, unsigned int sId2, const char& sId1or, const char& sId2or, unsigned int& dist, std::string gHeader = "", std::vector<Tag> tags = {});
+    void newGap(unsigned int uId, unsigned int sId1, unsigned int sId2, const char& sId1or, const char& sId2or, uint64_t dist, std::string gHeader = "", std::vector<Tag> tags = {});
 
     void setuId(unsigned int i); // absolute id
     
@@ -122,7 +123,7 @@ public:
     
     void setsId2(unsigned int i);
     
-    void setDist(unsigned int i);
+    void setDist(uint64_t i);
     
     std::string getgHeader();
     
@@ -136,7 +137,7 @@ public:
     
     char getsId2Or();
     
-    unsigned int getDist(unsigned int start = 0, unsigned int end = 0);
+    unsigned int getDist(uint64_t start = 0, uint64_t end = 0);
     
     std::vector<Tag> getTags();
     
