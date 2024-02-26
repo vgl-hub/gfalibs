@@ -88,7 +88,7 @@ public:
     
     double computeGCcontent();
     
-    bool trimSegment(unsigned int start, unsigned int end);
+    bool trimSegment(uint64_t start, uint64_t end);
     
     bool rvcpSegment();
     

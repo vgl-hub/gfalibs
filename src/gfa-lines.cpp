@@ -264,7 +264,13 @@ double InSegment::computeGCcontent() {
     return GCcontent;
 }
 
-bool InSegment::trimSegment(unsigned int start, unsigned int end) {
+bool InSegment::trimSegment(uint64_t start, uint64_t end) {
+    
+    if (end < start) {
+        fprintf(stderr, "Trim segment start (%llu) > end (%llu). Exiting.\n", start, end);
+        exit(EXIT_FAILURE);
+    }
+        
     
     for(char& base : inSequence->substr(start, end-start)) {
         
