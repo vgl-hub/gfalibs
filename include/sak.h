@@ -154,6 +154,7 @@ public:
         if (sId != inSequences.inSegments.end()) {sIdx = std::distance(inSequences.inSegments.begin(), sId);} // gives us the segment index
         
         inSequences.inSegments[sIdx]->trimSegment(instruction.start1, instruction.end1); // trim segment
+        inSequences.inSegments[sIdx]->updateSegmentCounts(instruction.start1, instruction.end1);
         return true;
     }
 

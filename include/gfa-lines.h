@@ -90,6 +90,8 @@ public:
     
     bool trimSegment(uint64_t start, uint64_t end);
     
+    bool updateSegmentCounts(uint64_t start, uint64_t end);
+    
     bool rvcpSegment();
     
     bool invertSegment();
