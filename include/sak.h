@@ -19,7 +19,7 @@ struct Instruction {
     
     int compressThreshhold;
     char pId1Or, pId2Or, sId1Or, sId2Or;
-    unsigned int gUId = 0, dist = 0, start1 = 0, end1 = 0, start2 = 0, end2 = 0;
+    uint64_t gUId = 0, dist = 0, start1 = 0, end1 = 0, start2 = 0, end2 = 0;
 };
 
 class SAK;

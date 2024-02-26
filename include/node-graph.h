@@ -58,7 +58,7 @@ struct StringGraph {
         
     }
 
-    uint8_t currentPos() {
+    uint64_t currentPos() {
         
         return pos;
         
