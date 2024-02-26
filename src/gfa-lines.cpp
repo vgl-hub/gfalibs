@@ -270,43 +270,42 @@ bool InSegment::trimSegment(uint64_t start, uint64_t end) {
         fprintf(stderr, "Trim segment start (%llu) > end (%llu). Exiting.\n", start, end);
         exit(EXIT_FAILURE);
     }
-        
     
-    for(char& base : inSequence->substr(start, end-start)) {
-        
-        switch (base) {
-            case 'A':
-            case 'a':{
-                
-                A--;
-                break;
-                
-            }
-            case 'C':
-            case 'c':{
-                
-                C--;
-                break;
-                
-            }
-            case 'G':
-            case 'g': {
-                
-                G--;
-                break;
-                
-            }
-            case 'T':
-            case 't': {
-                
-                T--;
-                break;
-                
-            }
-                
-        }
-        
-    }
+//    for(char& base : inSequence->substr(start, end-start)) {
+//        
+//        switch (base) {
+//            case 'A':
+//            case 'a':{
+//                
+//                A--;
+//                break;
+//                
+//            }
+//            case 'C':
+//            case 'c':{
+//                
+//                C--;
+//                break;
+//                
+//            }
+//            case 'G':
+//            case 'g': {
+//                
+//                G--;
+//                break;
+//                
+//            }
+//            case 'T':
+//            case 't': {
+//                
+//                T--;
+//                break;
+//                
+//            }
+//                
+//        }
+//        
+//    }
     
     inSequence->erase(start, end-start);
     
