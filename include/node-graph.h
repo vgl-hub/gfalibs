@@ -12,6 +12,13 @@ struct GraphNode {
         next.push_back(nextNode);
     }
     
+    bool exists(GraphNode* candidateNode) {
+        for (GraphNode *nextNode : next)
+            if (candidateNode->base == nextNode->base)
+                return true;
+        return false;
+    }
+    
 };
 
 struct StringGraph {
@@ -45,6 +52,7 @@ struct StringGraph {
         for (uint8_t p = 0; p < k; ++p) {
             GraphNode *graphNode = new GraphNode(seq[pos+p]);
             prev->addNext(graphNode);
+            prev = graphNode;
         }
         pos += k;
         
@@ -81,16 +89,12 @@ struct StringGraph {
     
     void addNext(GraphNode* nextNode, GraphNode* newLeaf) {
         
-//        std::cout<<+nextNode->base<<std::endl;
-        
         if (nextNode->next.size() != 0) {
-//            std::cout<<"size "<<nextNode->next.size()<<std::endl;
             for (GraphNode *nextGraphNode : nextNode->next)
                 addNext(nextGraphNode, newLeaf);
         }else{
-            if (nextNode != newLeaf)
+            if (nextNode != newLeaf && !nextNode->exists(newLeaf))
                 nextNode->addNext(newLeaf);
-//            std::cout<<"end"<<std::endl;
         }
             
     }
@@ -110,7 +114,8 @@ struct StringGraph {
         }else{
             for (uint8_t alt : alts) {
                 GraphNode *newLeaf = new GraphNode(alt);
-                nextNode->addNext(newLeaf);
+                if (!nextNode->exists(newLeaf))
+                    nextNode->addNext(newLeaf);
             }
         }
     }
