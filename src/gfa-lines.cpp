@@ -172,7 +172,7 @@ uint64_t InSegment::getSegmentLen(uint64_t start, uint64_t end) {
         
     }else{
     
-        return start != 0 || end != 0 ? end-start+1 : A + C + G + T + N; // need to sum long long int to prevent size() overflow
+        return start != 0 || end != 0 ? end-start+1 : inSequence->size(); // need to sum long long int to prevent size() overflow
         
     }
     
@@ -271,43 +271,43 @@ bool InSegment::trimSegment(uint64_t start, uint64_t end) {
         exit(EXIT_FAILURE);
     }
     
-    std::string newSeq = inSequence->substr(start, end-start);
-    
-    for(char& base : newSeq) {
-        
-        switch (base) {
-            case 'A':
-            case 'a':{
-                
-                A--;
-                break;
-                
-            }
-            case 'C':
-            case 'c':{
-                
-                C--;
-                break;
-                
-            }
-            case 'G':
-            case 'g': {
-                
-                G--;
-                break;
-                
-            }
-            case 'T':
-            case 't': {
-                
-                T--;
-                break;
-                
-            }
-                
-        }
-        
-    }
+//    std::string newSeq = inSequence->substr(start, end-start);
+//    
+//    for(char& base : newSeq) {
+//        
+//        switch (base) {
+//            case 'A':
+//            case 'a':{
+//                
+//                A--;
+//                break;
+//                
+//            }
+//            case 'C':
+//            case 'c':{
+//                
+//                C--;
+//                break;
+//                
+//            }
+//            case 'G':
+//            case 'g': {
+//                
+//                G--;
+//                break;
+//                
+//            }
+//            case 'T':
+//            case 't': {
+//                
+//                T--;
+//                break;
+//                
+//            }
+//                
+//        }
+//        
+//    }
     
     inSequence->erase(start, end-start);
     
