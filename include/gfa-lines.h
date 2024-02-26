@@ -137,7 +137,7 @@ public:
     
     char getsId2Or();
     
-    unsigned int getDist(uint64_t start = 0, uint64_t end = 0);
+    uint64_t getDist(uint64_t start = 0, uint64_t end = 0);
     
     std::vector<Tag> getTags();
     

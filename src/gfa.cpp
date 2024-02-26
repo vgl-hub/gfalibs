@@ -49,7 +49,7 @@ InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHea
     
     lck.unlock();
     
-    *dist=0;
+    dist=0;
     
     return gap;
     

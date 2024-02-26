@@ -350,7 +350,7 @@ char* InSegment::first() {
     
 }
 
-void InGap::newGap(unsigned int uId, unsigned int sId1, unsigned int sId2, const char& sId1or, const char& sId2or, unsigned int& dist, std::string gHeader, std::vector<Tag> tags) {
+void InGap::newGap(unsigned int uId, unsigned int sId1, unsigned int sId2, const char& sId1or, const char& sId2or, uint64_t dist, std::string gHeader, std::vector<Tag> tags) {
     
     this->gHeader = gHeader;
     this->uId = uId;
@@ -379,7 +379,7 @@ void InGap::setsId2(unsigned int i) {
     sId2 = i;
 }
 
-void InGap::setDist(unsigned int i) {
+void InGap::setDist(uint64_t i) {
     dist = i;
 }
 
@@ -419,7 +419,7 @@ char InGap::getsId2Or() {
     
 }
 
-unsigned int InGap::getDist(unsigned int start, unsigned int end) {
+uint64_t InGap::getDist(uint64_t start, uint64_t end) {
     
     return start != 0 || end != 0 ? end-start+1 : dist;
     

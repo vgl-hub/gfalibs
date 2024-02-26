@@ -59,7 +59,7 @@ struct Gap {
     char orientation0;
     unsigned int segmentId;
     char orientation1;
-    unsigned int dist;
+    uint64_t dist;
     unsigned int edgeId;
     
 };
