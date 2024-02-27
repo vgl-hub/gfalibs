@@ -266,7 +266,7 @@ double InSegment::computeGCcontent() {
 
 bool InSegment::trimSegment(uint64_t start, uint64_t end) {
     
-    if (end < start) {
+    if (start > end) {
         std::cerr<<"Trim segment start ("<<+start<<") > end ("<<+end<<"). Exiting.\n";
         exit(EXIT_FAILURE);
     }

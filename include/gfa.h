@@ -292,8 +292,10 @@ public:
     std::vector<InGap> getGap(std::string* contig1, std::string* contig2 = NULL);
     
     std::vector<unsigned int> removeGaps(std::string* contig1, std::string* contig2 = NULL);
+
+    bool flagDeletedSegment(std::string* contig1);
     
-    bool deleteSegment(std::string* contig1);
+    bool deleteSegment(std::string sHeader);
     
     void removePath(unsigned int pUId, bool all = false, bool silent = false);
     

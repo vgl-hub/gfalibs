@@ -122,7 +122,7 @@ public:
 
     bool remove(InSequences& inSequences, Instruction &instruction) { // removes a segment
         inSequences.removePathsFromSegment(inSequences.headersToIds[instruction.contig1]); // remove the paths involving contig1
-        inSequences.deleteSegment(&instruction.contig1); // flag segment as deleted
+        inSequences.flagDeletedSegment(&instruction.contig1); // flag segment as deleted
         return true;
     }
     

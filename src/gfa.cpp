@@ -1689,7 +1689,7 @@ std::vector<unsigned int> InSequences::removeGaps(std::string* contig1, std::str
     
 }
 
-bool InSequences::deleteSegment(std::string* contig1) {
+bool InSequences::flagDeletedSegment(std::string* contig1) { // flag segment as deleted
     
     if (contig1 != NULL) {
         
@@ -1705,6 +1705,25 @@ bool InSequences::deleteSegment(std::string* contig1) {
         
         lg.verbose("Cannot detect node: " + *contig1);
         
+    }
+    
+    return true;
+    
+}
+
+bool InSequences::deleteSegment(std::string sHeader) { // fully delete segment from inSequence object
+        
+    uint32_t sIdx, sUId = headersToIds[sHeader];
+    auto sId = find_if(inSegments.begin(), inSegments.end(), [sUId](InSegment* obj) {return obj->getuId() == sUId;}); // given a node uId, find it
+
+    if (sId != inSegments.end()) { // gives us the segment index
+        delete *sId;
+        inSegments.erase(sId);
+        sIdx = std::distance(inSegments.begin(), sId);
+        deleted[sIdx] = true;
+    }else{
+        fprintf(stderr, "Error: cannot detect segment to be deleted (sHeader: %s). Terminating.\n", sHeader.c_str());
+        exit(1);
     }
     
     return true;
