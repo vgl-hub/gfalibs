@@ -388,8 +388,8 @@ InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> i
     
     if (got == headersToIds.end()) { // this is the first time we see this segment
         
-        sUId = uId.get();
-        insertHash(sequence->header, uId.next());
+        sUId = uId.next();
+        insertHash(sequence->header, sUId);
         
     }else{
         
@@ -2334,6 +2334,18 @@ unsigned int InSequences::pathLen(unsigned int pUId) {
     
 }
 
+InSegment& InSequences::findSegmentBySUId(uint32_t sUId) {
+    
+    auto inSegment = find_if(inSegments.begin(), inSegments.end(), [sUId](InSegment* obj) {return obj->getuId() == sUId;}); // given a node Uid, find it
+    
+    if (inSegment != inSegments.end()) {
+        return **inSegment;
+    }else{
+        fprintf(stderr, "Error: segment sUId not found (sUId: %u). Terminating.\n", sUId); exit(1);
+    }
+    
+}
+
 void InSequences::walkPath(InPath* path) {
     
     unsigned int cUId = 0, gapLen = 0;
@@ -2348,31 +2360,31 @@ void InSequences::walkPath(InPath* path) {
     
         if (component->type == SEGMENT) {
             
-            auto inSegment = find_if(inSegments.begin(), inSegments.end(), [cUId](InSegment* obj) {return obj->getuId() == cUId;}); // given a node Uid, find it
+            InSegment& inSegment = findSegmentBySUId(cUId);
             
-            contigLens.push_back((*inSegment)->getSegmentLen(component->start, component->end));
+            contigLens.push_back(inSegment.getSegmentLen(component->start, component->end));
             
             path->increaseContigN();
             
-            path->increaseLen((*inSegment)->getSegmentLen(component->start, component->end));
+            path->increaseLen(inSegment.getSegmentLen(component->start, component->end));
             
-            path->increaseSegmentLen((*inSegment)->getSegmentLen(component->start, component->end));
+            path->increaseSegmentLen(inSegment.getSegmentLen(component->start, component->end));
             
-            path->increaseLowerCount((*inSegment)->getLowerCount(component->end - component->start));
+            path->increaseLowerCount(inSegment.getLowerCount(component->end - component->start));
             
             if (component->start == 0 || component->end == 0) {
             
-                path->increaseA(component->orientation == '+' ? (*inSegment)->getA() : (*inSegment)->getT());
+                path->increaseA(component->orientation == '+' ? inSegment.getA() : inSegment.getT());
                 
-                path->increaseC(component->orientation == '+' ? (*inSegment)->getC() : (*inSegment)->getG());
+                path->increaseC(component->orientation == '+' ? inSegment.getC() : inSegment.getG());
                 
-                path->increaseG(component->orientation == '+' ? (*inSegment)->getG() : (*inSegment)->getC());
+                path->increaseG(component->orientation == '+' ? inSegment.getG() : inSegment.getC());
                 
-                path->increaseT(component->orientation == '+' ? (*inSegment)->getT() : (*inSegment)->getA());
+                path->increaseT(component->orientation == '+' ? inSegment.getT() : inSegment.getA());
                 
             }else{
                 
-                std::string sequence = (*inSegment)->getInSequence(component->start, component->end);
+                std::string sequence = inSegment.getInSequence(component->start, component->end);
                 
                 if (component->orientation == '+') {
                 
