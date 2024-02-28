@@ -48,7 +48,7 @@ public:
     
     void setiId(unsigned int i); // temporary id, internal to scaffold
     
-    void setSeqPos(unsigned int i); // temporary id, internal to scaffold
+    void setSeqPos(unsigned int i);
 
     std::string getSeqHeader();
     

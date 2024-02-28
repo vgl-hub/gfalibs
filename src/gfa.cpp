@@ -308,7 +308,14 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
 
 }
 
-bool InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags) { // traverse the segment
+bool InSequences::traverseInSegmentWrapper(Sequence* sequence, std::vector<Tag> inSequenceTags) {
+    
+    traverseInSegment(sequence, inSequenceTags);
+    return true;
+    
+}
+
+InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags) { // traverse the segment
     
     Log threadLog;
     
@@ -381,15 +388,12 @@ bool InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSeque
     
     if (got == headersToIds.end()) { // this is the first time we see this segment
         
-        insertHash(sequence->header, uId.get());
-        
         sUId = uId.get();
-        
-        uId.next();
+        insertHash(sequence->header, uId.next());
         
     }else{
         
-        sUId = got->second;
+        fprintf(stderr, "Error: segment name already exists (sId: %s).\n", sequence->header.c_str()); exit(1);
         
     }
     
@@ -403,7 +407,7 @@ bool InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSeque
     
     lck.unlock();
     
-    return true;
+    return inSegment;
     
 }
 
@@ -433,7 +437,7 @@ void InSequences::appendSegment(Sequence* sequence, std::vector<Tag> inSequenceT
     
     lg.verbose("Segment read");
     
-    threadPool.queueJob([=]{ return traverseInSegment(sequence, inSequenceTags); });
+    threadPool.queueJob([=]{ return traverseInSegmentWrapper(sequence, inSequenceTags); });
     
     if(verbose_flag) {std::cerr<<"\n";};
     
@@ -1718,9 +1722,10 @@ bool InSequences::deleteSegment(std::string sHeader) { // fully delete segment f
 
     if (sId != inSegments.end()) { // gives us the segment index
         delete *sId;
-        inSegments.erase(sId);
         sIdx = std::distance(inSegments.begin(), sId);
         deleted[sIdx] = true;
+        inSegments.erase(sId);
+
     }else{
         fprintf(stderr, "Error: cannot detect segment to be deleted (sHeader: %s). Terminating.\n", sHeader.c_str());
         exit(1);

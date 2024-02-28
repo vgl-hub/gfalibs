@@ -91,7 +91,9 @@ public:
     
     bool traverseInSequence(Sequence* sequence, int hc_cutoff);
     
-    bool traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags);
+    bool traverseInSegmentWrapper(Sequence* sequence, std::vector<Tag> inSequenceTags);
+    
+    InSegment* traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags);
     
     void appendSequence(Sequence* sequence, int hc_cutoff);
     
