@@ -28,7 +28,7 @@ std::vector<Log> InSequences::getLogs() {
 
 }
 
-InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t dist, char sign, unsigned int uId1, unsigned int uId2) {
+InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t &dist, char sign, unsigned int uId1, unsigned int uId2) {
     
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
     
@@ -108,10 +108,11 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
     uint64_t pos = 0, // current position in sequence
     hc_index=0, // used with homopolymer compression
     A = 0, C = 0, G = 0, T = 0,
+    dist = 0, // gap size
     lowerCount = 0;
     unsigned int
     currId = 0, nextId = 0, // temporarily store the id of a segment to connect gaps
-    dist = 0, // gap size
+
     iId = 1, // scaffold feature internal identifier
     sStart = 0, sEnd = 0, // segment start and end
     count = 1; // hc
@@ -387,14 +388,10 @@ InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> i
     phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(sequence->header); // get the headers to uIds table to look for the header
     
     if (got == headersToIds.end()) { // this is the first time we see this segment
-        
         sUId = uId.next();
         insertHash(sequence->header, sUId);
-        
     }else{
-        
-        fprintf(stderr, "Error: segment name already exists (sId: %s).\n", sequence->header.c_str()); exit(1);
-        
+        sUId = got->second;
     }
     
     InSegment* inSegment = new InSegment;

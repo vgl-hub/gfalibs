@@ -85,7 +85,7 @@ public:
     
     std::vector<Log> getLogs();
     
-    InGap pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t dist, char sign, unsigned int uId1, unsigned int uId2);
+    InGap pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t &dist, char sign, unsigned int uId1, unsigned int uId2);
     
     InSegment* pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, uint64_t sStart, uint64_t sEnd, std::string* sequenceQuality = NULL);
     

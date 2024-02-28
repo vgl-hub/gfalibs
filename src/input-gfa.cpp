@@ -664,13 +664,8 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     
                     if (got == hash->end()) { // this is the first time we see this segment
                         
-                        uId = inSequences.getuId();
-                        
-                        inSequences.insertHash(seqHeader, uId);
-                    
-                        sId1 = uId;
-                        
-                        inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
+                        sId1 = inSequences.uId.next();
+                        inSequences.insertHash(seqHeader, sId1);
                         
                     }else{
                         
@@ -688,13 +683,8 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     
                     if (got == hash->end()) { // this is the first time we see this segment
                         
-                        uId = inSequences.getuId();
-                        
-                        inSequences.insertHash(seqHeader, uId);
-                    
-                        sId2 = uId;
-                        
-                        inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
+                        sId2 = inSequences.uId.next();
+                        inSequences.insertHash(seqHeader, sId2);
                         
                     }else{
                         
