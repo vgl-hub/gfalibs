@@ -104,8 +104,6 @@ protected: // they are protected, so that they can be further specialized by inh
     
 public:
     
-    std::vector<Log> logs; // log storage for verbose output. Each log in the vector comes from a separate job
-    
     Kmap(uint8_t k) : k(k) { // precomputes the powers of k
         
         for(uint8_t p = 0; p<k; ++p)
@@ -180,18 +178,6 @@ void Kmap<INPUT, VALUE, TYPE>::appendSequence(Sequence* sequence, int hc_cutoff)
     if(verbose_flag) {std::cerr<<"\n";};
     
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock); // every time a shared variable is edited we need to stop the threads
-    
-    lck.lock();
-    
-    for (auto it = logs.begin(); it != logs.end(); it++) { // prints logs that have accumulated
-     
-        it->print();
-        logs.erase(it--);
-        if(verbose_flag) {std::cerr<<"\n";};
-        
-    }
-    
-    lck.unlock();
     
 }
 
@@ -400,15 +386,6 @@ template<class INPUT, typename VALUE, typename TYPE>
 void Kmap<INPUT, VALUE, TYPE>::appendReads(Sequences* readBatch) { // reads a collection of reads
     
     threadPool.queueJob([=]{ return traverseInReads(readBatch); });
-    
-    std::unique_lock<std::mutex> lck(mtx);
-    
-    for (auto it = logs.begin(); it != logs.end(); it++) {
-     
-        it->print();
-        logs.erase(it--);
-        
-    }
     
 }
 

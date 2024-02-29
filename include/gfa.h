@@ -11,8 +11,6 @@
 class InSequences { //collection of InSegment and inGap objects and their summary statistics
     
 protected:
-
-    std::vector<Log> logs;
     
     //gfa variables
     std::vector<InSegment*> inSegments;
@@ -82,8 +80,6 @@ public:
     ~InSequences();
     
     UIdGenerator uId; // unique numeric identifier for each feature
-    
-    std::vector<Log> getLogs();
     
     InGap pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t &dist, char sign, unsigned int uId1, unsigned int uId2);
     

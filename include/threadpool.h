@@ -9,6 +9,8 @@
 #include "parallel-hashmap/phmap.h"
 
 extern Log lg;
+extern std::vector<Log> logs;
+extern std::mutex mtx;
 
 template<class T>
 struct JobWrapper {
@@ -258,14 +260,32 @@ void ThreadPool<T>::status() {
     
 }
 
+inline void flushLogs() {
+    
+    std::unique_lock<std::mutex> lck(mtx);
+    for (auto it = logs.begin(); it != logs.end(); it++) {
+        it->print();
+        logs.erase(it--);
+    }
+    
+}
+
 template<class T>
 void jobWait(ThreadPool<T>& threadPool, bool master = false) {
     
+    uint32_t jobNumber = threadPool.queueSize();
+    
     while (true) {
+        
+        if (jobNumber > threadPool.queueSize()) {
+            flushLogs();
+            jobNumber = threadPool.queueSize();
+        }
 
         threadPool.status();
         
         if (threadPool.empty() && threadPool.jobsDone()) {
+            flushLogs();
             lg.verbose("\n", true);
             break;
         }
@@ -282,12 +302,19 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, boo
     
     bool end = false;
     phmap::flat_hash_map<uint32_t, bool>::const_iterator got;
+    uint32_t jobNumber = threadPool.queueSize();
     
     while (true) {
 
         threadPool.status();
+        
+        if (jobNumber > threadPool.queueSize()) {
+            flushLogs();
+            jobNumber = threadPool.queueSize();
+        }
 
         if (threadPool.empty() && threadPool.jobsDone()) {
+            flushLogs();
             lg.verbose("\n", true);
             break;
         }

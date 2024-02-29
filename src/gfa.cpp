@@ -22,12 +22,6 @@ InSequences::~InSequences() {
     
 }
 
-std::vector<Log> InSequences::getLogs() {
-
-    return logs;
-
-}
-
 InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t &dist, char sign, unsigned int uId1, unsigned int uId2) {
     
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
@@ -414,20 +408,6 @@ void InSequences::appendSequence(Sequence* sequence, int hc_cutoff) { // method 
     
     if(verbose_flag) {std::cerr<<"\n";};
     
-    std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
-    
-    lck.lock();
-    
-    for (auto it = logs.begin(); it != logs.end(); it++) {
-     
-        it->print();
-        logs.erase(it--);
-        if(verbose_flag) {std::cerr<<"\n";};
-        
-    }
-    
-    lck.unlock();
-    
 }
 
 void InSequences::appendSegment(Sequence* sequence, std::vector<Tag> inSequenceTags) { // method to append a new segment from a gfa
@@ -437,20 +417,6 @@ void InSequences::appendSegment(Sequence* sequence, std::vector<Tag> inSequenceT
     threadPool.queueJob([=]{ return traverseInSegmentWrapper(sequence, inSequenceTags); });
     
     if(verbose_flag) {std::cerr<<"\n";};
-    
-    std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
-    
-    lck.lock();
-    
-    for (auto it = logs.begin(); it != logs.end(); it++) {
-     
-        it->print();
-        logs.erase(it--);
-        if(verbose_flag) {std::cerr<<"\n";};
-        
-    }
-    
-    lck.unlock();
     
 }
 

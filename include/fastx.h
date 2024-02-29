@@ -76,12 +76,6 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                         threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
                         
                         std::lock_guard<std::mutex> lck(mtx);
-                        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-                         
-                            it->print();
-                            object->logs.erase(it--);
-                            
-                        }
                         
                         object->consolidate();
                         
@@ -96,14 +90,6 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                 lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
 
                 threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
-                
-                std::lock_guard<std::mutex> lck(mtx);
-                for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-                 
-                    it->print();
-                    object->logs.erase(it--);
-                    
-                }
 
                 break;
 
@@ -113,12 +99,6 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
         
         //consolidate log
         jobWait(threadPool);
-        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-            
-            it->print();
-            object->logs.erase(it--);
-            
-        }
         
     }
 
@@ -157,45 +137,16 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
                     
                     allocMemory(batchSize * sizeof(char));
                     readBatch = new std::string;
-                    
                     getKmers(*stream, *readBatch, batchSize);
-
                     object->traverseInReads(readBatch);
-                    
-//                    {
-//                        std::lock_guard<std::mutex> lck(mtx);
-//                        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-//
-//                            it->print();
-//                            object->logs.erase(it--);
-//
-//                        }
-//                    }
-                    
                     object->consolidate();
 
                 }
-
                 break;
-
             }
-                
         }
-        
-        //consolidate log
-//        jobWait(threadPool);
-//        for (auto it = object->logs.begin(); it != object->logs.end(); it++) {
-//            
-//            it->print();
-//            object->logs.erase(it--);
-//            
-//        }
-        
     }
-
-    
     return true;
-
 }
 
 #endif /* FASTX_H */
