@@ -55,7 +55,7 @@ InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHea
     
 }
 
-InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, uint64_t sStart, uint64_t sEnd, std::string* sequenceQuality) {
+InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, uint32_t seqPos, uint64_t sStart, uint64_t sEnd, std::string* sequenceQuality) {
     
     std::string* sequenceSubSeq = new std::string;
     
@@ -73,7 +73,7 @@ InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InP
     
     InSegment* inSegment = new InSegment;
     
-    inSegment->set(threadLog, currId, *iId, *seqHeader+"."+std::to_string(*iId), seqComment, sequenceSubSeq, A, C, G, T, lowerCount, 0, sequenceQuality);
+    inSegment->set(threadLog, currId, *iId, *seqHeader+"."+std::to_string(*iId), seqComment, sequenceSubSeq, A, C, G, T, lowerCount, seqPos, sequenceQuality);
     
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
     
@@ -185,7 +185,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                 if (!wasN && pos>0) { // gap start and gap not at the start of the sequence
 
                     sEnd = pos - 1;
-                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sStart, sEnd, sequence->sequenceQuality));
+                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
                     
                     lck.lock();
                     
@@ -265,7 +265,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                 if (pos == seqLen) {
 
                     sEnd = pos;
-                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sStart, sEnd, sequence->sequenceQuality));
+                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
                     
                     lck.lock();
                     
@@ -316,7 +316,7 @@ bool InSequences::traverseInSegmentWrapper(Sequence* sequence, std::vector<Tag> 
     
 }
 
-InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags) { // traverse the segment
+InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags, uint32_t sId) { // traverse the segment
     
     Log threadLog;
     
@@ -396,7 +396,7 @@ InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> i
     
     InSegment* inSegment = new InSegment;
     
-    inSegment->set(&threadLog, sUId, 0, sequence->header, &sequence->comment, sequence->sequence, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sequence->sequenceQuality, &inSequenceTags);
+    inSegment->set(&threadLog, sUId, sId, sequence->header, &sequence->comment, sequence->sequence, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sequence->sequenceQuality, &inSequenceTags);
             
     inSegments.push_back(inSegment);
     
@@ -978,6 +978,11 @@ std::vector<InEdge>* InSequences::getEdges() { // return gfa edge vector
 
 bool InSequences::appendEdge(InEdge edge) {
     
+    std::lock_guard<std::mutex> lck(mtx);
+    
+    if (edge.geteUId() == 0)
+        edge.seteUId(uId.next());
+    
     inEdges.push_back(edge);
 
     lg.verbose("Edge added to edge vector");
@@ -990,7 +995,25 @@ bool InSequences::appendEdge(InEdge edge) {
 
 void InSequences::sortSegmentsByOriginal(){
     
-    sort(inSegments.begin(), inSegments.end(), [](InSegment* one, InSegment* two){return one->getSeqPos() < two->getSeqPos();});
+    sort(inSegments.begin(), inSegments.end(), [](InSegment* one, InSegment* two){
+        
+        if(one->getSeqPos() != two->getSeqPos())
+          return (one->getSeqPos() < two->getSeqPos());
+        return one->getsId() < two->getsId();
+        
+    });
+    
+}
+
+void InSequences::sortEdgesByOriginal(){
+    
+    sort(inEdges.begin(), inEdges.end(), [](InEdge one, InEdge two){
+        
+        if(one.geteUId() != two.geteUId())
+          return (one.geteUId() < two.geteUId());
+        return one.geteId() < two.geteId();
+        
+    });
     
 }
 
@@ -1713,7 +1736,9 @@ bool InSequences::flagDeletedSegment(std::string* contig1) { // flag segment as 
 }
 
 bool InSequences::deleteSegment(std::string sHeader) { // fully delete segment from inSequence object
-        
+    
+    std::unique_lock<std::mutex> lck (mtx);
+    
     uint32_t sIdx, sUId = headersToIds[sHeader];
     auto sId = find_if(inSegments.begin(), inSegments.end(), [sUId](InSegment* obj) {return obj->getuId() == sUId;}); // given a node uId, find it
 

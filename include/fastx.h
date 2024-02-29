@@ -34,10 +34,8 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
                     std::string* inSequence = new std::string;
                     getline(*stream, *inSequence, '>');
                     lg.verbose("Individual fasta sequence read");
-                    Sequence* sequence = new Sequence{seqHeader, seqComment, inSequence, NULL};
-                    sequence->seqPos = seqPos; // remember the order
+                    Sequence* sequence = new Sequence{seqHeader, seqComment, inSequence, NULL, seqPos++};
                     object->appendSequence(sequence);
-                    seqPos++;
                     
                 }
                 

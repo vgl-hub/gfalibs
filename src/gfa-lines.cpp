@@ -183,7 +183,7 @@ unsigned int InSegment::getuId() { // absolute id
     return uId;
 }
 
-unsigned int InSegment::getiId() { // temporary id, internal to scaffold
+unsigned int InSegment::getsId() { // temporary id, internal to scaffold
     
     return iId;
 }

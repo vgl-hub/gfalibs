@@ -87,13 +87,13 @@ public:
     
     InGap pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t &dist, char sign, unsigned int uId1, unsigned int uId2);
     
-    InSegment* pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, uint64_t sStart, uint64_t sEnd, std::string* sequenceQuality = NULL);
+    InSegment* pushbackSegment(unsigned int currId, Log* threadLog, InPath* path, std::string* seqHeader, std::string* seqComment, std::string* sequence, unsigned int* iId, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, uint32_t seqPos, uint64_t sStart, uint64_t sEnd, std::string* sequenceQuality = NULL);
     
     bool traverseInSequence(Sequence* sequence, int hc_cutoff);
     
     bool traverseInSegmentWrapper(Sequence* sequence, std::vector<Tag> inSequenceTags);
     
-    InSegment* traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags);
+    InSegment* traverseInSegment(Sequence* sequence, std::vector<Tag> inSequenceTags, uint32_t sId = 0);
     
     void appendSequence(Sequence* sequence, int hc_cutoff);
     
@@ -239,6 +239,8 @@ public:
     //sorting methods
 
     void sortSegmentsByOriginal();
+    
+    void sortEdgesByOriginal();
     
     void sortPathsByOriginal();
     

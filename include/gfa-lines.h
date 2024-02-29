@@ -68,7 +68,7 @@ public:
     
     unsigned int getuId(); // absolute id
     
-    unsigned int getiId(); // temporary id, internal to scaffold
+    unsigned int getsId(); // temporary id, internal to scaffold
     
     void setACGT(uint64_t* a, uint64_t* c, uint64_t* g, uint64_t* t, uint64_t* n = NULL);
     
@@ -149,15 +149,22 @@ public:
 class InEdge {
     private:
 //    uint64_t lineN; // useful if we wish to sort as is the original input
-    std::string cigar, eHeader;
+    unsigned int eUId = 0, eId, sId1, sId2;
     char sId1Or, sId2Or;
-    unsigned int eUId, eId, sId1, sId2;
+    std::string cigar, eHeader;
     std::vector<Tag> tags;
     
     friend class SAK;
     friend class InSequences;
     
 public:
+    
+    InEdge() {};
+ 
+    InEdge(unsigned int eUId, unsigned int eId, unsigned int sId1, unsigned int sId2, const char& sId1Or, const char& sId2Or, std::string cigar = "", std::string eHeader = "", std::vector<Tag> tags = {}) : eUId(eUId), eId(eId), sId1(sId1), sId2(sId2), sId1Or(sId1Or), sId2Or(sId2Or), cigar(cigar), eHeader(eHeader), tags(tags) {};
+    
+    InEdge(unsigned int sId1, unsigned int sId2, const char& sId1Or, const char& sId2Or, std::string cigar = "", std::string eHeader = "", std::vector<Tag> tags = {}) : sId1(sId1), sId2(sId2), sId1Or(sId1Or), sId2Or(sId2Or), cigar(cigar), eHeader(eHeader), tags(tags) {};
+    
     void newEdge(unsigned int eUId, unsigned int sId1, unsigned int sId2, const char& sId1Or, const char& sId2Or, std::string cigar = "", std::string eHeader = "", std::vector<Tag> tags = {});
     
     bool operator==(const InEdge& e) const;
