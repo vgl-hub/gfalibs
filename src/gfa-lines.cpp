@@ -357,6 +357,7 @@ char* InSegment::first() {
     
 }
 
+// GAPS
 void InGap::newGap(unsigned int uId, unsigned int sId1, unsigned int sId2, const char& sId1or, const char& sId2or, uint64_t dist, std::string gHeader, std::vector<Tag> tags) {
     
     this->gHeader = gHeader;
@@ -741,4 +742,12 @@ void InPath::reinitializeCounts() {
     
     length = 0, segmentLength = 0, lowerCount = 0, A = 0, C = 0, G = 0, T = 0;
 
+}
+
+void InSegment::addVariants(std::vector<std::vector<DBGpath>> variants) {
+    this->variants = variants;
+}
+
+std::vector<std::vector<DBGpath>>& InSegment::getVariants() {
+    return variants;
 }

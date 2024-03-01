@@ -90,4 +90,18 @@ struct Bubble {
     unsigned int id0, id1, id2, id3;
 };
 
+enum variantType {SNV, INS, DEL};
+struct DBGpath {
+    
+    variantType type;
+    uint64_t pos;
+    std::string sequence;
+    double score = 0;
+    
+    DBGpath() {}
+    DBGpath(uint64_t pos) : pos(pos) {}
+    DBGpath(variantType type, uint64_t pos, std::string sequence) : type(type), pos(pos), sequence(sequence) {}
+    
+};
+
 #endif //STRUCT

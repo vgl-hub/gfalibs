@@ -10,6 +10,7 @@ protected:
     uint64_t A = 0, C = 0, G = 0, T = 0, N = 0, lowerCount = 0;
     unsigned int uId = 0, iId = 0, seqPos = 0;
     std::vector<Tag> tags;
+    std::vector<std::vector<DBGpath>> variants;
     
     friend class SAK;
     friend class InSequences;
@@ -99,6 +100,10 @@ public:
     bool isCircular(std::vector<unsigned int>* circularSegments);
     
     char* first();
+    
+    void addVariants(std::vector<std::vector<DBGpath>> variants);
+    
+    std::vector<std::vector<DBGpath>>& getVariants();
     
 };
 
