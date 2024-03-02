@@ -664,7 +664,11 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             std::vector<InSegment*> *inSegments = inSequences.getInSegments();
             std::vector<InGap> *inGaps = inSequences.getInGaps();
             
-            *stream<<"#CHROM\tPOS\tID\tREF\tALT\tQUAL\n";
+            *stream<<"##fileformat=VCFv4.2\n";
+            *stream<<"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE\n";
+            
+//            for (InPath& inPath : inSequences.getInPaths())
+//                *stream<<"contigs\n";
             
             for (InPath& inPath : inSequences.getInPaths()) {
                 
@@ -697,11 +701,11 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                 
                                 if (std::any_of(DBGpaths.begin(), DBGpaths.end(), [](DBGpath& obj){return obj.type == DEL || obj.type == INS;})) {
                                     
-                                    *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t"<<(*ref)[pos-1]<<(*ref)[pos]<<"\t";
+                                    *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t.\t"<<(*ref)[pos-1]<<(*ref)[pos]<<"\t";
 
                                 }else{
                                     
-                                    *stream<<pHeader<<"\t"<<absPos+pos<<"\t"<<(*ref)[pos]<<"\t";
+                                    *stream<<pHeader<<"\t"<<absPos+pos<<"\t.\t"<<(*ref)[pos]<<"\t";
                                     
                                 }
                                 
@@ -718,7 +722,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                     }
                                     
                                 }
-                                *stream<<"\t0"<<"\n";
+                                *stream<<"\t1\tPASS\t.\tGT\t1/1"<<"\n";
                             }
                             absPos += (*inSegment)->getSegmentLen();
                             
