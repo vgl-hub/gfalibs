@@ -90,7 +90,7 @@ struct Bubble {
     unsigned int id0, id1, id2, id3;
 };
 
-enum variantType {SNV, INS, DEL};
+enum variantType {REF, SNV, INS, DEL};
 struct DBGpath {
     
     variantType type;

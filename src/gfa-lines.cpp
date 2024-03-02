@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <deque>
 
 #include "log.h"
 
@@ -744,10 +745,10 @@ void InPath::reinitializeCounts() {
 
 }
 
-void InSegment::addVariants(std::vector<std::vector<DBGpath>> variants) {
+void InSegment::addVariants(std::vector<std::deque<DBGpath>> variants) {
     this->variants = variants;
 }
 
-std::vector<std::vector<DBGpath>>& InSegment::getVariants() {
+std::vector<std::deque<DBGpath>>& InSegment::getVariants() {
     return variants;
 }

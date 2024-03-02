@@ -3,6 +3,7 @@
 #include <string>
 #include <iomanip>
 #include <fstream>
+#include <deque>
 
 #include <parallel-hashmap/phmap.h>
 
@@ -86,7 +87,9 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
         {"gfa",3},
         {"gfa.gz",3},
         {"gfa2",4},
-        {"gfa2.gz",4}
+        {"gfa2.gz",4},
+        {"vcf",5},
+        {"vcf.gz",5}
     };
     
     // variables to handle output type
@@ -653,6 +656,85 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             
             break;
             
+        }
+        
+        case 5: { // .vcf[.gz]
+            
+            std::string pHeader;
+            std::vector<InSegment*> *inSegments = inSequences.getInSegments();
+            std::vector<InGap> *inGaps = inSequences.getInGaps();
+            
+            *stream<<"#CHROM\tPOS\tID\tREF\tALT\tQUAL\n";
+            
+            for (InPath& inPath : inSequences.getInPaths()) {
+                
+                if (inPath.getHeader() == "")
+                    pHeader = inPath.getpUId();
+                else
+                    pHeader = inPath.getHeader();
+
+                unsigned int cUId = 0, gapLen = 0;
+                std::vector<PathComponent> pathComponents = inPath.getComponents();
+                uint64_t absPos = 1; // vcf is 1-based
+                
+                for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
+                    
+                    cUId = component->id;
+                    
+                    if (component->type == SEGMENT) {
+                        
+                        auto inSegment = find_if(inSegments->begin(), inSegments->end(), [cUId](InSegment* obj) {return obj->getuId() == cUId;}); // given a node Uid, find it
+                        
+                        std::string* ref = (*inSegment)->getInSequencePtr();
+                        
+                        if (component->orientation == '+') {
+                            
+                            std::vector<std::deque<DBGpath>> variants = (*inSegment)->getVariants();
+                            
+                            for (std::deque<DBGpath> DBGpaths : variants) {
+                                
+                                uint64_t pos = DBGpaths[0].pos;
+                                
+                                if (std::any_of(DBGpaths.begin(), DBGpaths.end(), [](DBGpath& obj){return obj.type == DEL || obj.type == INS;})) {
+                                    
+                                    *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t"<<(*ref)[pos-1]<<(*ref)[pos]<<"\t";
+
+                                }else{
+                                    
+                                    *stream<<pHeader<<"\t"<<absPos+pos<<"\t"<<(*ref)[pos]<<"\t";
+                                    
+                                }
+                                
+                                bool first = true;
+                                for (const DBGpath& variant : DBGpaths) {
+                                    if (first) {first = false;} else {*stream<<",";}
+                                    
+                                    if(variant.type == SNV) {
+                                        *stream<<variant.sequence;
+                                    }else if(variant.type == DEL) {
+                                        *stream<<(*ref)[pos-1]<<variant.sequence<<(*ref)[pos];
+                                    }else if(variant.type == INS) {
+                                        *stream<<(*ref)[pos-1];
+                                    }
+                                    
+                                }
+                                *stream<<"\t0"<<"\n";
+                            }
+                            absPos += (*inSegment)->getSegmentLen();
+                            
+                        }else{} // GFA not handled yet
+                    }else if (component->type == GAP){
+                        
+                        auto inGap = find_if(inGaps->begin(), inGaps->end(), [cUId](InGap& obj) {return obj.getuId() == cUId;}); // given a node Uid, find it
+                        
+                        gapLen += inGap->getDist(component->start - component->end);
+                        
+                        absPos += gapLen;
+                        
+                    }else{} // need to handle edges, cigars etc
+                }
+            }
+            break;
         }
             
         case 0: { // undefined case

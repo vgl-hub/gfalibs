@@ -10,7 +10,7 @@ protected:
     uint64_t A = 0, C = 0, G = 0, T = 0, N = 0, lowerCount = 0;
     unsigned int uId = 0, iId = 0, seqPos = 0;
     std::vector<Tag> tags;
-    std::vector<std::vector<DBGpath>> variants;
+    std::vector<std::deque<DBGpath>> variants;
     
     friend class SAK;
     friend class InSequences;
@@ -101,9 +101,9 @@ public:
     
     char* first();
     
-    void addVariants(std::vector<std::vector<DBGpath>> variants);
+    void addVariants(std::vector<std::deque<DBGpath>> variants);
     
-    std::vector<std::vector<DBGpath>>& getVariants();
+    std::vector<std::deque<DBGpath>>& getVariants();
     
 };
 
