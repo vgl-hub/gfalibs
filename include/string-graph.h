@@ -139,10 +139,8 @@ struct StringGraph {
                 std::vector<uint8_t> newPath = currentPath;
                 if (graphNode->base != 4)
                     newPath.push_back(nextGraphNode->base);
-                newPath.push_back(seq[pos]);
-                newPath.push_back(seq[pos+1]);
-                newPath.push_back(seq[pos+2]);
-                newPath.push_back(seq[pos+3]);
+                for (uint8_t i = 0; i < k; ++i)
+                    newPath.push_back(seq[pos+i]);
                 paths.push_back(newPath);
             }else{
 //                std::cout<<std::to_string(graphNode->next.size())<<std::endl;

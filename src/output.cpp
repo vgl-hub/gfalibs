@@ -709,6 +709,8 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                     
                                 }
                                 
+                                double score = 0;
+                                
                                 bool first = true;
                                 for (const DBGpath& variant : DBGpaths) {
                                     if (first) {first = false;} else {*stream<<",";}
@@ -721,8 +723,12 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                         *stream<<(*ref)[pos-1];
                                     }
                                     
+                                    score += variant.score;
+                                    
                                 }
-                                *stream<<"\t1\tPASS\t.\tGT\t1/1"<<"\n";
+                                if (score < 0)
+                                    score = 0;
+                                *stream<<"\t"<<round(score/DBGpaths.size())<<"\tPASS\t.\tGT\t1/1"<<"\n";
                             }
                             absPos += (*inSegment)->getSegmentLen();
                             
