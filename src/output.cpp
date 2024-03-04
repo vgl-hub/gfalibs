@@ -700,34 +700,29 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                 uint64_t pos = DBGpaths[0].pos;
                                 
                                 if (std::any_of(DBGpaths.begin(), DBGpaths.end(), [](DBGpath& obj){return obj.type == DEL || obj.type == INS;})) {
-                                    
                                     *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t.\t"<<(*ref)[pos-1]<<(*ref)[pos]<<"\t";
-
                                 }else{
-                                    
                                     *stream<<pHeader<<"\t"<<absPos+pos<<"\t.\t"<<(*ref)[pos]<<"\t";
-                                    
                                 }
                                 
+                                std::sort(DBGpaths.begin(), DBGpaths.end(), [](const DBGpath& v1, const DBGpath& v2) {return v1.score > v2.score;});
                                 double score = 0;
-                                
                                 bool first = true;
                                 for (const DBGpath& variant : DBGpaths) {
-                                    if (first) {first = false;} else {*stream<<",";}
-                                    
-                                    if(variant.type == SNV) {
-                                        *stream<<variant.sequence;
-                                    }else if(variant.type == DEL) {
-                                        *stream<<(*ref)[pos-1]<<variant.sequence<<(*ref)[pos];
-                                    }else if(variant.type == INS) {
-                                        *stream<<(*ref)[pos-1];
-                                    }
-                                    
-                                    score += variant.score;
+                                        
+                                        if (first) {first = false;} else {*stream<<",";}
+                                        
+                                        if(variant.type == SNV) {
+                                            *stream<<variant.sequence;
+                                        }else if(variant.type == DEL) {
+                                            *stream<<(*ref)[pos-1]<<variant.sequence<<(*ref)[pos];
+                                        }else if(variant.type == INS) {
+                                            *stream<<(*ref)[pos-1];
+                                        }
+                                        
+                                        score += variant.score;
                                     
                                 }
-                                if (score < 0)
-                                    score = 0;
                                 *stream<<"\t"<<round(score/DBGpaths.size())<<"\tPASS\t.\tGT\t1/1"<<"\n";
                             }
                             absPos += (*inSegment)->getSegmentLen();

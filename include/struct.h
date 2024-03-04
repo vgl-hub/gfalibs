@@ -100,6 +100,7 @@ struct DBGpath {
     
     DBGpath() {}
     DBGpath(uint64_t pos) : pos(pos) {}
+    DBGpath(uint64_t pos, double score) : pos(pos), score(score) {}
     DBGpath(variantType type, uint64_t pos, std::string sequence, double score) : type(type), pos(pos), sequence(sequence), score(score) {}
     
 };
