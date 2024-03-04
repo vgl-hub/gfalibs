@@ -60,7 +60,7 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                     
                     getline(*stream, *inSequence, '>');
                     
-                    lg.verbose("Individual fasta sequence read.");
+                    lg.verbose("Individual fasta sequence read");
                     
                     Sequence* sequence = new Sequence {seqHeader, seqComment, inSequence};
                     

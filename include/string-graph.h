@@ -139,7 +139,7 @@ struct StringGraph {
                 std::vector<uint8_t> newPath = currentPath;
                 if (graphNode->base != 4)
                     newPath.push_back(nextGraphNode->base);
-                for (uint8_t i = 0; i < k; ++i)
+                for (uint8_t i = 0; i < k + 2; ++i) // so that we can check k+2 kmers downstream if needed
                     newPath.push_back(seq[pos+i]);
                 paths.push_back(newPath);
             }else{
