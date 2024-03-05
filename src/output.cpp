@@ -723,7 +723,9 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                         score += variant.score;
                                     
                                 }
-                                *stream<<"\t"<<round(score/DBGpaths.size())<<"\tPASS\t.\tGT\t1/1"<<"\n";
+                                *stream<<"\t"<<round(score/DBGpaths.size())<<"\tPASS\t.\tGT:GQ\t1/1:"
+                                <<DBGpaths[0].score;
+                                <<"\n";
                             }
                             absPos += (*inSegment)->getSegmentLen();
                             
