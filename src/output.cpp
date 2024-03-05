@@ -698,32 +698,39 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                             for (std::deque<DBGpath> DBGpaths : variants) {
                                 
                                 uint64_t pos = DBGpaths[0].pos;
+                                bool indel = false;
                                 
-                                if (std::any_of(DBGpaths.begin(), DBGpaths.end(), [](DBGpath& obj){return obj.type == DEL || obj.type == INS;})) {
+                                if (std::any_of(DBGpaths.begin(), DBGpaths.end(), [](DBGpath& obj){return obj.type == DEL || obj.type == INS;}))
+                                    indel = true;
+                                    
+                                if (indel)
                                     *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t.\t"<<(*ref)[pos-1]<<(*ref)[pos]<<"\t";
-                                }else{
+                                else
                                     *stream<<pHeader<<"\t"<<absPos+pos<<"\t.\t"<<(*ref)[pos]<<"\t";
-                                }
                                 
                                 std::sort(DBGpaths.begin(), DBGpaths.end(), [](const DBGpath& v1, const DBGpath& v2) {return v1.score > v2.score;});
-                                double score = 0;
+                                double qual = 0;
                                 bool first = true;
                                 for (const DBGpath& variant : DBGpaths) {
                                         
                                         if (first) {first = false;} else {*stream<<",";}
                                         
                                         if(variant.type == SNV) {
-                                            *stream<<variant.sequence;
+                                            if (indel)
+                                                *stream<<(*ref)[pos-1]<<variant.sequence;
+                                            else
+                                                *stream<<variant.sequence;
+                                            
                                         }else if(variant.type == DEL) {
                                             *stream<<(*ref)[pos-1]<<variant.sequence<<(*ref)[pos];
                                         }else if(variant.type == INS) {
                                             *stream<<(*ref)[pos-1];
                                         }
                                         
-                                        score += variant.score;
+                                        qual += variant.score;
                                     
                                 }
-                                *stream<<"\t"<<round(score/DBGpaths.size())<<"\tPASS\t.\tGT:GQ\t1/1:"
+                                *stream<<"\t"<<round(qual/DBGpaths.size())<<"\tPASS\t.\tGT:GQ\t1/1:"
                                 <<DBGpaths[0].score
                                 <<"\n";
                             }
