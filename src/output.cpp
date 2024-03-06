@@ -709,8 +709,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                     *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t.\t"<<(*ref)[pos-1]<<(*ref)[pos]<<"\t";
                                 else
                                     *stream<<pHeader<<"\t"<<absPos+pos<<"\t.\t"<<(*ref)[pos]<<"\t";
-                                
-                                std::sort(DBGpaths.begin(), DBGpaths.end(), [](const DBGpath& v1, const DBGpath& v2) {return v1.score > v2.score;});
+
                                 double qual = 0;
                                 bool first = true;
                                 for (const DBGpath& variant : DBGpaths) {
