@@ -665,6 +665,8 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             std::vector<InGap> *inGaps = inSequences.getInGaps();
             
             *stream<<"##fileformat=VCFv4.2\n";
+            *stream<<"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
+            *stream<<"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">\n";
             *stream<<"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE\n";
             
 //            for (InPath& inPath : inSequences.getInPaths())
