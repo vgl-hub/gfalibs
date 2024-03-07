@@ -1,6 +1,9 @@
 #ifndef BED_H
 #define BED_H
 
+#include <vector>
+#include <string>
+
 class BedCoordinates { // generic representation of bed coordinates
 private:
     std::vector<std::string> seqHeaders;
@@ -9,19 +12,35 @@ private:
     
 public:
     
-    void pushCoordinates(std::string h, unsigned int b = 0, unsigned int e = 0); // reading coordinates
+    void pushCoordinates(std::string h, unsigned int b = 0, unsigned int e = 0) { // reading coordinates
+        seqHeaders.push_back(h);
+        cBegin.push_back(b);
+        cEnd.push_back(e);
+    }
     
-    bool empty(); // check if no coordinates are present
+    inline bool empty() { // check if no coordinates are present
+        return (seqHeaders.size()==0) ? true : false; // check if no coordinates are present
+    }
     
-    unsigned int size();
+    inline unsigned int size(){
+        return seqHeaders.size(); // check if no coordinates are present
+    }
     
-    std::vector<std::string> getSeqHeaders(); // get all the headers
+    inline std::vector<std::string> getSeqHeaders() { // get all the headers
+        return seqHeaders;
+    }
     
-    std::string getSeqHeader(unsigned int pos); // get a specific header
+    inline std::string getSeqHeader(unsigned int pos) { // get a specific header
+        return seqHeaders[pos];
+    }
     
-    unsigned int getcBegin(unsigned int pos); // get a specific start coordinate
+    inline unsigned int getcBegin(unsigned int pos) { // get a specific start coordinate
+        return cBegin[pos];
+    }
     
-    unsigned int getcEnd(unsigned int pos); // get a specific end coordinate
+    inline unsigned int getcEnd(unsigned int pos) { // get a specific end coordinate
+        return cEnd[pos];
+    }
     
 };
 
