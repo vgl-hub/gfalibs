@@ -18,9 +18,7 @@ double get_mem_inuse(uint8_t unit){
         freeMemory = true;
     }else if (inUse < maxMem * 0.1){
         freeMemory = false;
-        std::unique_lock<std::mutex> lck(mtx);
-        std::condition_variable mutexCondition;
-        mutexCondition.notify_all();
+        threadPool.notify_all();
     }
     
     return (alloc - freed) / pow(1024, unit);

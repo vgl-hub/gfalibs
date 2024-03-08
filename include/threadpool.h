@@ -48,6 +48,7 @@ public:
     short unsigned int totalThreads();
     void execJob();
     void status();
+    void notify_all();
     
 };
 
@@ -258,6 +259,11 @@ void ThreadPool<T>::status() {
         past = std::chrono::high_resolution_clock::now();
     }
     
+}
+
+template<class T>
+void ThreadPool<T>::notify_all() {
+    mutexCondition.notify_all();
 }
 
 inline void flushLogs() {
