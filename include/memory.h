@@ -2,8 +2,8 @@
 #define MEMORY_H
 
 extern const char* memUnit[4];
-extern int64_t alloc, freed;
-extern double maxMem;
+extern std::atomic<int64_t> alloc, freed;
+extern uint64_t maxMem;
 extern std::atomic<bool> freeMemory;
 
 double get_mem_inuse(uint8_t unit);

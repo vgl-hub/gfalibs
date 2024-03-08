@@ -3,19 +3,25 @@
 #include <atomic>
 #include <iostream>
 
+#include "global.h"
+
 const char* memUnit[4] = {"B", "KB", "MB", "GB"};
 std::atomic<int64_t> alloc(0), freed(0);
 std::atomic<bool> freeMemory(false);
-double maxMem = 0;
+uint64_t maxMem = 0;
 
 double get_mem_inuse(uint8_t unit){
     
     int64_t inUse = (alloc - freed);
     
-    if (inUse > maxMem * pow(1024, unit))
+    if (inUse > maxMem * pow(1024, unit)) {
         freeMemory = true;
-    else if (inUse < maxMem * 0.1)
+    }else if (inUse < maxMem * 0.1){
         freeMemory = false;
+        std::unique_lock<std::mutex> lck(mtx);
+        std::condition_variable mutexCondition;
+        mutexCondition.notify_all();
+    }
     
     return (alloc - freed) / pow(1024, unit);
     
