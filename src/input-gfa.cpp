@@ -161,7 +161,7 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
     phmap::flat_hash_map<std::string, unsigned int>* hash;
     phmap::flat_hash_map<std::string, unsigned int>::const_iterator got;
     
-    unsigned int uId = 0, guId = 0, euId = 0;
+    unsigned int uId = 0, guId = 0;
     
     bool isSegment = false;
     
@@ -364,75 +364,43 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                 case 'E': {
                     
                     lck.lock();
-                    
                     if(verbose_flag) {std::cerr<<"\n\n";};
-                    
                     arguments = readDelimited(newLine, "\t");
-                    
                     eHeader = arguments[1];
-                    
                     uId = inSequences.getuId();
-                    
                     inSequences.insertHash(eHeader, uId);
-                    
-                    euId = uId; // since I am still reading segments I need to keep this fixed
-                    
                     inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
-                    
                     sId1Or = arguments[2].back(); // get sequence orientation in the edge
-                    
                     seqHeader = std::string(arguments[2]);
                     seqHeader.pop_back();
-                    
                     hash = inSequences.getHash1();
-                    
                     got = hash->find(seqHeader); // get the headers to uIds table (remove sequence orientation in the edge first)
                     
                     if (got == hash->end()) { // this is the first time we see this segment
                         
                         uId = inSequences.getuId();
-                        
                         inSequences.insertHash(seqHeader, uId);
-                    
                         sId1 = uId;
-                        
                         inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
                         
-                    }else{
-                        
-                        sId1 = got->second;
-                        
-                    }
+                    }else{sId1 = got->second;}
                     
                     sId2Or = arguments[3].back(); // get sequence orientation in the edge
-                    
                     seqHeader = arguments[3];
                     seqHeader.pop_back();
-                    
                     hash = inSequences.getHash1();
-                    
                     got = hash->find(seqHeader); // get the headers to uIds table (remove sequence orientation in the gap first)
                     
                     if (got == hash->end()) { // this is the first time we see this segment
                         
                         uId = inSequences.getuId();
-                        
                         inSequences.insertHash(seqHeader, uId);
-                    
                         sId2 = uId;
-                        
                         inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
                         
-                    }else{
-                        
-                        sId2 = got->second;
-                        
-                    }
+                    }else{sId2 = got->second;}
 
                     cigar = arguments[8];
-                    
-                    lg.verbose("Processing edge " + eHeader + " (uId: " + std::to_string(euId) + ")");
-                    
                     inTags.clear();
                     
                     for (unsigned int i = 9; i < arguments.size(); i++) {
@@ -448,11 +416,11 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     
                     }
                     
-                    edge.newEdge(euId, sId1, sId2, sId1Or, sId2Or, cigar, eHeader, inTags);
-                    
-                    inSequences.appendEdge(edge);
-                    
+                    edge.newEdge(inSequences.uId.next(), sId1, sId2, sId1Or, sId2Or, cigar, eHeader, inTags);
+                    lg.verbose("Processing edge " + eHeader + " (uId: " + std::to_string(edge.geteUId()) + ")");
+                    inSequences.insertHash(eHeader, edge.geteUId());
                     lck.unlock();
+                    inSequences.appendEdge(edge);
                                  
                     break;
                     
@@ -724,79 +692,43 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                 case 'L': {
                     
                     lck.lock();
-                    
                     if(verbose_flag) {std::cerr<<"\n\n";};
                     
                     arguments = readDelimited(newLine, "\t");
-
                     uId = inSequences.getuId();
-                    
-                    euId = uId; // since I am still reading segments I need to keep this fixed
-                    
                     eHeader = "edge" + std::to_string(edgeN);
-                    
                     edgeN++;
-                    
-                    inSequences.insertHash(eHeader, uId);
-                    
-                    inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
-                    
                     sId1Or = arguments[2][0]; // get sequence orientation in the edge
-                    
                     seqHeader = arguments[1];
-                    
                     hash = inSequences.getHash1();
-                    
                     got = hash->find(seqHeader); // get the headers to uIds table (remove sequence orientation in the edge first)
                     
                     if (got == hash->end()) { // this is the first time we see this segment
                         
                         uId = inSequences.getuId();
-                        
                         inSequences.insertHash(seqHeader, uId);
-                    
                         sId1 = uId;
-                        
                         uId++;
-                        
                         inSequences.uId.next(); // we have touched a segment need to increase the unique segment counter
                         
-                    }else{
-                        
-                        sId1 = got->second;
-                        
-                    }
+                    }else{sId1 = got->second;}
                     
                     sId2Or = arguments[4][0]; // get sequence orientation in the edge
-                    
                     seqHeader = arguments[3];
-                    
                     hash = inSequences.getHash1();
-                    
                     got = hash->find(seqHeader); // get the headers to uIds table (remove sequence orientation in the edge first)
                     
                     if (got == hash->end()) { // this is the first time we see this segment
                         
                         uId = inSequences.getuId();
-                        
                         inSequences.insertHash(seqHeader, uId);
-                    
                         sId2 = uId;
-                        
                         uId++;
-                        
                         inSequences.uId.next(); // we have touched a segment need to increase the unique segment counter
                         
-                    }else{
-                        
-                        sId2 = got->second;
-                        
-                    }
+                    }else{sId2 = got->second;}
                     
                     cigar = arguments[5];
-                    
-                    lg.verbose("Processing edge " + eHeader + " (uId: " + std::to_string(euId) + ")");
-                    
                     inTags.clear();
                     
                     if(arguments.size() > 6 && arguments[6] != "") {
@@ -804,24 +736,18 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                         for (unsigned int i = 6; i < arguments.size(); i++) {
                             
                             tagValues = readDelimited(arguments[i], ":");
-                            
                             tag.label[0] = tagValues[0][0];
                             tag.label[1] = tagValues[0][1];
                             tag.type = tagValues[1][0];
                             tag.content = tagValues[2];
-                            
                             inTags.push_back(tag);
-                            
                         }
-                        
                     }
-                    
-                    edge.newEdge(euId, sId1, sId2, sId1Or, sId2Or, cigar, eHeader, inTags);
-                    
-                    inSequences.appendEdge(edge);
-                    
+                    edge.newEdge(inSequences.uId.next(), sId1, sId2, sId1Or, sId2Or, cigar, eHeader, inTags);
+                    lg.verbose("Processing edge " + eHeader + " (uId: " + std::to_string(edge.geteUId()) + ")");
+                    inSequences.insertHash(eHeader, edge.geteUId());
                     lck.unlock();
-                                 
+                    inSequences.appendEdge(edge);
                     break;
                     
                 }
