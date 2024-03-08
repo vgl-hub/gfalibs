@@ -16,21 +16,13 @@
 
 Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::string* inSequence, BedCoordinates bedIncludeList, BedCoordinates bedExcludeList, std::string* inSequenceQuality) {
     
-    std::vector<std::string> bedIncludeListHeaders;
-    std::vector<std::string> bedExcludeListHeaders;
-    unsigned int pos = 0, cBegin = 0, cEnd = 0, offset = 0, prevCEnd = 0;
-
-    bedIncludeListHeaders = bedIncludeList.getSeqHeaders();
-    bedExcludeListHeaders = bedExcludeList.getSeqHeaders();
+    uint64_t cBegin = 0, cEnd = 0, offset = 0, prevCEnd = 0;
     bool outSeq = false;
     
     lg.verbose("Processing sequence: " + seqHeader);
     
-    if(!bedIncludeList.empty() || !bedExcludeList.empty()) {
-        
+    if(!bedIncludeList.empty() || !bedExcludeList.empty())
         inSequence->erase(remove(inSequence->begin(), inSequence->end(), '\n'), inSequence->end());
-        
-    }
     
     if   (bedIncludeList.empty() &&
           bedExcludeList.empty()) {
@@ -43,43 +35,28 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
         offset = 0, prevCEnd = 0;
         outSeq = false;
         
-        auto it = begin(bedIncludeListHeaders);
+        auto coordinates = bedIncludeList.getCoordinates();
+        auto got = coordinates.find(seqHeader);
+        if (got == coordinates.end())
+            return NULL;
         
-        while (it != end(bedIncludeListHeaders)) {
-            
-            it = std::find(it, bedIncludeListHeaders.end(), seqHeader);
-            
-            if (it == end(bedIncludeListHeaders)) {
-                
-                break;
-                
-            }
-            
-            pos = std::distance(bedIncludeListHeaders.begin(), it);
+        for(std::pair<uint64_t,uint64_t> coordinate : got->second) {
             
             outSeq = true;
-
-            cBegin = bedIncludeList.getcBegin(pos);
-            cEnd = bedIncludeList.getcEnd(pos);
+            cBegin = coordinate.first;
+            cEnd = coordinate.second;
             
             if (!(cBegin == 0 && cEnd == 0)) {
                 
                 inSequence->erase(offset, cBegin-prevCEnd);
                 
-                if (inSequenceQuality != NULL) {
-                
+                if (inSequenceQuality != NULL)
                     inSequenceQuality->erase(offset, cBegin-prevCEnd);
-                
-                }
                     
                 offset += cEnd-cBegin;
                 prevCEnd = cEnd;
                 
             }
-          
-            ++it;
-            pos++;
-            
         }
             
         if (outSeq && inSequence->size()>0) {
@@ -88,72 +65,54 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
             
                 inSequence->erase(offset, inSequence->size()-offset);
                 
-                if (inSequenceQuality != NULL) {
-                
+                if (inSequenceQuality != NULL)
                     inSequenceQuality->erase(offset, inSequenceQuality->size()-offset);
-                    
-                }
-                
             }
-            
             outSeq = true;
-        
         }
-            
     }else if(bedIncludeList.empty() &&
             !bedExcludeList.empty()) {
         
-        pos = 0;
         offset = 0;
         outSeq = true;
         
-        auto it = begin(bedExcludeListHeaders);
+        auto coordinates = bedExcludeList.getCoordinates();
+        auto got = coordinates.find(seqHeader);
+        if (got == coordinates.end())
+            return NULL;
         
-        while (it != end(bedExcludeListHeaders)) {
-            
-            it = std::find(it, bedExcludeListHeaders.end(), seqHeader);
-            
-            if (it == end(bedExcludeListHeaders)) {
-                
-                break;
-                
-            }
-            
-            pos = std::distance(bedExcludeListHeaders.begin(), it);
+        for(std::pair<uint64_t,uint64_t> coordinate : got->second) {
 
-            cBegin = bedExcludeList.getcBegin(pos);
-            cEnd = bedExcludeList.getcEnd(pos);
+            cBegin = coordinate.first;
+            cEnd = coordinate.second;
             
             if (!(cBegin == 0 && cEnd == 0)) {
                 
                 inSequence->erase(cBegin-offset, cEnd-cBegin);
                 
-                if (inSequenceQuality != NULL) {
-                
+                if (inSequenceQuality != NULL)
                     inSequenceQuality->erase(cBegin-offset, cEnd-cBegin);
-                    
-                }
                     
                 offset += cEnd-cBegin;
                 
             }else{
-                
                 outSeq = false;
-                
             }
-          
-            ++it;
-            pos++;
-            
         }
                 
     }else if
             (!bedIncludeList.empty() &&
-             !bedExcludeList.empty() &&
-             std::find(bedIncludeListHeaders.begin(), bedIncludeListHeaders.end(), seqHeader) != bedIncludeListHeaders.end() &&
-             std::find(bedExcludeListHeaders.begin(), bedExcludeListHeaders.end(), seqHeader) == bedExcludeListHeaders.end()) {
+             !bedExcludeList.empty()) {
                 
-                outSeq = true;
+                auto coordinates = bedIncludeList.getCoordinates();
+                auto got1 = coordinates.find(seqHeader);
+                coordinates = bedExcludeList.getCoordinates();
+                auto got2 = coordinates.find(seqHeader);
+                if (got1 == coordinates.end() && got2 == coordinates.end()) {
+                    outSeq = true;
+                }
+                
+                
                 
     }
     
@@ -175,7 +134,7 @@ Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, st
     
     std::vector<std::string> bedIncludeListHeaders;
     std::vector<std::string> bedExcludeListHeaders;
-    unsigned int pos = 0, cBegin = 0, cEnd = 0, offset = 0, prevCEnd = 0;
+    uint64_t cBegin = 0, cEnd = 0, offset = 0, prevCEnd = 0;
 
     bedIncludeListHeaders = bedIncludeList.getSeqHeaders();
     
@@ -202,7 +161,6 @@ Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, st
         if(inSequences->getInSegments()->size() == bedIncludeList.size()) { // check if we retrieved all we needed
             
             lg.verbose("Found all sequences, stop streaming input");
-            
             outSeq = true;
             
         }
@@ -210,41 +168,27 @@ Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, st
         offset = 0, prevCEnd = 0;
         outSeq = false;
         
-        auto it = begin(bedIncludeListHeaders);
+        auto coordinates = bedIncludeList.getCoordinates();
+        auto got = coordinates.find(*seqHeader);
+        if (got == coordinates.end())
+            return NULL;
         
-        while (it != end(bedIncludeListHeaders)) {
-            
-            it = std::find(it, bedIncludeListHeaders.end(), *seqHeader);
-            
-            if (it == end(bedIncludeListHeaders) || bedIncludeList.getSeqHeader(pos) != *seqHeader) {
-                
-                break;
-                
-            }
+        for(std::pair<uint64_t,uint64_t> coordinate : got->second) {
             
             outSeq = true;
-
-            cBegin = bedIncludeList.getcBegin(pos);
-            cEnd = bedIncludeList.getcEnd(pos);
+            cBegin = coordinate.first;
+            cEnd = coordinate.second;
             
             if (!(cBegin == 0 && cEnd == 0)) {
                 
                 inSequence->erase(offset, cBegin-prevCEnd);
                 
-                if (inSequenceQuality != NULL) {
-                
+                if (inSequenceQuality != NULL)
                     inSequenceQuality->erase(offset, cBegin-prevCEnd);
-                
-                }
                     
                 offset += cEnd-cBegin;
                 prevCEnd = cEnd;
-                
             }
-          
-            ++it;
-            pos++;
-            
         }
             
         if (outSeq && inSequence->size()>0) {
@@ -253,22 +197,13 @@ Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, st
             
                 inSequence->erase(offset, inSequence->size()-offset);
                 
-                if (inSequenceQuality != NULL) {
-                
+                if (inSequenceQuality != NULL)
                     inSequenceQuality->erase(offset, inSequenceQuality->size()-offset);
-                    
-                }
-                
             }
-            
             outSeq = true;
-        
-        }else {
-            
+        }else{
             lg.verbose("Sequence entirely removed as a result of include: " + *seqHeader);
-            
         }
-            
     }else if(bedIncludeList.empty() &&
              bedExcludeList != NULL &&
             !bedExcludeList->empty()) {
@@ -276,79 +211,53 @@ Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, st
         offset = 0;
         outSeq = true;
         
-        auto it = begin(bedExcludeListHeaders);
+        auto coordinates = bedExcludeList->getCoordinates();
+        auto got = coordinates.find(*seqHeader);
+        if (got == coordinates.end())
+            return NULL;
         
-        while (it != end(bedExcludeListHeaders)) {
+        for(std::pair<uint64_t,uint64_t> coordinate : got->second) {
             
-            it = std::find(it, bedExcludeListHeaders.end(), *seqHeader);
-            
-            if (it == end(bedExcludeListHeaders)) {
-                
-                break;
-                
-            }
-
-            cBegin = bedExcludeList->getcBegin(pos);
-            cEnd = bedExcludeList->getcEnd(pos);
+            cBegin = coordinate.first;
+            cEnd = coordinate.second;
             
             if (!(cBegin == 0 && cEnd == 0)) {
                 
                 inSequence->erase(cBegin-offset, cEnd-cBegin);
                 
-                if (inSequenceQuality != NULL) {
-                
+                if (inSequenceQuality != NULL)
                     inSequenceQuality->erase(cBegin-offset, cEnd-cBegin);
                     
-                }
-                    
                 offset += cEnd-cBegin;
-                
             }else{
-                
                 outSeq = false;
-                
             }
-          
-            ++it;
-            pos++;
-            
         }
             
-        if (outSeq && inSequence->size()>0) {
-        
+        if (outSeq && inSequence->size()>0)
             outSeq = true;
-        
-        }else {
-            
+        else
             lg.verbose("Sequence entirely removed as a result of exclude: " + *seqHeader);
-            
-        }
                 
     }else if
             (!bedIncludeList.empty() &&
               bedExcludeList != NULL &&
-             !bedExcludeList->empty() &&
-             std::find(bedIncludeListHeaders.begin(), bedIncludeListHeaders.end(), *seqHeader) != bedIncludeListHeaders.end() &&
-             std::find(bedExcludeListHeaders.begin(), bedExcludeListHeaders.end(), *seqHeader) == bedExcludeListHeaders.end()) {
+             !bedExcludeList->empty()) {
                 
-                if(inSequences->getInSegments()->size() == bedIncludeList.size()) { // check if we retrieved all we needed
-                    
-                    lg.verbose("Found all sequences, stop streaming input");
-                    
+                auto coordinates = bedIncludeList.getCoordinates();
+                auto got1 = coordinates.find(*seqHeader);
+                coordinates = bedExcludeList->getCoordinates();
+                auto got2 = coordinates.find(*seqHeader);
+                if (got1 == coordinates.end() && got2 == coordinates.end()) {
+                    if(inSequences->getInSegments()->size() == bedIncludeList.size()) // check if we retrieved all we needed
+                        lg.verbose("Found all sequences, stop streaming input");
                 }
-                
     }
     
     if (outSeq && inSequence->size()>0) {
-    
         return new Sequence {*seqHeader, seqComment != NULL ? *seqComment : "", inSequence};
-    
     }else {
-        
         lg.verbose("Sequence entirely removed as a result of BED filter: " + *seqHeader);
-        
         return NULL;
-        
     }
-    
 }
