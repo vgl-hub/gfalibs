@@ -16,7 +16,7 @@ double get_mem_inuse(uint8_t unit){
     
     if (inUse > maxMem * pow(1024, unit)) {
         freeMemory = true;
-    }else if (inUse < maxMem * 0.1){
+    }else if (inUse < maxMem * 0.1 && freeMemory){
         freeMemory = false;
         threadPool.notify_all();
     }
