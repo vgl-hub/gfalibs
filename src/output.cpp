@@ -208,7 +208,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     
                     uId = component->id;
                     
-                    if (component->type == SEGMENT) {
+                    if (component->componentType == SEGMENT) {
                     
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
@@ -224,7 +224,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                             
                         }
                         
-                    }else if(component->type == EDGE){ // this is just a prototype, need to handle cigar
+                    }else if(component->componentType == EDGE){ // this is just a prototype, need to handle cigar
                         
                         auto edge = find_if(inEdges->begin(), inEdges->end(), [uId](InEdge& obj) {return obj.geteUId() == uId;}); // given a node Uid, find it
                         
@@ -303,7 +303,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     
                     uId = component->id;
                     
-                    if (component->type == SEGMENT) {
+                    if (component->componentType == SEGMENT) {
                     
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
@@ -489,7 +489,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                         
                     }else{
                         
-                        *stream <<(component->type == EDGE ? ',' : ';');
+                        *stream <<(component->componentType == EDGE ? ',' : ';');
                         
                     }
                     
@@ -687,7 +687,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     
                     cUId = component->id;
                     
-                    if (component->type == SEGMENT) {
+                    if (component->componentType == SEGMENT) {
                         
                         auto inSegment = find_if(inSegments->begin(), inSegments->end(), [cUId](InSegment* obj) {return obj->getuId() == cUId;}); // given a node Uid, find it
                         
@@ -738,7 +738,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                             absPos += (*inSegment)->getSegmentLen();
                             
                         }else{} // GFA not handled yet
-                    }else if (component->type == GAP){
+                    }else if (component->componentType == GAP){
                         
                         auto inGap = find_if(inGaps->begin(), inGaps->end(), [cUId](InGap& obj) {return obj.getuId() == cUId;}); // given a node Uid, find it
                         
@@ -830,7 +830,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
                     
                     uId = component.id;
                     
-                    if (component.type == SEGMENT) {
+                    if (component.componentType == SEGMENT) {
                     
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
@@ -863,7 +863,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
                     
                     uId = component.id;
                     
-                    if (component.type == SEGMENT) {
+                    if (component.componentType == SEGMENT) {
                     
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
@@ -914,7 +914,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
                     
                     uId = component.id;
                     
-                    if (component.type == SEGMENT) {
+                    if (component.componentType == SEGMENT) {
                     
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
@@ -963,7 +963,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
                     
                     uId = component.id;
                     
-                    if (component.type == SEGMENT) {
+                    if (component.componentType == SEGMENT) {
 
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
@@ -1004,7 +1004,7 @@ bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) 
                     
                     uId = component.id;
                     
-                    if (component.type == SEGMENT) {
+                    if (component.componentType == SEGMENT) {
                     
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         

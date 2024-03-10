@@ -75,10 +75,10 @@ struct Edge {
     
 };
 
-enum PathType { SEGMENT, GAP, EDGE };
+enum ComponentType {SEGMENT, GAP, EDGE};
 struct PathComponent {
     
-    PathType type;
+    ComponentType componentType;
     unsigned int id;
     char orientation;
     uint64_t start;

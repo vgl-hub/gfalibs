@@ -565,9 +565,9 @@ void InPath::setComment(std::string c) {
     pComment = c;
 }
 
-void InPath::add(PathType type, unsigned int UId, char sign, uint64_t start, uint64_t end) {
+void InPath::add(ComponentType componentType, unsigned int UId, char sign, uint64_t start, uint64_t end) {
     
-    pathComponents.push_back({type, UId, sign, start, end});
+    pathComponents.push_back({componentType, UId, sign, start, end});
     
 }
 
