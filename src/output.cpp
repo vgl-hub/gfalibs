@@ -741,9 +741,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     }else if (component->componentType == GAP){
                         
                         auto inGap = find_if(inGaps->begin(), inGaps->end(), [cUId](InGap& obj) {return obj.getuId() == cUId;}); // given a node Uid, find it
-                        
-                        gapLen += inGap->getDist(component->start - component->end);
-                        
+                        gapLen = inGap->getDist(component->start - component->end);
                         absPos += gapLen;
                         
                     }else{} // need to handle edges, cigars etc
