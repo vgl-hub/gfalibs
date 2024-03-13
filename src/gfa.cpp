@@ -1055,7 +1055,7 @@ void InSequences::sortPathsBySize(bool largest){
             
             uId = component->id;
             
-            if (component->type == SEGMENT) {
+            if (component->componentType == SEGMENT) {
             
                 auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                 
@@ -1081,7 +1081,7 @@ void InSequences::sortPathsBySize(bool largest){
             
             uId = component->id;
             
-            if (component->type == SEGMENT) {
+            if (component->componentType == SEGMENT) {
             
                 auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                 
@@ -1513,7 +1513,7 @@ bool InSequences::removeTerminalGaps() { // if two contigs are provided, remove 
         
         for (std::vector<PathComponent>::iterator componentIt = pathComponents.begin(); componentIt != pathComponents.end();) {
             
-            if (componentIt->type == GAP) {
+            if (componentIt->componentType == GAP) {
                 
                 uId = componentIt->id;
                 
@@ -1735,14 +1735,14 @@ void InSequences::removePath(unsigned int pUId, bool all, bool silent) {
             
             unsigned int cUId = component.id;
             
-            if (component.type == SEGMENT) {
+            if (component.componentType == SEGMENT) {
 
                 auto sId = find_if(inSegments.begin(), inSegments.end(), [cUId](InSegment* obj) {return obj->getuId() == cUId;}); // given a node Uid, find it
                 
                 if (sId != inSegments.end())
                 inSegments.erase(sId);
 
-            }else if (component.type == GAP) {
+            }else if (component.componentType == GAP) {
                 
                 auto gId = find_if(inGaps.begin(), inGaps.end(), [cUId](InGap& obj) {return obj.getuId() == cUId;}); // given a node Uid, find it
                 
@@ -2298,7 +2298,7 @@ int InSequences::getComponentSize(PathComponent& component, bool original) {
     
     unsigned int cUId = component.id;
     
-    if (component.type == SEGMENT) {
+    if (component.componentType == SEGMENT) {
     
         auto inSegment = find_if(inSegments.begin(), inSegments.end(), [cUId](InSegment* obj) {return obj->getuId() == cUId;}); // given a node Uid, find it
         
@@ -2346,7 +2346,7 @@ void InSequences::walkPath(InPath* path) {
             
         cUId = component->id;
     
-        if (component->type == SEGMENT) {
+        if (component->componentType == SEGMENT) {
             
             InSegment& inSegment = findSegmentBySUId(cUId);
             
@@ -2454,13 +2454,13 @@ void InSequences::walkPath(InPath* path) {
                 
             }
             
-        }else if (component->type == GAP){
+        }else if (component->componentType == GAP){
             
             auto inGap = find_if(inGaps.begin(), inGaps.end(), [cUId](InGap& obj) {return obj.getuId() == cUId;}); // given a node Uid, find it
             
             gapLen += inGap->getDist(component->start - component->end);
             
-            if (component + 1 == pathComponents.end() || !((component + 1)->type == GAP)) {
+            if (component + 1 == pathComponents.end() || !((component + 1)->componentType == GAP)) {
             
                 gapLens.push_back(gapLen);
                 

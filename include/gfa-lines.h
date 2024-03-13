@@ -231,7 +231,7 @@ public:
     
     void setComment(std::string c);
     
-    void add(PathType type, unsigned int UId, char sign = '+', uint64_t start = 0, uint64_t end = 0);
+    void add(ComponentType componentType, unsigned int UId, char sign = '+', uint64_t start = 0, uint64_t end = 0);
     
     void append(std::vector<PathComponent> components);
     

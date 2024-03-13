@@ -635,11 +635,11 @@ static inline unsigned int fileCount(const char *dir) {
 
 static inline uint64_t fileSize(std::string path) {
     
+    ifFileExists(path.c_str());
     std::ifstream file(path, std::ios::binary);
     const auto begin = file.tellg();
     file.seekg(0, std::ios::end);
     const auto end = file.tellg();
-    
     return end-begin;
     
 }
@@ -649,9 +649,9 @@ static inline std::vector<uint32_t> sortedIndex(std::vector<uint64_t> vec, bool 
     std::vector<uint32_t> idx(vec.size());
     std::iota(idx.begin(),idx.end(),0);
     if (largest)
-        sort(idx.begin(), idx.end(), [&](int i,int j){return vec[i]>vec[j];} );
+        stable_sort(idx.begin(), idx.end(), [&vec](size_t i,size_t j){return vec[i]>vec[j];} );
     else
-        sort(idx.begin(), idx.end(), [&](int i,int j){return vec[i]<vec[j];} );
+        stable_sort(idx.begin(), idx.end(), [&vec](size_t i,size_t j){return vec[i]<vec[j];} );
     
     return idx;
     

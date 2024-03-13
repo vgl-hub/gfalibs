@@ -48,6 +48,8 @@ public:
     short unsigned int totalThreads();
     void execJob();
     void status();
+    std::condition_variable& getMutexCondition();
+    void notify_all();
     
 };
 
@@ -258,6 +260,16 @@ void ThreadPool<T>::status() {
         past = std::chrono::high_resolution_clock::now();
     }
     
+}
+
+template<class T>
+std::condition_variable& ThreadPool<T>::getMutexCondition() {
+    return mutexCondition;
+}
+
+template<class T>
+void ThreadPool<T>::notify_all() {
+    mutexCondition.notify_all();
 }
 
 inline void flushLogs() {
