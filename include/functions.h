@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <fstream>
 #include <numeric>
+#include <tuple>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -656,8 +657,37 @@ static inline std::vector<uint32_t> sortedIndex(std::vector<uint64_t> vec, bool 
     
 }
 
-static inline void unmaskSequence (std::string &sequence) {
+static inline void unmaskSequence(std::string &sequence) {
     std::transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
+}
+
+static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::string input) {
+    
+    std::string header, cBegin, cEnd; // the header for coordinates provided as positional argument
+    uint64_t cBeginNumeric = 0, cEndNumeric = 0;
+    
+    reverse(input.begin(), input.end()); // we work our way from the end
+    
+    cBegin = input.substr(input.find('-') + 1, input.find(':') - input.find('-') - 1);
+    cEnd = input.substr(0, input.find('-'));
+    
+    if(isNumber(cEnd) && isNumber(cBegin)) { // prevent headers with : - characters to break the extraction
+        
+        header = input.substr(input.find(':') + 1, input.size());
+        reverse(header.begin(), header.end());
+        
+        reverse(cBegin.begin(), cBegin.end());
+        reverse(cEnd.begin(), cEnd.end());
+        
+        cBeginNumeric = stoull(cBegin);
+        cEndNumeric = stoull(cEnd);
+        
+    }else{
+        header = input;
+        reverse(header.begin(), header.end());
+    }
+    
+    return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
 
 #endif /* FUNCTIONS_H */
