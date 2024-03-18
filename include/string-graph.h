@@ -26,14 +26,14 @@ struct StringGraph {
     GraphNode *root = new GraphNode(5);
     uint8_t *seq;
     uint8_t k;
-    uint64_t pos = 0;
+    uint64_t pos;
     
-    StringGraph(uint8_t *seq, uint8_t k) : seq(seq), k(k) {
+    StringGraph(uint8_t *seq, uint8_t k, uint64_t start = 0) : seq(seq), k(k), pos(start) {
         
         GraphNode *prev = root;
         
-        for (uint8_t p = 0; p < k-1; ++p) {
-            GraphNode *graphNode = new GraphNode(seq[p]);
+        for (uint8_t i = 0; i < k; ++i) {
+            GraphNode *graphNode = new GraphNode(seq[pos]);
             prev->addNext(graphNode);
             prev = graphNode;
             ++pos;
@@ -86,11 +86,12 @@ struct StringGraph {
         }
     }
     
-    void appendNext() {
+    void appendNext(uint8_t n = 1) {
         
-        GraphNode* newLeaf = new GraphNode(seq[pos++]);
-        addNext(root, newLeaf);
-        
+        for (uint8_t i = 0; i < n; ++i) {
+            GraphNode* newLeaf = new GraphNode(seq[pos++]);
+            addNext(root, newLeaf);
+        }
     }
     
     void addNext(GraphNode* nextNode, GraphNode* newLeaf) {
