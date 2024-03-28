@@ -136,11 +136,11 @@ Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, st
     std::vector<std::string> bedExcludeListHeaders;
     uint64_t cBegin = 0, cEnd = 0, offset = 0, prevCEnd = 0;
 
-    bedIncludeListHeaders = bedIncludeList.getSeqHeaders();
+    bedIncludeListHeaders = bedIncludeList.getHeaders();
     
     if(bedExcludeList != NULL) {
     
-        bedExcludeListHeaders = bedExcludeList->getSeqHeaders();
+        bedExcludeListHeaders = bedExcludeList->getHeaders();
     
     }
         
