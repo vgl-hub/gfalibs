@@ -52,6 +52,7 @@ bool Report::segmentReport(InSequences &inSequences, int &outSequence_flag) { //
         if (outSequence_flag)
             std::cout<<"\t"<<inSegment->getInSequence()<<"\t"<<inSegment->getInSequenceQuality()<<"\n";
     }
+    std::cout<<std::endl;
     return true;
 }
 
@@ -81,6 +82,7 @@ bool Report::pathReport(InSequences &inSequences) { // method to output the summ
                  <<inPath.getLowerCount()<<"\t"
                  <<(inPath.isCircularPath(&circularPaths) ? "Y" : "N");
     }
+    std::cout<<std::endl;
     return true;
 }
 
