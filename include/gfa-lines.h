@@ -97,7 +97,7 @@ public:
     
     bool invertSegment();
     
-    bool isCircular(std::vector<unsigned int>* circularSegments);
+    bool isCircularSegment(std::vector<unsigned int>* circularSegments);
     
     char* first();
     
@@ -214,7 +214,7 @@ private:
 //    uint64_t lineN; // useful if we wish to sort as is the original input
     std::string pHeader, pComment;
     std::vector<PathComponent> pathComponents;
-    unsigned int pUId, contigN = 0, seqPos;
+    uint32_t pUId, contigN = 0, seqPos;
     
     uint64_t length = 0, segmentLength = 0, lowerCount = 0, A = 0, C = 0, G = 0, T = 0;
     
@@ -290,6 +290,8 @@ public:
     void increaseT(uint64_t n);
     
     void reinitializeCounts();
+    
+    bool isCircularPath(std::vector<uint32_t>* circularPaths);
     
 };
 

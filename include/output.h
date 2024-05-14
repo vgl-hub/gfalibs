@@ -15,7 +15,9 @@ private:
     unsigned int counter = 0;
     
 public:
-    bool seqReport(InSequences &inSequences, int &outSequence_flag);
+    bool segmentReport(InSequences &inSequences, int &outSequence_flag);
+    
+    bool pathReport(InSequences &inSequences);
     
     bool outFile(InSequences &inSequences, std::string file, UserInput &userInput, int splitLength = 0);
     

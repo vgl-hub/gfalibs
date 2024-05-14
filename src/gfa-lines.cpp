@@ -346,7 +346,7 @@ bool InSegment::invertSegment() {
     
 }
 
-bool InSegment::isCircular(std::vector<unsigned int>* circularSegments) {
+bool InSegment::isCircularSegment(std::vector<unsigned int>* circularSegments) {
     
     return std::binary_search(circularSegments->begin(), circularSegments->end(), this->uId);
     
@@ -687,13 +687,13 @@ void InPath::revCom() {
 
 void InPath::increaseContigN() {
     
-    contigN++;
+    ++contigN;
 
 }
 
 void InPath::increaseGapN() {
     
-    contigN++;
+    ++contigN;
 
 }
 
@@ -716,33 +716,27 @@ void InPath::increaseLowerCount(uint64_t n) {
 }
 
 void InPath::increaseA(uint64_t n) {
-    
     A += n;
-
 }
 
 void InPath::increaseC(uint64_t n) {
-    
     C += n;
-
 }
 
 void InPath::increaseG(uint64_t n) {
-    
     G += n;
-
 }
 
 void InPath::increaseT(uint64_t n) {
-    
     T += n;
-
 }
 
 void InPath::reinitializeCounts() {
-    
-    length = 0, segmentLength = 0, lowerCount = 0, A = 0, C = 0, G = 0, T = 0;
+    contigN = 0, length = 0, segmentLength = 0, lowerCount = 0, A = 0, C = 0, G = 0, T = 0;
+}
 
+bool InPath::isCircularPath(std::vector<uint32_t>* circularPaths) {
+    return std::binary_search(circularPaths->begin(), circularPaths->end(), this->pUId);
 }
 
 void InSegment::addVariants(std::vector<std::deque<DBGpath>> variants) {
