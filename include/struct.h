@@ -80,7 +80,7 @@ enum ComponentType {SEGMENT, GAP, EDGE};
 struct PathComponent {
     
     ComponentType componentType;
-    unsigned int id;
+    uint32_t id;
     char orientation;
     uint64_t start;
     uint64_t end;

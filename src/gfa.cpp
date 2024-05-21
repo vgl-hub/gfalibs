@@ -2794,10 +2794,10 @@ std::vector<Bubble>* InSequences::getBubbles() {
     
 }
 
-std::vector<unsigned int> InSequences::getCircular() {
+std::vector<uint32_t> InSequences::getCircularSegments() {
     
-    std::vector<unsigned int> segments;
-    std::vector<unsigned int>::iterator it;
+    std::vector<uint32_t> segments;
+    std::vector<uint32_t>::iterator it;
     
     for (InEdge& inEdge : inEdges) {
         
@@ -2811,6 +2811,37 @@ std::vector<unsigned int> InSequences::getCircular() {
     segments.resize(std::distance(segments.begin(),it));
     
     return segments;
+    
+}
+
+std::vector<uint32_t> InSequences::getCircularPaths() {
+    
+    std::vector<uint32_t> pathIds;
+    std::vector<uint32_t>::iterator it;
+    std::vector<uint32_t> circularSegmentsIds = getCircularSegments();
+    
+    for (InPath& inPath : inPaths) {
+        
+        std::vector<PathComponent> pathComponents = inPath.getComponents();
+        
+        if (pathComponents.size() > 0 && (pathComponents.front().id == pathComponents.back().id)) {
+            
+            uint32_t componentId = pathComponents.begin()->id;
+
+            if (std::find(circularSegmentsIds.begin(), circularSegmentsIds.end(), componentId) != circularSegmentsIds.end())
+                pathIds.push_back(inPath.pUId);
+            
+
+            
+        }
+        
+    }
+    
+    sort(pathIds.begin(), pathIds.end());
+    it = std::unique(pathIds.begin(), pathIds.end());
+    pathIds.resize(std::distance(pathIds.begin(),it));
+    
+    return pathIds;
     
 }
 

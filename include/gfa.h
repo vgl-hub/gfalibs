@@ -349,7 +349,9 @@ public:
     
     std::vector<Bubble>* getBubbles();
     
-    std::vector<unsigned int> getCircular();
+    std::vector<unsigned int> getCircularSegments();
+    
+    std::vector<unsigned int> getCircularPaths();
     
     void maskPath(std::string pHeader, unsigned int start, unsigned int end, unsigned int dist);
     

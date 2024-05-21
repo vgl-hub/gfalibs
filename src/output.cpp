@@ -23,24 +23,21 @@
 
 #include "output.h"
 
-bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // method to output the summary statistics for each sequence
+bool Report::segmentReport(InSequences &inSequences, int &outSequence_flag) { // method to output the summary statistics for each segment
     std::cout << std::fixed; // disables scientific notation
     std::cout << std::setprecision(2); // 2 decimal poinst
-    counter = 0;
+    counter = 1;
     std::vector<InSegment*>* inSegments = inSequences.getInSegments();
-    std::vector<unsigned int> circularSegments = inSequences.getCircular();
+    std::vector<unsigned int> circularSegments = inSequences.getCircularSegments();
     
     std::cout<<output("Seq\tHeader\tComment\tTotal segment length\tA\tC\tG\tT\tGC content %\t# soft-masked bases\tIs circular");
     
-    if (outSequence_flag) {
-
+    if (outSequence_flag)
         std::cout<<output("Sequence\tQuality");
-
-    }
     
     for (InSegment* inSegment : *inSegments) {
         
-        std::cout   <<"\n"<<counter+1<<"\t"
+        std::cout   <<"\n"<<counter++<<"\t"
                     <<inSegment->getSeqHeader()<<"\t"
                     <<inSegment->getSeqComment()<<"\t"
                     <<inSegment->getSegmentLen()<<"\t"
@@ -50,24 +47,43 @@ bool Report::seqReport(InSequences &inSequences, int &outSequence_flag) { // met
                     <<inSegment->getT()<<"\t"
                     <<inSegment->computeGCcontent()<<"\t"
                     <<inSegment->getLowerCount()<<"\t"
-                    <<(inSegment->isCircular(&circularSegments) ? "Y" : "N");
+                    <<(inSegment->isCircularSegment(&circularSegments) ? "Y" : "N");
 
-        if (outSequence_flag) {
-
+        if (outSequence_flag)
             std::cout<<"\t"<<inSegment->getInSequence()<<"\t"<<inSegment->getInSequenceQuality()<<"\n";
-
-        }
-        
-        counter++;
-
     }
-    
-    std::cout<<"\n";
-
-    counter = 0;
-    
+    std::cout<<std::endl;
     return true;
+}
+
+bool Report::pathReport(InSequences &inSequences) { // method to output the summary statistics for each path
+    std::cout << std::fixed; // disables scientific notation
+    std::cout << std::setprecision(2); // 2 decimal poinst
+    counter = 1;
+    std::vector<InPath> inPaths = inSequences.getInPaths();
+    std::vector<uint32_t> circularPaths = inSequences.getCircularPaths();
     
+    std::cout<<output("Seq\tHeader\tComment\tTotal path length\tTotal segment length\tContig N\tA\tC\tG\tT\t# soft-masked bases\tIs circular");
+    
+    for (InPath& inPath : inPaths) { // loop through all paths
+        
+        inSequences.walkPath(&inPath);
+
+        std::cout<<"\n"<<counter++<<"\t"
+                 <<inPath.getHeader()<<"\t"
+                 <<inPath.getComment()<<"\t"
+                 <<inPath.getLen()<<"\t"
+                 <<inPath.getSegmentLen()<<"\t"
+                 <<inPath.getContigN()<<"\t"
+                 <<inPath.getA()<<"\t"
+                 <<inPath.getC()<<"\t"
+                 <<inPath.getG()<<"\t"
+                 <<inPath.getT()<<"\t"
+                 <<inPath.getLowerCount()<<"\t"
+                 <<(inPath.isCircularPath(&circularPaths) ? "Y" : "N");
+    }
+    std::cout<<std::endl;
+    return true;
 }
 
 bool Report::outFile(InSequences &inSequences, std::string file, UserInput &userInput, int splitLength) { // method to output new sequence opposed to sequence report
@@ -1183,7 +1199,8 @@ bool Report::reportStats(InSequences &inSequences, uint64_t gSize, int outBubble
         
         }
         
-        std::cout<<output("# circular segments")<<inSequences.getCircular().size()<<"\n";
+        std::cout<<output("# circular segments")<<inSequences.getCircularSegments().size()<<"\n";
+        std::cout<<output("# circular paths")<<inSequences.getCircularPaths().size()<<"\n";
             
     }
 
