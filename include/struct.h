@@ -22,9 +22,10 @@ struct UserInput { // a container for user input
     int noSequence = 0; // output gfa without sequence
     
     std::string file(char type, unsigned int* fileNum = NULL);
-    int hc_cutoff = -1;
-    int discoverPaths_flag = 0;
-    int stats_flag = 0;
+    uint8_t mode = 0,
+            hc_cutoff = -1,
+            discoverPaths_flag = 0,
+            stats_flag = 0;
     
 };
 
