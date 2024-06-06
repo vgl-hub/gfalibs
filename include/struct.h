@@ -5,7 +5,6 @@ struct UserInput { // a container for user input
 
     // memory
     uint64_t maxMem = 0;
-    
     // files
     std::string inSequence; // input file to evaluate
     std::string inSak; // input of instructions for the swiss army knife
@@ -14,10 +13,8 @@ struct UserInput { // a container for user input
     std::string inBedExclude; // input bed file of coordinates to exclude
     std::vector<std::string> inReads; // input reads to evaluate
     std::string inAlign;
-    
     // coordinates
     BedCoordinates bedIncludeList;
-    
     // options
     char pipeType = 'n'; // default pipe type null
     std::string sortType = "none"; // type of sorting (default: none)
