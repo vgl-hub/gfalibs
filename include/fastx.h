@@ -2,7 +2,7 @@
 #define FASTX_H
 
 template<typename OBJECT>
-bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int* fileNum) { // load from FASTA/FASTQ to templated object
+bool loadSequences(UserInput userInput, OBJECT* object, char type, uint16_t fileNum) { // load from FASTA/FASTQ to templated object
     
     // stream read variables
     char* c;
@@ -108,7 +108,7 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, unsigned int*
 }
 
 template<typename OBJECT>
-bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fileNum) { // load from FASTA/FASTQ to templated object, faster when we only need to retain kmers not the original reads
+bool loadKmers(UserInput userInput, OBJECT* object, char type, uint16_t fileNum) { // load from FASTA/FASTQ to templated object, faster when we only need to retain kmers not the original reads
     
     // stream read variables
     int batchSize = 10000000; // number of bases processed
@@ -134,13 +134,11 @@ bool loadKmers(UserInput userInput, OBJECT* object, char type, unsigned int* fil
                 std::string* readBatch;
                 
                 while (*stream) { // file input
-                    
                     allocMemory(batchSize * sizeof(char));
                     readBatch = new std::string;
                     getKmers(*stream, *readBatch, batchSize);
                     object->traverseInReads(readBatch);
                     object->consolidate();
-
                 }
                 break;
             }

@@ -5,7 +5,7 @@
 #include "bed.h"
 #include "struct.h"
 
-std::string UserInput::file(char type, unsigned int* num) {
+std::string UserInput::file(char type, uint16_t num) {
     
     std::string filename;
     
@@ -14,7 +14,7 @@ std::string UserInput::file(char type, unsigned int* num) {
             filename = inSequence;
             break;
         case 'r':
-            filename = inReads[*num];
+            filename = inReads[num];
             break;
         case 'i':
             filename = inBedInclude;

@@ -48,7 +48,7 @@ public:
 
     void readBuf();
     
-    std::shared_ptr<std::istream> openStream(UserInput &userInput, char type, unsigned int* file = NULL);
+    std::shared_ptr<std::istream> openStream(UserInput &userInput, char type, uint16_t file = 0);
     
     void closeStream();
     
