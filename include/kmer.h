@@ -454,6 +454,23 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::processBuffers(uint16_t m) {
 }
 
 template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::reloadMap32(uint16_t m) {
+    
+    parallelMap& map = *maps[m]; // the map associated to this buffer
+    parallelMap32& map32 = *maps32[m];
+    
+    for (auto pair : map32) {
+        
+        uint8_t count = 255;
+        auto newPair = std::make_pair(pair.first, count);
+        map.insert(newPair);
+    }
+    
+    return true;
+    
+}
+
+template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single job merging maps with the same hashes
     
     std::string prefix = userInput.prefix; // loads the first map
@@ -478,7 +495,7 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single 
         alloc += map_size1;
         
         uint64_t map_size2 = mapSize(*maps[m]);
-        unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
+        static_cast<DERIVED*>(this)->unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
         
         alloc += mapSize(*maps[m]) - map_size2;
         remove(nextFile.c_str());
@@ -490,23 +507,6 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single 
     
     return true;
 
-}
-
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::reloadMap32(uint16_t m) {
-    
-    parallelMap& map = *maps[m]; // the map associated to this buffer
-    parallelMap32& map32 = *maps32[m];
-    
-    for (auto pair : map32) {
-        
-        uint8_t count = 255;
-        auto newPair = std::make_pair(pair.first, count);
-        map.insert(newPair);
-    }
-    
-    return true;
-    
 }
 
 template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
@@ -656,7 +656,7 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::kunion(){ // concurrent merging of the 
     std::vector<uint32_t> idx = sortedIndex(fileSizes, true); // sort by largest
     
     for(uint32_t i : idx)
-        mergeMaps(i);
+        static_cast<DERIVED*>(this)->mergeMaps(i);
     
     dumpHighCopyKmers();
     
@@ -680,7 +680,7 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a single job
         phmap::BinaryInputArchive ar_in(prefix.c_str());
         nextMap->phmap_load(ar_in);
         
-        unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
+        static_cast<DERIVED*>(this)->unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
         delete nextMap;
         
     }
@@ -722,7 +722,7 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::report() { // generates the output from
     if (userInput.outFile != "")
         ext = getFileExt("." + userInput.outFile);
     
-    stats();
+    static_cast<DERIVED*>(this)->stats();
     
     lg.verbose("Writing ouput: " + ext);
     
