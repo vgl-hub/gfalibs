@@ -58,7 +58,6 @@ protected: // they are protected, so that they can be further specialized by inh
     UserInput &userInput;
     InSequences inSequences; // when we read a reference we can store it here
     
-    uint32_t processedBuffers = 0; // useful to keep track of buffers as they are processed
     uint8_t k; // klen
     uint64_t totKmers = 0, totKmersUnique = 0, totKmersDistinct = 0; // summary statistics
     std::atomic<bool> readingDone{false};
@@ -298,7 +297,7 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::initHashing(){
         threadN = 1;
     
     for (uint8_t t = 0; t < threadN; t++) {
-        std::packaged_task<bool()> task([this] { return hashSequences(); });
+        std::packaged_task<bool()> task([this] { return static_cast<DERIVED*>(this)->hashSequences(); });
         futures.push_back(task.get_future());
         threads.push_back(std::thread(std::move(task)));
     }
@@ -338,7 +337,6 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpBuffers() {
         for (Buf<uint8_t>* buffers : buffersVecCpy) { // for each array of buffers
             
             for (uint16_t b = 0; b<mapCount; ++b) { // for each buffer file
-                
                 Buf<uint8_t>* buffer = &buffers[b];
                 bufFile[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
                 bufFile[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint8_t) * buffer->pos);
@@ -450,7 +448,6 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::processBuffers(uint16_t m) {
     remove((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str());
     
     return true;
-    
 }
 
 template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
@@ -680,7 +677,7 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a single job
         phmap::BinaryInputArchive ar_in(prefix.c_str());
         nextMap->phmap_load(ar_in);
         
-        static_cast<DERIVED*>(this)->unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
+        unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
         delete nextMap;
         
     }
