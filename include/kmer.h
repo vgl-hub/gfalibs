@@ -495,7 +495,7 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single 
         alloc += map_size1;
         
         uint64_t map_size2 = mapSize(*maps[m]);
-        static_cast<DERIVED*>(this)->unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
+        unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
         
         alloc += mapSize(*maps[m]) - map_size2;
         remove(nextFile.c_str());
