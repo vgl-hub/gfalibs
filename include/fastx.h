@@ -1,8 +1,10 @@
 #ifndef FASTX_H
 #define FASTX_H
 
+#include "stream-obj.h"
+
 template<typename OBJECT>
-bool loadSequences(UserInput userInput, OBJECT* object, char type, uint16_t fileNum) { // load from FASTA/FASTQ to templated object
+bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t fileNum) { // load from FASTA/FASTQ to templated object
     
     // stream read variables
     char* c;
@@ -35,14 +37,10 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, uint16_t file
                     getline(*stream, *inSequence, '>');
                     lg.verbose("Individual fasta sequence read");
                     Sequence* sequence = new Sequence{seqHeader, seqComment, inSequence, NULL, seqPos++};
-                    object->appendSequence(sequence);
-                    
+                    object.appendSequence(sequence);
                 }
-                
                 jobWait(threadPool);
-                
                 break;
-                
             }
                 
             case '@': {
@@ -68,43 +66,24 @@ bool loadSequences(UserInput userInput, OBJECT* object, char type, uint16_t file
 //                    lg.verbose("Individual fastq sequence read: " + seqHeader);
                     
                     if (seqPos % batchSize == 0) {
-
                         readBatch->batchN = seqPos/batchSize;
-                            
                         lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
-
-                        threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
-                        
+                        object.traverseInReads(readBatch);
                         std::lock_guard<std::mutex> lck(mtx);
-                        
-                        object->consolidate();
-                        
+                        object.consolidate();
                         readBatch = new Sequences;
-
                     }
-
                 }
-                
                 readBatch->batchN = seqPos/batchSize+1;
-                    
                 lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
-
-                threadPool.queueJob([=]{ return object->traverseInReads(readBatch); });
-
+                object.traverseInReads(readBatch);
                 break;
-
             }
-                
         }
-        
         //consolidate log
         jobWait(threadPool);
-        
     }
-
-    
     return true;
-
 }
 
 template<typename OBJECT>
