@@ -50,7 +50,7 @@ struct Buf {
     }
 };
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2> // DERIVED implements the CRTP technique, INPUT is a specialized userInput type depending on the tool, TYPE21 is the low frequency type of elements we wish to store in the maps, e.g. uint8_t kmer counts, TYPE22 is the high frequency type of elements we wish to store in the maps, e.g. uint32_t kmer counts
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2> // DERIVED implements the CRTP technique, INPUT is a specialized userInput type depending on the tool, TYPE21 is the low frequency type of elements we wish to store in the maps, e.g. uint8_t kmer counts, TYPE22 is the high frequency type of elements we wish to store in the maps, e.g. uint32_t kmer counts
 class Kmap {
 
 protected: // they are protected, so that they can be further specialized by inheritance
@@ -59,7 +59,7 @@ protected: // they are protected, so that they can be further specialized by inh
     InSequences inSequences; // when we read a reference we can store it here
     
     uint8_t k; // klen
-    uint64_t totKmers = 0, totKmersUnique = 0, totKmersDistinct = 0; // summary statistics
+    uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
     std::atomic<bool> readingDone{false};
     std::vector<std::thread> threads;
     std::vector<std::future<bool>> futures;
@@ -73,22 +73,22 @@ protected: // they are protected, so that they can be further specialized by inh
 
     std::vector<Buf<uint8_t>*> buffersVec; // a vector for all buffers
     
-    using parallelMap = phmap::parallel_flat_hash_map<uint64_t, TYPE1,
-                                              std::hash<uint64_t>,
-                                              std::equal_to<uint64_t>,
-                                              std::allocator<std::pair<const uint64_t, TYPE1>>,
+    using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
+                                              std::hash<KEY>,
+                                              std::equal_to<KEY>,
+                                              std::allocator<std::pair<const KEY, TYPE1>>,
                                               8,
                                               phmap::NullMutex>;
     
-    using parallelMap32 = phmap::parallel_flat_hash_map<uint64_t, TYPE2,
-                                              std::hash<uint64_t>,
-                                              std::equal_to<uint64_t>,
-                                              std::allocator<std::pair<const uint64_t, TYPE2>>,
+    using ParallelMap32 = phmap::parallel_flat_hash_map<KEY, TYPE2,
+                                              std::hash<KEY>,
+                                              std::equal_to<KEY>,
+                                              std::allocator<std::pair<const KEY, TYPE2>>,
                                               8,
                                               phmap::NullMutex>;
     
-    std::vector<parallelMap*> maps; // all hash maps where TYPE1S are stored
-    std::vector<parallelMap32*> maps32;
+    std::vector<ParallelMap*> maps; // all hash maps where TYPE1S are stored
+    std::vector<ParallelMap32*> maps32;
     
     std::vector<bool> mapsInUse = std::vector<bool>(mapCount, false); // useful with multithreading to ensure non-concomitant write access to maps
     
@@ -117,6 +117,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
     std::chrono::high_resolution_clock::time_point past;
     std::queue<std::string*> readBatches;
+    std::queue<Sequences*> sequenceBatches;
     
     std::mutex readMtx, hashMtx;
     
@@ -130,10 +131,10 @@ public:
             pows[p] = (uint64_t) pow(4,p);
         
         for(uint16_t m = 0; m<mapCount; ++m)
-            maps.push_back(new parallelMap);
+            maps.push_back(new ParallelMap);
         
         for(uint16_t m = 0; m<mapCount; ++m)
-            maps32.push_back(new parallelMap32);
+            maps32.push_back(new ParallelMap32);
         
         if (userInput.kmerDB.size() == 0) { // if we are not reading an existing db
             lg.verbose("Deleting any tmp file");
@@ -152,15 +153,15 @@ public:
     };
     
     ~Kmap(){ // always need to call the destructor and delete for any object called with new to avoid memory leaks
-        for (parallelMap* map : maps)
+        for (ParallelMap* map : maps)
             delete map;
-        for (parallelMap32* map : maps32)
+        for (ParallelMap32* map : maps32)
             delete map;
         delete[] pows;
         
     }
     
-    uint64_t mapSize(parallelMap& m);
+    uint64_t mapSize(ParallelMap& m);
     
     void joinThreads();
     
@@ -192,11 +193,13 @@ public:
     
     void kunion();
     
-    bool mergeSubMaps(parallelMap* map1, parallelMap* map2, uint8_t subMapIndex, uint16_t m);
+    bool mergeSubMaps(ParallelMap* map1, ParallelMap* map2, uint8_t subMapIndex, uint16_t m);
     
-    bool unionSum(parallelMap* map1, parallelMap* map2, uint16_t m);
+    bool unionSum(ParallelMap* map1, ParallelMap* map2, uint16_t m);
     
     bool traverseInReads(std::string* readBatch);
+    
+    bool traverseInReads(Sequences* readBatch);
     
     inline uint64_t hash(uint8_t* string, bool* isFw = NULL);
     
@@ -237,29 +240,29 @@ public:
 };
 
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::memoryOk() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::memoryOk() {
     
     return get_mem_inuse(3) < maxMem;
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::memoryOk(int64_t delta) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::memoryOk(int64_t delta) {
     
     return get_mem_inuse(3) + convert_memory(delta, 3) < maxMem;
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-uint64_t Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mapSize(parallelMap& m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapSize(ParallelMap& m) {
     
-   return m.capacity() * (sizeof(typename parallelMap::value_type) + 1) + sizeof(parallelMap);
+   return m.capacity() * (sizeof(typename ParallelMap::value_type) + 1) + sizeof(ParallelMap);
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::joinThreads() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::joinThreads() {
     
     uint8_t threadsDone = 0;
     bool done = false;
@@ -284,8 +287,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::joinThreads() {
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::initHashing(){
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
     
     std::packaged_task<bool()> task([this] { return dumpBuffers(); });
     futures.push_back(task.get_future());
@@ -303,8 +306,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::initHashing(){
     }
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpBuffers() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
     
     bool hashing = true;
     std::vector<Buf<uint8_t>*> buffersVecCpy;
@@ -355,8 +358,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpBuffers() {
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::buffersToMaps() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
     std::vector<std::function<bool()>> jobs;
     std::vector<uint64_t> fileSizes;
@@ -377,8 +380,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::buffersToMaps() {
 
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::processBuffers(uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
     
     uint64_t pos = 0, hash;
     Buf<uint8_t> *buf;
@@ -396,8 +399,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::processBuffers(uint16_t m) {
             });
         }
         
-        parallelMap& map = *maps[m]; // the map associated to this buffer
-        parallelMap32& map32 = *maps32[m];
+        ParallelMap& map = *maps[m]; // the map associated to this buffer
+        ParallelMap32& map32 = *maps32[m];
         uint64_t map_size = mapSize(map);
         
         bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
@@ -450,15 +453,15 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::processBuffers(uint16_t m) {
     return true;
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::reloadMap32(uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reloadMap32(uint16_t m) {
     
-    parallelMap& map = *maps[m]; // the map associated to this buffer
-    parallelMap32& map32 = *maps32[m];
+    ParallelMap& map = *maps[m]; // the map associated to this buffer
+    ParallelMap32& map32 = *maps32[m];
     
     for (auto pair : map32) {
         
-        uint8_t count = 255;
+        TYPE1 count = 255;
         auto newPair = std::make_pair(pair.first, count);
         map.insert(newPair);
     }
@@ -467,8 +470,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::reloadMap32(uint16_t m) {
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single job merging maps with the same hashes
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single job merging maps with the same hashes
     
     std::string prefix = userInput.prefix; // loads the first map
     std::string firstFile = prefix + "/.map." + std::to_string(m) + ".0.tmp.bin";
@@ -485,7 +488,7 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single 
     while (fileExists(prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin")) { // for additional map loads the map and merges it
         
         std::string nextFile = prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum++) + ".tmp.bin"; // loads the next map
-        parallelMap* nextMap = new parallelMap;
+        ParallelMap* nextMap = new ParallelMap;
         phmap::BinaryInputArchive ar_in(nextFile.c_str());
         nextMap->phmap_load(ar_in);
         uint64_t map_size1 = mapSize(*nextMap);
@@ -506,8 +509,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single 
 
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::consolidateTmpMaps(){ // concurrent merging of the maps that store the same hashes
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMaps(){ // concurrent merging of the maps that store the same hashes
     
     lg.verbose("Consolidating temporary maps");
     
@@ -523,8 +526,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::consolidateTmpMaps(){ // concurrent mer
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpTmpMap(std::string prefix, uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpTmpMap(std::string prefix, uint16_t m) {
     
     uint8_t fileNum = 0;
     
@@ -542,51 +545,51 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpTmpMap(std::string prefix, uint16_t
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::deleteMap(uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::deleteMap(uint16_t m) {
     
     uint64_t map_size = mapSize(*maps[m]);
     delete maps[m];
     freed += map_size;
     
-    maps[m] = new parallelMap;
+    maps[m] = new ParallelMap;
     alloc += mapSize(*maps[m]);
     
     return true;
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpHighCopyKmers() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpHighCopyKmers() {
     
-    parallelMap32 map32Total;
+    ParallelMap32 map32Total;
     
     for (uint16_t m = 0; m<mapCount; ++m) {
         for (auto pair : *maps32[m])
             map32Total.insert(pair);
         delete maps32[m];
-        maps32[m] = new parallelMap32;
+        maps32[m] = new ParallelMap32;
     }
 
     phmap::BinaryOutputArchive ar_out((userInput.prefix + "/.map.hc.bin").c_str());
     map32Total.phmap_dump(ar_out);
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::status() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
     
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
     
     if (elapsed.count() > 0.1) {
-        lg.verbose("Read batches: " + std::to_string(readBatches.size()) + ". Hash buffers: " + std::to_string(buffersVec.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+        lg.verbose("Read batches: " + std::to_string(readBatches.size() + sequenceBatches.size()) + ". Hash buffers: " + std::to_string(buffersVec.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
     
         past = std::chrono::high_resolution_clock::now();
     }
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::loadMap(std::string prefix, uint16_t m) { // loads a specific map
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16_t m) { // loads a specific map
     
     prefix.append("/.map." + std::to_string(m) + ".bin");
     phmap::BinaryInputArchive ar_in(prefix.c_str());
@@ -598,10 +601,10 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::loadMap(std::string prefix, uint16_t m)
 
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::loadHighCopyKmers() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
     
-    parallelMap32 map32Total;
+    ParallelMap32 map32Total;
     phmap::BinaryInputArchive ar_in((userInput.prefix + "/.map.hc.bin").c_str());
     map32Total.phmap_load(ar_in);
     
@@ -614,17 +617,17 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::loadHighCopyKmers() {
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::kunion(){ // concurrent merging of the maps that store the same hashes
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of the maps that store the same hashes
     
-    parallelMap32 map32Total; // first merge high-copy kmers
+    ParallelMap32 map32Total; // first merge high-copy kmers
     
     for (unsigned int i = 0; i < userInput.kmerDB.size(); ++i) { // for each kmerdb loads the map and merges it
         
         std::string prefix = userInput.kmerDB[i]; // loads the next map
         prefix.append("/.map.hc.bin");
         
-        parallelMap32 nextMap;
+        ParallelMap32 nextMap;
         phmap::BinaryInputArchive ar_in(prefix.c_str());
         nextMap.phmap_load(ar_in);
         
@@ -659,8 +662,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::kunion(){ // concurrent merging of the 
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a single job merging maps with the same hashes
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a single job merging maps with the same hashes
     
     std::string prefix = userInput.kmerDB[0]; // loads the first map
     prefix.append("/.map." + std::to_string(m) + ".bin");
@@ -673,7 +676,7 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a single job
         std::string prefix = userInput.kmerDB[i]; // loads the next map
         prefix.append("/.map." + std::to_string(m) + ".bin");
         
-        parallelMap* nextMap = new parallelMap;
+        ParallelMap* nextMap = new ParallelMap;
         phmap::BinaryInputArchive ar_in(prefix.c_str());
         nextMap->phmap_load(ar_in);
         
@@ -691,8 +694,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a single job
 
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpMap(std::string prefix, uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpMap(std::string prefix, uint16_t m) {
     
     prefix.append("/.map." + std::to_string(m) + ".bin");
     
@@ -705,8 +708,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::dumpMap(std::string prefix, uint16_t m)
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::report() { // generates the output from the program
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output from the program
     
     const static phmap::parallel_flat_hash_map<std::string,int> string_to_case{ // different outputs available
         {"hist",1},
@@ -746,8 +749,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::report() { // generates the output from
     }
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::traverseInReads(std::string* readBatch) { // specialized for string objects
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(std::string* readBatch) { // specialized for string objects
     
     while(freeMemory) {status();}
     
@@ -760,8 +763,22 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::traverseInReads(std::string* readBatch)
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-inline uint64_t Kmap<DERIVED, INPUT, TYPE1, TYPE2>::hash(uint8_t *kmer, bool *isFw) { // hashing function for kmers
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenceBatch) { // specialized for sequence objects
+    
+    while(freeMemory) {status();}
+    
+    {
+        std::lock_guard<std::mutex> lck(readMtx);
+        sequenceBatches.push(sequenceBatch);
+    }
+    
+    return true;
+    
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint8_t *kmer, bool *isFw) { // hashing function for kmers
     
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
@@ -776,8 +793,8 @@ inline uint64_t Kmap<DERIVED, INPUT, TYPE1, TYPE2>::hash(uint8_t *kmer, bool *is
     return fw < rv ? fw : rv;
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-inline std::string Kmap<DERIVED, INPUT, TYPE1, TYPE2>::reverseHash(uint64_t hash) { // hashing function for kmers
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+inline std::string Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reverseHash(uint64_t hash) { // hashing function for kmers
     
     std::string seq(k, 'A');
     
@@ -795,13 +812,13 @@ inline std::string Kmap<DERIVED, INPUT, TYPE1, TYPE2>::reverseHash(uint64_t hash
     return seq;
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
     status();
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
     if (userInput.kmerDB.size() == 0) {
         readingDone = true;
         joinThreads();
@@ -810,8 +827,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::finalize() { // ensure we count all res
     }
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::stats() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::stats() {
     
     lg.verbose("Computing summary statistics");
     
@@ -834,23 +851,23 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::stats() {
     static_cast<DERIVED*>(this)->DBstats();
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::DBstats() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::DBstats() {
     
-    uint64_t missing = pow(4,k)-totKmersDistinct;
+    uint64_t missing = pow(4,k)-totDistinct;
     
     std::cout<<"DB Summary statistics:\n"
-             <<"Total kmers: "<<totKmers<<"\n"
-             <<"Unique kmers: "<<totKmersUnique<<"\n"
-             <<"Distinct kmers: "<<totKmersDistinct<<"\n"
+             <<"Total kmers: "<<tot<<"\n"
+             <<"Unique kmers: "<<totUnique<<"\n"
+             <<"Distinct kmers: "<<totDistinct<<"\n"
              <<"Missing kmers: "<<missing<<"\n";
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::summary(uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::summary(uint16_t m) {
     
-    uint64_t kmersUnique = 0, kmersDistinct = 0;
+    uint64_t unique = 0, distinct = 0;
     phmap::parallel_flat_hash_map<uint64_t, uint64_t> hist;
     
     for (auto pair : *maps[m]) {
@@ -859,34 +876,34 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::summary(uint16_t m) {
             continue;
         
         if (pair.second == 1)
-            ++kmersUnique;
+            ++unique;
         
-        ++kmersDistinct;
+        ++distinct;
         ++hist[pair.second];
     }
     
     for (auto pair : *maps32[m]) {
         
-        ++kmersDistinct;
+        ++distinct;
         ++hist[pair.second];
     }
  
     std::lock_guard<std::mutex> lck(mtx);
-    totKmersUnique += kmersUnique;
-    totKmersDistinct += kmersDistinct;
+    totUnique += unique;
+    totDistinct += distinct;
     
     for (auto pair : hist) {
         
         finalHistogram[pair.first] += pair.second;
-        totKmers += pair.first * pair.second;
+        tot += pair.first * pair.second;
     }
     
     return true;
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::printHist(std::unique_ptr<std::ostream>& ostream) { // prints the histogram
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::printHist(std::unique_ptr<std::ostream>& ostream) { // prints the histogram
     
     std::vector<std::pair<uint64_t, uint64_t>> table(finalHistogram.begin(), finalHistogram.end()); // converts the hashmap to a table
     std::sort(table.begin(), table.end());
@@ -896,8 +913,8 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::printHist(std::unique_ptr<std::ostream>
 
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::hashSequences() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
     //   Log threadLog;
     std::string *readBatch;
     uint64_t len;
@@ -972,14 +989,14 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::hashSequences() {
     return true;
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeSubMaps(parallelMap* map1, parallelMap* map2, uint8_t subMapIndex, uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeSubMaps(ParallelMap* map1, ParallelMap* map2, uint8_t subMapIndex, uint16_t m) {
     
     auto& inner = map1->get_inner(subMapIndex);   // to retrieve the submap at given index
     auto& submap1 = inner.set_;        // can be a set or a map, depending on the type of map1
     auto& inner2 = map2->get_inner(subMapIndex);
     auto& submap2 = inner2.set_;
-    parallelMap32& map32 = *maps32[m];
+    ParallelMap32& map32 = *maps32[m];
     
     for (auto pair : submap1) { // for each element in map1, find it in map2 and increase its value
         
@@ -1029,8 +1046,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::mergeSubMaps(parallelMap* map1, paralle
 }
 
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::unionSum(parallelMap* map1, parallelMap* map2, uint16_t m) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::unionSum(ParallelMap* map1, ParallelMap* map2, uint16_t m) {
     
     std::vector<std::function<bool()>> jobs;
     
@@ -1049,8 +1066,8 @@ bool Kmap<DERIVED, INPUT, TYPE1, TYPE2>::unionSum(parallelMap* map1, parallelMap
     
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-std::array<uint16_t, 2> Kmap<DERIVED, INPUT, TYPE1, TYPE2>::computeMapRange(std::array<uint16_t, 2> mapRange) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+std::array<uint16_t, 2> Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeMapRange(std::array<uint16_t, 2> mapRange) {
     
     uint64_t max = 0;
     mapRange[0] = mapRange[1];
@@ -1066,8 +1083,8 @@ std::array<uint16_t, 2> Kmap<DERIVED, INPUT, TYPE1, TYPE2>::computeMapRange(std:
     return mapRange;
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::loadMapRange(std::array<uint16_t, 2> mapRange) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMapRange(std::array<uint16_t, 2> mapRange) {
     
     std::vector<std::function<bool()>> jobs;
     
@@ -1078,15 +1095,15 @@ void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::loadMapRange(std::array<uint16_t, 2> ma
     jobWait(threadPool);
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::deleteMapRange(std::array<uint16_t, 2> mapRange) {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::deleteMapRange(std::array<uint16_t, 2> mapRange) {
     
     for(uint16_t m = mapRange[0]; m<mapRange[1]; ++m)
         deleteMap(m);
 }
 
-template<class DERIVED, class INPUT, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, TYPE1, TYPE2>::cleanup() {
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::cleanup() {
     
     if(!(userInput.kmerDB.size() == 1) && userInput.outFile.find("." + DBextension) == std::string::npos) {
         
