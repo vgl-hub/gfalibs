@@ -67,7 +67,6 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                     
                     if (seqPos % batchSize == 0) {
                         readBatch->batchN = seqPos/batchSize;
-                        lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
                         object.traverseInReads(readBatch);
                         std::lock_guard<std::mutex> lck(mtx);
                         object.consolidate();
@@ -75,7 +74,6 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                     }
                 }
                 readBatch->batchN = seqPos/batchSize+1;
-                lg.verbose("Processing batch N: " + std::to_string(readBatch->batchN));
                 object.traverseInReads(readBatch);
                 break;
             }
