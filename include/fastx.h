@@ -46,9 +46,8 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 
                 Sequences* readBatch = new Sequences;
 
-                while (*stream) { // file input
+                while (getline(*stream, newLine)) { // file input
                     
-                    getline(*stream, newLine);
                     newLine.erase(0, 1);
                     seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); // process header line
                     c = strtok(NULL,""); // read comment
