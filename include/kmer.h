@@ -757,8 +757,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(std::string* readB
     {
         std::lock_guard<std::mutex> lck(readMtx);
         readBatches.push(readBatch);
-        std::condition_variable &mutexCondition = threadPool.getMutexCondition();
-        mutexCondition.notify_one();
     }
     
     return true;
@@ -773,8 +771,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenc
     {
         std::lock_guard<std::mutex> lck(readMtx);
         sequenceBatches.push(sequenceBatch);
-        std::condition_variable &mutexCondition = threadPool.getMutexCondition();
-        mutexCondition.notify_one();
     }
     
     return true;

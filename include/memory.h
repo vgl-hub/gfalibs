@@ -4,7 +4,7 @@
 extern const char* memUnit[4];
 extern std::atomic<int64_t> alloc, freed;
 extern uint64_t maxMem;
-extern bool freeMemory;
+extern std::atomic<bool> freeMemory;
 
 double get_mem_inuse(uint8_t unit);
 

@@ -39,7 +39,6 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                     Sequence* sequence = new Sequence{seqHeader, seqComment, inSequence, NULL, seqPos++};
                     object.appendSequence(sequence);
                 }
-                jobWait(threadPool);
                 break;
             }
                 
@@ -47,8 +46,9 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 
                 Sequences* readBatch = new Sequences;
 
-                while (getline(*stream, newLine)) { // file input
+                while (*stream) { // file input
                     
+                    getline(*stream, newLine);
                     newLine.erase(0, 1);
                     seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); // process header line
                     c = strtok(NULL,""); // read comment
@@ -61,7 +61,7 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                     getline(*stream, newLine);
                     ignore(*stream, '\n');
                     readBatch->sequences.push_back(new Sequence {seqHeader, seqComment, inSequence});
-                    seqPos++;
+                    ++seqPos;
 
 //                    lg.verbose("Individual fastq sequence read: " + seqHeader);
                     
