@@ -9,8 +9,8 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
     // stream read variables
     char* c;
     std::string firstLine, newLine, seqHeader, seqComment, line, bedHeader;
-    unsigned int seqPos = 0; // to keep track of the original sequence order
-    unsigned int batchSize = 10000; // number of sequences processed by a thread
+    uint32_t seqPos = 0; // to keep track of the original sequence order
+    uint32_t batchSize = 10000; // number of sequences processed by a thread
                 
     //stream objects
     StreamObj streamObj;
@@ -50,8 +50,8 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 while (getline(*stream, newLine)) { // file input
                     
                     newLine.erase(0, 1);
-                    seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
-                    c = strtok(NULL,""); //read comment
+                    seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); // process header line
+                    c = strtok(NULL,""); // read comment
                     
                     if (c != NULL)
                         seqComment = std::string(c);
@@ -68,7 +68,6 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                     if (seqPos % batchSize == 0) {
                         readBatch->batchN = seqPos/batchSize;
                         object.traverseInReads(readBatch);
-                        std::lock_guard<std::mutex> lck(mtx);
                         object.consolidate();
                         readBatch = new Sequences;
                     }
@@ -78,8 +77,6 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 break;
             }
         }
-        //consolidate log
-        jobWait(threadPool);
     }
     return true;
 }
