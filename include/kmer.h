@@ -50,7 +50,7 @@ struct Buf {
     }
 };
 
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2> // DERIVED implements the CRTP technique, INPUT is a specialized userInput type depending on the tool, TYPE21 is the low frequency type of elements we wish to store in the maps, e.g. uint8_t kmer counts, TYPE22 is the high frequency type of elements we wish to store in the maps, e.g. uint32_t kmer counts
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2> // DERIVED implements the CRTP technique, INPUT is a specialized userInput type depending on the tool, KEY is the key type for the hashtable, TYPE1 is the low frequency type of elements we wish to store in the maps, e.g. uint8_t kmer counts, TYPE2 is the high frequency type of elements we wish to store in the maps, e.g. uint32_t kmer counts
 class Kmap {
 
 protected: // they are protected, so that they can be further specialized by inheritance
