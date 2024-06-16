@@ -74,14 +74,14 @@ protected: // they are protected, so that they can be further specialized by inh
     std::vector<Buf<uint8_t>*> buffersVec; // a vector for all buffers
     
     using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
-                                              KEY,
+                                              std::hash<KEY>,
                                               std::equal_to<KEY>,
                                               std::allocator<std::pair<const KEY, TYPE1>>,
                                               8,
                                               phmap::NullMutex>;
     
     using ParallelMap32 = phmap::parallel_flat_hash_map<KEY, TYPE2,
-                                              KEY,
+                                              std::hash<KEY>,
                                               std::equal_to<KEY>,
                                               std::allocator<std::pair<const KEY, TYPE2>>,
                                               8,
