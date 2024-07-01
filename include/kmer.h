@@ -794,14 +794,14 @@ inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint8_t *kmer, boo
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-inline std::string Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reverseHash(uint64_t hash) { // hashing function for kmers
+inline std::string Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reverseHash(uint64_t hash) { // reverse hashing function for kmers
     
     std::string seq(k, 'A');
     
-    for(uint8_t c = k; c > 0; --c) { // for each position up to klen
+    for(uint8_t c = k; c > 0; --c) { // for each position from klen to zero
         uint8_t i = c-1; // to prevent overflow
-        seq[i] = itoc[hash / pows[i]]; // base * 2^N
-        hash = hash % pows[i]; // we walk the kmer backward to compute the rvcp
+        seq[i] = itoc[hash / pows[i]];
+        hash = hash % pows[i]; // modulo
     }
     
 //    if (hash != 0) {
