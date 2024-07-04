@@ -367,6 +367,39 @@ static inline std::string revCom(std::string seq) { // reverse complement
     return seq;
 }
 
+static inline char revCom(char c) { // reverse complement
+    auto lambda = [](const char c) {
+        switch (c) {
+        case '*':
+            return '*';
+        case 'A':
+            return 'T';
+        case 'G':
+            return 'C';
+        case 'C':
+            return 'G';
+        case 'T':
+            return 'A';
+        case 'a':
+            return 't';
+        case 'g':
+            return 'c';
+        case 'c':
+            return 'g';
+        case 't':
+            return 'a';
+        case 'N':
+        case 'n':
+        case 'X':
+        case 'x':
+            return c;
+        default:
+            throw std::domain_error("Invalid nucleotide.");
+        }
+    };
+    return lambda(c);
+}
+
 static inline std::string rev(std::string seq) { // reverse string
     
     reverse(seq.begin(), seq.end());

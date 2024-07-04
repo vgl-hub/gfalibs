@@ -718,13 +718,21 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                 uint64_t pos = DBGpaths[0].pos;
                                 bool indel = false;
                                 
-                                if (std::any_of(DBGpaths.begin(), DBGpaths.end(), [](DBGpath& obj){return obj.type == DEL || obj.type == INS;}))
+                                if (std::any_of(DBGpaths.begin(), DBGpaths.end(), [](DBGpath& obj){return obj.type == DEL || obj.type == INS;})) // indel
                                     indel = true;
-                                    
+                                
+                                uint8_t offset = 0;
                                 if (indel)
-                                    *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t.\t"<<(*ref)[pos-1]<<(*ref)[pos]<<"\t";
+                                    offset = 1;
+                                
+                                std::string refSeq;
+                                for (uint16_t b = 0; b < DBGpaths[0].refLen; ++b)
+                                    refSeq.push_back((*ref)[pos-offset+b]);
+                                
+                                if (indel)
+                                    *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t.\t"<<refSeq<<(*ref)[pos+DBGpaths[0].refLen-1]<<"\t";
                                 else
-                                    *stream<<pHeader<<"\t"<<absPos+pos<<"\t.\t"<<(*ref)[pos]<<"\t";
+                                    *stream<<pHeader<<"\t"<<absPos+pos<<"\t.\t"<<refSeq<<"\t";
 
                                 double qual = 0;
                                 bool first = true;
@@ -732,7 +740,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                         
                                         if (first) {first = false;} else {*stream<<",";}
                                         
-                                        if(variant.type == SNV) {
+                                        if(variant.type == SNV || variant.type == COM) {
                                             if (indel)
                                                 *stream<<(*ref)[pos-1]<<variant.sequence;
                                             else
