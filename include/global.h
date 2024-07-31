@@ -25,4 +25,7 @@ extern int maxThreads;
 extern std::mutex mtx;
 extern ThreadPool<std::function<bool()>> threadPool;
 
+extern uint32_t k;
+extern uint8_t maxK;
+
 #endif /* GLOBAL_H */

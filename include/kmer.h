@@ -13,7 +13,7 @@ template<typename T>
 inline void freeContainer(T& p_container) // this is a C++ trick to empty a container and release associated memory
 {
     T empty;
-    std::swap(p_container, empty); // swapping a container with an empty (NULL) container should release the associated memory
+    std::swap(p_container, empty); // swapping a container with an empty (NULL) container should release associated memory
 }
 
 template<typename TYPE> // this is a generic buffer, TYPE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
@@ -50,6 +50,50 @@ struct Buf {
     }
 };
 
+class Key {
+    uint64_t kmer;
+public:
+    
+    Key(){}
+    Key(uint64_t kmer) : kmer(kmer){}
+    
+    bool operator==(const Key &other) const {
+       
+    int value1, value2;
+    std::ifstream kmer1("db", std::ios::binary);
+    std::ifstream kmer2("db", std::ios::binary);
+    kmer1.seekg(sizeof(int)*kmer, kmer1.beg);
+    kmer2.seekg(sizeof(int)*other.kmer, kmer2.beg);
+       
+    for(uint32_t i = 0; i<k; ++i) {
+        kmer1.read((char*) &value1, sizeof(int));
+        kmer2.read((char*) &value2, sizeof(int));
+        if(value1 != value2)
+                    return false;
+       }
+       return true;
+    }
+    void assignKey(uint64_t kmer) {
+        this->kmer = kmer;
+    }
+    uint64_t getKmer() const {
+        return kmer;
+    }
+
+};
+
+void readKey(Key key, std::vector<int> &kmer) {
+    std::ifstream input("db", std::ios::binary);
+    input.seekg(sizeof(int)*key.getKmer(), input.beg);
+    input.read((char*) kmer.data(), sizeof(int)*maxK);
+}
+
+void readKmer(Key key, std::vector<int> &kmer) {
+    std::ifstream input("db", std::ios::binary);
+    input.seekg(sizeof(int)*key.getKmer(), input.beg);
+    input.read((char*) kmer.data(), sizeof(int)*k);
+}
+
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2> // DERIVED implements the CRTP technique, INPUT is a specialized userInput type depending on the tool, KEY is the key type for the hashtable, TYPE1 is the low frequency type of elements we wish to store in the maps, e.g. uint8_t kmer counts, TYPE2 is the high frequency type of elements we wish to store in the maps, e.g. uint32_t kmer counts
 class Kmap {
 
@@ -58,7 +102,7 @@ protected: // they are protected, so that they can be further specialized by inh
     UserInput &userInput;
     InSequences inSequences; // when we read a reference we can store it here
     
-    uint8_t k; // klen
+    uint32_t k; // klen
     uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
     std::atomic<bool> readingDone{false};
     std::vector<std::thread> threads;
@@ -73,15 +117,47 @@ protected: // they are protected, so that they can be further specialized by inh
 
     std::vector<Buf<uint8_t>*> buffersVec; // a vector for all buffers
     
+    struct KeyHasher {
+        
+        uint8_t k = 31;
+        uint64_t* pows = new uint64_t[k];
+        
+        KeyHasher() {
+            for(uint8_t p = 0; p<k; ++p) // precomputes the powers of k
+                pows[p] = (uint64_t) pow(4,p);
+        }
+        
+        ~KeyHasher(){ // always need to call the destructor and delete for any object called with new to avoid memory leaks
+            delete[] pows;
+        }
+        
+        std::size_t operator()(const Key& key) const {
+            
+            std::vector<int> kmer(maxK);
+            readKey(key, kmer);
+            int *kmerPtr = kmer.data();
+            uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
+            
+            for(uint8_t c = 0; c<maxK; ++c) { // for each position up to klen
+                fw += *kmerPtr * pows[c]; // base * 2^N
+                rv += (3-(*kmerPtr++)) * pows[maxK-c-1]; // we walk the kmer backward to compute the rvcp
+            }
+            
+            // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
+            return fw < rv ? fw : rv;
+
+        }
+    };
+    
     using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
-                                              std::hash<KEY>,
+                                              KeyHasher,
                                               std::equal_to<KEY>,
                                               std::allocator<std::pair<const KEY, TYPE1>>,
                                               8,
                                               phmap::NullMutex>;
     
     using ParallelMap32 = phmap::parallel_flat_hash_map<KEY, TYPE2,
-                                              std::hash<KEY>,
+                                              KeyHasher,
                                               std::equal_to<KEY>,
                                               std::allocator<std::pair<const KEY, TYPE2>>,
                                               8,
@@ -158,7 +234,6 @@ public:
         for (ParallelMap32* map : maps32)
             delete map;
         delete[] pows;
-        
     }
     
     uint64_t mapSize(ParallelMap& m);
@@ -609,7 +684,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
     map32Total.phmap_load(ar_in);
     
     for (auto pair : map32Total) {
-        uint64_t i = pair.first % mapCount;
+        uint64_t i = pair.first.getKmer() % mapCount;
         maps32[i]->insert(pair);
     }
     
@@ -643,7 +718,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
     }
     
     for (auto pair : map32Total) {
-        uint64_t i = pair.first % mapCount;
+        uint64_t i = pair.first.getKmer() % mapCount;
         maps32[i]->insert(pair);
     }
     
