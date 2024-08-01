@@ -44,55 +44,32 @@ struct Buf {
             seq = seqNew;
             
         }
-        
         return pos += add;
-        
     }
 };
 
 class Key {
-    uint64_t kmer;
+    uint8_t *kmer;
 public:
     
     Key(){}
-    Key(uint64_t kmer) : kmer(kmer){}
+    Key(uint8_t *kmer) : kmer(kmer){}
     
     bool operator==(const Key &other) const {
-       
-    int value1, value2;
-    std::ifstream kmer1("db", std::ios::binary);
-    std::ifstream kmer2("db", std::ios::binary);
-    kmer1.seekg(sizeof(int)*kmer, kmer1.beg);
-    kmer2.seekg(sizeof(int)*other.kmer, kmer2.beg);
-       
-    for(uint32_t i = 0; i<k; ++i) {
-        kmer1.read((char*) &value1, sizeof(int));
-        kmer2.read((char*) &value2, sizeof(int));
-        if(value1 != value2)
-                    return false;
-       }
-       return true;
+
+        for(uint32_t i = 0; i<kLen; ++i) {
+            if(kmer[i] != other.kmer[i])
+                return false;
+        }
+        return true;
     }
-    void assignKey(uint64_t kmer) {
+    void assignKey(uint8_t *kmer) {
         this->kmer = kmer;
     }
-    uint64_t getKmer() const {
+    uint8_t* getKmer() const {
         return kmer;
     }
-
 };
-
-void readKey(Key key, std::vector<int> &kmer) {
-    std::ifstream input("db", std::ios::binary);
-    input.seekg(sizeof(int)*key.getKmer(), input.beg);
-    input.read((char*) kmer.data(), sizeof(int)*maxK);
-}
-
-void readKmer(Key key, std::vector<int> &kmer) {
-    std::ifstream input("db", std::ios::binary);
-    input.seekg(sizeof(int)*key.getKmer(), input.beg);
-    input.read((char*) kmer.data(), sizeof(int)*k);
-}
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2> // DERIVED implements the CRTP technique, INPUT is a specialized userInput type depending on the tool, KEY is the key type for the hashtable, TYPE1 is the low frequency type of elements we wish to store in the maps, e.g. uint8_t kmer counts, TYPE2 is the high frequency type of elements we wish to store in the maps, e.g. uint32_t kmer counts
 class Kmap {
@@ -102,7 +79,7 @@ protected: // they are protected, so that they can be further specialized by inh
     UserInput &userInput;
     InSequences inSequences; // when we read a reference we can store it here
     
-    uint32_t k; // klen
+    uint8_t k; // kPrefixLen
     uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
     std::atomic<bool> readingDone{false};
     std::vector<std::thread> threads;
@@ -115,32 +92,25 @@ protected: // they are protected, so that they can be further specialized by inh
     
     uint64_t* pows = new uint64_t[k]; // storing precomputed values of each power significantly speeds up hashing
 
-    std::vector<Buf<uint8_t>*> buffersVec; // a vector for all buffers
+    std::vector<Buf<uint8_t*>*> buffersVec; // a vector for all buffers
     
     struct KeyHasher {
-        
-        uint8_t k = 31;
-        uint64_t* pows = new uint64_t[k];
+
+        uint64_t* pows = new uint64_t[kPrefixLen];
         
         KeyHasher() {
-            for(uint8_t p = 0; p<k; ++p) // precomputes the powers of k
+            for(uint8_t p = 0; p<kPrefixLen; ++p) // precomputes the powers of k
                 pows[p] = (uint64_t) pow(4,p);
-        }
-        
-        ~KeyHasher(){ // always need to call the destructor and delete for any object called with new to avoid memory leaks
-            delete[] pows;
         }
         
         std::size_t operator()(const Key& key) const {
             
-            std::vector<int> kmer(maxK);
-            readKey(key, kmer);
-            int *kmerPtr = kmer.data();
+            uint8_t *kmerPtr = key.getKmer();
             uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
             
-            for(uint8_t c = 0; c<maxK; ++c) { // for each position up to klen
+            for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to klen
                 fw += *kmerPtr * pows[c]; // base * 2^N
-                rv += (3-(*kmerPtr++)) * pows[maxK-c-1]; // we walk the kmer backward to compute the rvcp
+                rv += (3-(*kmerPtr++)) * pows[kPrefixLen-c-1]; // we walk the kmer backward to compute the rvcp
             }
             
             // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
@@ -199,7 +169,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
 public:
     
-    Kmap(UserInput& userInput) : userInput(userInput), k{userInput.kmerLen} {
+    Kmap(UserInput& userInput) : userInput(userInput), k{kPrefixLen} {
         
         DBextension = "kc";
         
@@ -385,7 +355,7 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
     
     bool hashing = true;
-    std::vector<Buf<uint8_t>*> buffersVecCpy;
+    std::vector<Buf<uint8_t*>*> buffersVecCpy;
     std::ofstream bufFile[mapCount];
     
     for (uint16_t b = 0; b<mapCount; ++b) // we open all files at once
@@ -412,14 +382,14 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
             buffersVec.clear();
         }
         
-        for (Buf<uint8_t>* buffers : buffersVecCpy) { // for each array of buffers
+        for (Buf<uint8_t*>* buffers : buffersVecCpy) { // for each array of buffers
             
             for (uint16_t b = 0; b<mapCount; ++b) { // for each buffer file
-                Buf<uint8_t>* buffer = &buffers[b];
+                Buf<uint8_t*>* buffer = &buffers[b];
                 bufFile[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
-                bufFile[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint8_t) * buffer->pos);
+                bufFile[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint8_t*) * buffer->pos);
                 delete[] buffers[b].seq;
-                freed += buffers[b].size * sizeof(uint8_t);
+                freed += buffers[b].size * sizeof(uint8_t*);
                 
             }
             delete[] buffers;
@@ -458,8 +428,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
     
-    uint64_t pos = 0, hash;
-    Buf<uint8_t> *buf;
+    uint64_t pos = 0;
+    Buf<uint8_t*> *buf;
     
     std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
     std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
@@ -480,18 +450,18 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
         
         bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
         
-        buf = new Buf<uint8_t>(pos);
+        buf = new Buf<uint8_t*>(pos);
         
         buf->pos = pos;
         buf->size = pos;
         
-        bufFile.read(reinterpret_cast<char *>(buf->seq), sizeof(uint8_t) * buf->pos);
+        bufFile.read(reinterpret_cast<char *>(buf->seq), sizeof(uint8_t*) * buf->pos);
         
-        for (uint64_t c = 0; c<pos; c+=8) {
+        for (uint64_t c = 0; c<pos; ++c) {
             
-            memcpy(&hash, &buf->seq[c], 8);
-            
-            uint8_t &count = map[hash];
+            Key key(buf->seq[c]);
+
+            uint8_t &count = map[key];
             bool overflow = (count >= 254 ? true : false);
             
             if (!overflow)
@@ -499,7 +469,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
             
             if (overflow) {
                 
-                uint32_t &count32 = map32[hash];
+                uint32_t &count32 = map32[key];
                 
                 if (count32 == 0) { // first time we add the kmer
                     count32 = count;
@@ -684,7 +654,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
     map32Total.phmap_load(ar_in);
     
     for (auto pair : map32Total) {
-        uint64_t i = pair.first.getKmer() % mapCount;
+        uint64_t i = hash(pair.first.getKmer()) % mapCount;
         maps32[i]->insert(pair);
     }
     
@@ -718,7 +688,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
     }
     
     for (auto pair : map32Total) {
-        uint64_t i = pair.first.getKmer() % mapCount;
+        uint64_t i = hash(pair.first.getKmer()) % mapCount;
         maps32[i]->insert(pair);
     }
     
@@ -816,7 +786,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output
         case 2: { // .kc
             std::ofstream ofs(userInput.outFile + "/.index"); // adding index
             ostream = std::make_unique<std::ostream>(ofs.rdbuf());
-            *ostream<<+k<<"\n"<<mapCount<<std::endl;
+            *ostream<<+kLen<<"\n"<<mapCount<<std::endl;
             ofs.close();
             break;
         }
@@ -1015,24 +985,24 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             len = readBatch->size();
         }
 
-        if (len<k) {
+        if (len<kLen) {
             delete readBatch;
             freed += len * sizeof(char);
             continue;
         }
         
-        Buf<uint8_t> *buffers = new Buf<uint8_t>[mapCount];
+        Buf<uint8_t*> *buffers = new Buf<uint8_t*>[mapCount];
         const unsigned char *first = (unsigned char*) readBatch->c_str();
         allocMemory(len * sizeof(uint8_t));
         uint8_t *str = new uint8_t[len];
-        uint8_t e = 0;
-        uint64_t key, pos = 0, kcount = len-k+1;
+        uint32_t e = 0;
+        uint64_t key, pos = 0, kcount = len-kLen+1;
         bool isFw = false;
-        Buf<uint8_t>* buffer;
+        Buf<uint8_t*>* buffer;
         
         for (uint64_t p = 0; p<kcount; ++p) {
             
-            for (uint8_t c = e; c<k; ++c) { // generate k bases if e=0 or the next if e=k-1
+            for (uint32_t c = e; c<kLen; ++c) { // generate k bases if e=0 or the next if e=k-1
                 
                 str[p+c] = ctoi[*(first+p+c)]; // convert the next base
                 if (str[p+c] > 3) { // if non-canonical base is found
@@ -1049,10 +1019,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             key = hash(str+p, &isFw);
 
             buffer = &buffers[key % mapCount];
-            pos = buffer->newPos(8);
-            memcpy(&buffer->seq[pos-8], &key, 8);
+            pos = buffer->newPos(1);
+            
+            buffer->seq[pos-1] = str+p;
         }
-        delete[] str;
+        
+        //delete[] str;
         delete readBatch;
         //    threadLog.add("Processed sequence: " + sequence->header);
         //    std::lock_guard<std::mutex> lck(mtx);
