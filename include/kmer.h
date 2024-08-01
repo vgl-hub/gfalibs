@@ -57,8 +57,14 @@ public:
     
     bool operator==(const Key &other) const {
 
-        for(uint32_t i = 0; i<kLen; ++i) {
+        for(uint32_t i = 0; i<kLen; ++i) { // check fw
             if(kmer[i] != other.kmer[i])
+                break;
+            if (i == kLen-1)
+                return true;
+        }
+        for(uint32_t i = 0; i<kLen; ++i) { // if fw fails, check rv
+            if(kmer[i] != 3-other.kmer[kLen-i-1])
                 return false;
         }
         return true;
