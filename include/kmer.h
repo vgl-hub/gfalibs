@@ -1010,7 +1010,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
                     e = 0; // reset base counter
                     break;
                 }
-                e = k-1;
+                e = kLen-1;
             }
             
             if (e == 0) // not enough bases for a kmer
