@@ -870,9 +870,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
         static_cast<DERIVED*>(this)->buffersToMaps();
         
         lg.verbose("Writing compressed sequences to disk");
-        std::ofstream bufFile = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::app | std::ios::out | std::ios::binary);
+        std::ofstream bufFile = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::trunc | std::ios::out | std::ios::binary);
         bufFile.write(reinterpret_cast<const char *>(&seqBuf->pos), sizeof(uint64_t)); // length
-        bufFile.write(reinterpret_cast<const char *>(seqBuf->seq), sizeof(uint64_t) * seqBuf->pos); // content
+        bufFile.write(reinterpret_cast<const char *>(seqBuf->seq), sizeof(uint8_t) * seqBuf->pos); // content
         delete seqBuf;
     }
 }
