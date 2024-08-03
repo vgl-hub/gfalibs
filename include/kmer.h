@@ -872,8 +872,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
         lg.verbose("Writing compressed sequences to disk");
         std::ofstream bufFile = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::trunc | std::ios::out | std::ios::binary);
         bufFile.write(reinterpret_cast<const char *>(&seqBuf->pos), sizeof(uint64_t)); // length
-        bufFile.write(reinterpret_cast<const char *>(seqBuf->seq), sizeof(uint8_t) * seqBuf->pos); // content
-        delete seqBuf;
+        bufFile.write(reinterpret_cast<const char *>(seqBuf->seq), sizeof(uint8_t) * seqBuf->pos); // content, cannot delete buf just yet, used for highFreq kmers
     }
 }
 
@@ -888,6 +887,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::stats() {
     uint64_t pos;
     std::ifstream bufFile = std::ifstream(userInput.prefix + "/.seq.bin", std::ios::in | std::ios::binary);
     bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
+    delete seqBuf;
     seqBuf = new Buf<uint8_t>(pos);
     seqBuf->pos = pos;
     seqBuf->size = pos;
