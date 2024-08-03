@@ -1012,7 +1012,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
         Buf<uint64_t> *buffers = new Buf<uint64_t>[mapCount];
         const unsigned char *first = (unsigned char*) readBatch->c_str();
         delete[] str;
-        str = new uint8_t[len];
+        str = new uint8_t[len]();
         uint32_t e = 0;
         uint64_t key, pos = 0, kcount = len-kLen+1;
         bool isFw = false;
