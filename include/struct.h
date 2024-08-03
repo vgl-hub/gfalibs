@@ -131,9 +131,10 @@ struct Buf {
     
     uint64_t newPos(uint64_t add) {
         
-        while (pos + add > size) {
+        if (pos + add > size) {
             
-            uint64_t newSize = size*2;
+            uint64_t newSize = (pos + add)*2;
+            
             alloc += newSize*sizeof(TYPE);
             TYPE* seqNew = new TYPE[newSize];
             
