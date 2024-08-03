@@ -1,6 +1,8 @@
 #ifndef STRUCT
 #define STRUCT
 
+#include "memory.h"
+
 struct UserInput { // a container for user input
 
     // memory
@@ -29,6 +31,7 @@ struct UserInput { // a container for user input
     
     std::vector<std::string> kmerDB; // a database of kmers (or DBG)
     std::string prefix = ".", outFile = "";
+    
     uint32_t kmerLen = 21;
     
 };
@@ -108,6 +111,42 @@ struct DBGpath {
     DBGpath(uint64_t pos, double score) : pos(pos), score(score) {}
     DBGpath(variantType type, uint64_t pos, std::string sequence, double score) : type(type), pos(pos), sequence(sequence), score(score) {}
     
+};
+
+template<typename TYPE> // this is a generic buffer, TYPE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
+struct Buf {
+    uint64_t pos = 0, size; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
+    TYPE *seq = new TYPE[size]; // the actual container
+    
+    Buf() : size(pow(2,8)){
+        alloc += size*sizeof(TYPE);
+    }
+    Buf(uint64_t size) : size(size){
+        alloc += size*sizeof(TYPE);
+    }
+    ~Buf(){
+        if (seq != NULL)
+            delete[] seq;
+    }
+    
+    uint64_t newPos(uint64_t add) {
+        
+        while (pos + add > size) {
+            
+            uint64_t newSize = size*2;
+            alloc += newSize*sizeof(TYPE);
+            TYPE* seqNew = new TYPE[newSize];
+            
+            memcpy(seqNew, seq, size*sizeof(TYPE));
+            
+            delete[] seq;
+            freed += size*sizeof(TYPE);
+            size = newSize;
+            seq = seqNew;
+            
+        }
+        return pos += add;
+    }
 };
 
 #endif //STRUCT
