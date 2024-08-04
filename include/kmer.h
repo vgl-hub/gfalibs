@@ -374,8 +374,9 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
                 Buf<uint64_t>* buffer = &buffers[b];
                 bufFiles[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
                 bufFiles[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint64_t) * buffer->pos);
-                delete[] buffers[b].seq;
-                buffers[b].seq = NULL;
+                delete[] buffer.seq;
+                buffer.seq = NULL;
+                freed += buffer.size * sizeof(uint64_t);
             }
             delete[] buffers;
         }
@@ -1056,7 +1057,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
         //    std::lock_guard<std::mutex> lck(mtx);
         //    logs.push_back(threadLog);
         std::lock_guard<std::mutex> lck(hashMtx);
-        freed += len * sizeof(char) * 2;
+        freed += len * sizeof(char);
         buffersVec.push_back(buffers);
     }
     return true;
