@@ -374,9 +374,9 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
                 Buf<uint64_t>* buffer = &buffers[b];
                 bufFiles[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
                 bufFiles[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint64_t) * buffer->pos);
-                delete[] buffer.seq;
-                buffer.seq = NULL;
-                freed += buffer.size * sizeof(uint64_t);
+                delete[] buffer->seq;
+                buffer->seq = NULL;
+                freed += buffer->size * sizeof(uint64_t);
             }
             delete[] buffers;
         }
