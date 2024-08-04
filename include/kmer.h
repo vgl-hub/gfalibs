@@ -1191,6 +1191,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::cleanup() {
         threadPool.queueJobs(jobs);
         
         remove((userInput.prefix + "/.map.hc.bin").c_str());
+        remove((userInput.prefix + "/.seq.bin").c_str());
         
         if (userInput.prefix != ".")
             rm_dir(userInput.prefix.c_str());
