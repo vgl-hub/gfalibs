@@ -125,8 +125,10 @@ struct Buf {
         alloc += size*sizeof(TYPE);
     }
     ~Buf(){
-        if (seq != NULL)
+        if (seq != NULL) {
             delete[] seq;
+            freed += size*sizeof(TYPE);
+        }
     }
     
     uint64_t newPos(uint64_t add) {

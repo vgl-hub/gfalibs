@@ -52,7 +52,9 @@ protected: // they are protected, so that they can be further specialized by inh
     
     uint64_t* pows = new uint64_t[k]; // storing precomputed values of each power significantly speeds up hashing
 
-    std::vector<Buf<uint64_t>*> buffersVec; // a vector for all buffers
+    std::vector<Buf<uint64_t>*> buffersVec; // a vector for all kmer buffers
+    std::vector<Buf<uint8_t>*> strVec; // sequence vector
+    uint64_t strVecLen = 0;
     
     struct KeyHasher {
 
@@ -189,6 +191,7 @@ public:
         for (ParallelMap32* map : maps32)
             delete map;
         delete[] pows;
+        delete seqBuf;
     }
     
     uint64_t mapSize(ParallelMap& m);
@@ -339,10 +342,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
     
     bool hashing = true;
     std::vector<Buf<uint64_t>*> buffersVecCpy;
-    std::ofstream bufFile[mapCount];
+    std::ofstream bufFiles[mapCount];
     
     for (uint16_t b = 0; b<mapCount; ++b) // we open all files at once
-        bufFile[b] = std::ofstream(userInput.prefix + "/.buf." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
+        bufFiles[b] = std::ofstream(userInput.prefix + "/.buf." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
     
     while (hashing) {
         
@@ -369,18 +372,17 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
             
             for (uint16_t b = 0; b<mapCount; ++b) { // for each buffer file
                 Buf<uint64_t>* buffer = &buffers[b];
-                bufFile[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
-                bufFile[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint64_t) * buffer->pos);
+                bufFiles[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
+                bufFiles[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint64_t) * buffer->pos);
                 delete[] buffers[b].seq;
                 buffers[b].seq = NULL;
-                freed += buffers[b].size * sizeof(uint64_t);
             }
             delete[] buffers;
         }
     }
     
     for (uint16_t b = 0; b<mapCount; ++b) // we close all files
-        bufFile[b].close();
+        bufFiles[b].close();
     
     return true;
     
@@ -866,13 +868,30 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
     if (userInput.kmerDB.size() == 0) {
         readingDone = true;
         joinThreads();
+
+        lg.verbose("Writing compressed sequences to disk");
+        std::ofstream bufFileW = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::app | std::ios::out | std::ios::binary);
+        bufFileW.write(reinterpret_cast<const char *>(&strVecLen), sizeof(uint64_t));
+        for (Buf<uint8_t>* str : strVec) { // for each sequence
+            bufFileW.write(reinterpret_cast<const char *>(str->seq), sizeof(uint8_t) * str->pos);
+            delete str;
+        }
+        bufFileW.close();
+        
+        lg.verbose("Reading compressed sequences to memory");
+        std::ifstream bufFileR = std::ifstream(userInput.prefix + "/.seq.bin", std::ios::in | std::ios::binary);
+        delete seqBuf;
+        bufFileR.read(reinterpret_cast<char *>(&strVecLen), sizeof(uint64_t));
+        seqBuf = new Buf<uint8_t>(strVecLen);
+        bufFileR.read(reinterpret_cast<char *>(seqBuf->seq), sizeof(uint8_t) * strVecLen);
+        seqBuf->pos = strVecLen;
+        bufFileR.close();
+        seqBuf2 = seqBuf;
+        
         lg.verbose("Converting buffers to maps");
         static_cast<DERIVED*>(this)->buffersToMaps();
         
-        lg.verbose("Writing compressed sequences to disk");
-        std::ofstream bufFile = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::trunc | std::ios::out | std::ios::binary);
-        bufFile.write(reinterpret_cast<const char *>(&seqBuf->pos), sizeof(uint64_t)); // length
-        bufFile.write(reinterpret_cast<const char *>(seqBuf->seq), sizeof(uint8_t) * seqBuf->pos); // content, cannot delete buf just yet, used for highFreq kmers
+        loadHighCopyKmers();
     }
 }
 
@@ -883,15 +902,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::stats() {
     
     std::vector<std::function<bool()>> jobs;
     std::array<uint16_t, 2> mapRange = {0,0};
-    
-    uint64_t pos;
-    std::ifstream bufFile = std::ifstream(userInput.prefix + "/.seq.bin", std::ios::in | std::ios::binary);
-    bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-    delete seqBuf;
-    seqBuf = new Buf<uint8_t>(pos);
-    seqBuf->pos = pos;
-    seqBuf->size = pos;
-    bufFile.read(reinterpret_cast<char *>(seqBuf->seq), sizeof(uint8_t) * seqBuf->pos);
     
     while (mapRange[1] < mapCount) {
         
@@ -976,13 +986,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
     //   Log threadLog;
     std::string *readBatch;
     uint64_t len = 0, currentPos = 0;
-    uint8_t *str = NULL;
+    Buf<uint8_t> *str;
     
     while (true) {
             
         {
             std::unique_lock<std::mutex> lck(readMtx);
-            memcpy(&seqBuf->seq[currentPos], str, sizeof(uint8_t)*len);
             
             if (readingDone && readBatches.size() == 0)
                 return true;
@@ -1004,15 +1013,15 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
                 freed += len * sizeof(char);
                 continue;
             }
-            
-            currentPos = seqBuf->pos;
-            seqBuf->newPos(len);
+            str = new Buf<uint8_t>(len);
+            str->pos = len;
+            strVec.push_back(str);
+            currentPos = strVecLen;
+            strVecLen += len;
         }
 
         Buf<uint64_t> *buffers = new Buf<uint64_t>[mapCount];
         const unsigned char *first = (unsigned char*) readBatch->c_str();
-        delete[] str;
-        str = new uint8_t[len]();
         uint32_t e = 0;
         uint64_t key, pos = 0, kcount = len-kLen+1;
         bool isFw = false;
@@ -1022,8 +1031,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             
             for (uint32_t c = e; c<kLen; ++c) { // generate k bases if e=0 or the next if e=k-1
                 
-                str[p+c] = ctoi[*(first+p+c)]; // convert the next base
-                if (str[p+c] > 3) { // if non-canonical base is found
+                str->seq[p+c] = ctoi[*(first+p+c)]; // convert the next base
+                if (str->seq[p+c] > 3) { // if non-canonical base is found
                     p = p+c; // move position
                     e = 0; // reset base counter
                     break;
@@ -1034,7 +1043,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             if (e == 0) // not enough bases for a kmer
                 continue;
 
-            key = hash(&str[p], &isFw);
+            key = hash(&str->seq[p], &isFw);
 
             buffer = &buffers[key % mapCount];
             pos = buffer->newPos(1);
@@ -1050,7 +1059,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
         freed += len * sizeof(char) * 2;
         buffersVec.push_back(buffers);
     }
-    delete[] str;
     return true;
 }
 
