@@ -67,13 +67,12 @@ protected: // they are protected, so that they can be further specialized by inh
         
         std::size_t operator()(const Key& key) const {
             
-            
             uint8_t *kmerPtr = seqBuf->seq+key.getKmer();
             uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
             
-            for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to klen
-                fw += *kmerPtr * pows[c]; // base * 2^N
-                rv += (3-(*kmerPtr++)) * pows[kPrefixLen-c-1]; // we walk the kmer backward to compute the rvcp
+            for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
+                fw += *(kmerPtr+c) * pows[c]; // base * 2^N
+                rv += (3-(*(kmerPtr+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
             }
             
             // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
@@ -825,13 +824,13 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenc
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint8_t *kmer, bool *isFw) { // hashing function for kmers
+inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint8_t *kmerPtr, bool *isFw) { // hashing function for kmers
     
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
-    for(uint8_t c = 0; c<k; ++c) { // for each position up to klen
-        fw += *kmer * pows[c]; // base * 2^N
-        rv += (3-(*kmer++)) * pows[k-c-1]; // we walk the kmer backward to compute the rvcp
+    for(uint8_t c = 0; c<k; ++c) { // for each position up to kPrefixLen
+        fw += *(kmerPtr+c) * pows[c]; // base * 2^N
+        rv += (3-(*(kmerPtr+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
     }
     
     if (isFw != NULL)
