@@ -93,7 +93,7 @@ protected: // they are protected, so that they can be further specialized by inh
                     return true;
             }
             for(uint32_t i = 0; i<kLen; ++i) { // if fw fails, check rv
-                if(lhs[i] ^ 3-rhs[kLen-i-1])
+                if(lhs[i] ^ (3-rhs[kLen-i-1]))
                     return false;
             }
             return true;
