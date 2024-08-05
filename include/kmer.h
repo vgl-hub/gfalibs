@@ -87,13 +87,13 @@ protected: // they are protected, so that they can be further specialized by inh
             uint8_t *lhs = seqBuf->seq+key1.getKmer(), *rhs = seqBuf2->seq+key2.getKmer();
             
             for(uint32_t i = 0; i<kLen; ++i) { // check fw
-                if(lhs[i] != rhs[i])
+                if(lhs[i] ^ rhs[i])
                     break;
                 if (i == kLen-1)
                     return true;
             }
             for(uint32_t i = 0; i<kLen; ++i) { // if fw fails, check rv
-                if(lhs[i] != 3-rhs[kLen-i-1])
+                if(lhs[i] ^ 3-rhs[kLen-i-1])
                     return false;
             }
             return true;
