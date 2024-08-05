@@ -233,9 +233,11 @@ public:
     
     bool traverseInReads(Sequences* readBatch);
     
-    inline uint64_t hash(uint8_t* string, bool* isFw = NULL);
+    inline uint64_t hash(uint8_t* string, uint8_t binOffset, bool* isFw = NULL);
     
     inline std::string reverseHash(uint64_t hash);
+    
+    char* bitDecode(uint8_t *binaryStr, uint64_t stringLength);
     
     bool hashSequences();
     
@@ -638,7 +640,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
     map32Total.phmap_load(ar_in);
     
     for (auto pair : map32Total) {
-        uint64_t i = hash(seqBuf->seq+pair.first.getKmer()) % mapCount;
+        uint64_t pos = pair.first.getKmer();
+        uint64_t i = hash(seqBuf->seq+(pos / 4), pos % 4) % mapCount;
         maps32[i]->insert(pair);
     }
     
@@ -672,7 +675,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
     }
     
     for (auto pair : map32Total) {
-        uint64_t i = hash(seqBuf->seq+pair.first.getKmer()) % mapCount;
+        uint64_t pos = pair.first.getKmer();
+        uint64_t i = hash(seqBuf->seq+(pos / 4), pos % 4) % mapCount;
         maps32[i]->insert(pair);
     }
     
@@ -824,13 +828,16 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenc
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint8_t *kmerPtr, bool *isFw) { // hashing function for kmers
+inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint8_t *kmerPtr, uint8_t binOffset, bool *isFw) { // hashing function for kmers
     
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
-    for(uint8_t c = 0; c<k; ++c) { // for each position up to kPrefixLen
-        fw += *(kmerPtr+c) * pows[c]; // base * 2^N
-        rv += (3-(*(kmerPtr+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
+    for(uint8_t c = 0; c<(k/4); ++c) { // for each position up to kPrefixLen
+        for (int8_t e = 6-binOffset*2; e >= 0; e = e - 2) {
+            fw += ((*(kmerPtr+c) >> e) & 3) * pows[c]; // base * 2^N
+            rv += (3-((*(kmerPtr+kLen-1-c) >> e) & 3)) * pows[c]; // we walk the kmer backward to compute the rvcp
+        }
+        binOffset = 0;
     }
     
     if (isFw != NULL)
@@ -982,6 +989,23 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::printHist(std::unique_ptr<std::ost
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+char* Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::bitDecode(uint8_t *binaryStr, uint64_t stringLength) {
+    
+    char *str;
+    uint64_t requiredLength = stringLength;
+    
+    str = new char[requiredLength]();      //parentheses ensure bits are set to 0
+    uint64_t pos = 0;
+    for (uint64_t i = 0; i < stringLength/4; ++i) {
+        for (int8_t e = 6; e >= 0; e = e - 2) {
+            uint8_t bit = (binaryStr[i] >> e) & 3;
+            str[pos++] = itoc[bit];
+        }
+    }
+    return str;
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
     //   Log threadLog;
     std::string *readBatch;
@@ -1013,11 +1037,14 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
                 freed += len * sizeof(char);
                 continue;
             }
-            str = new Buf<uint8_t>(len);
-            str->pos = len;
+            
+            uint64_t binLen = (len % 4 == 0) ? len / 4 : len / 4 + 1; // len * 2 / 8
+
+            str = new Buf<uint8_t>(binLen);
+            str->pos = binLen;
             strVec.push_back(str);
             currentPos = strVecLen;
-            strVecLen += len;
+            strVecLen += binLen;
         }
 
         Buf<uint64_t> *buffers = new Buf<uint64_t>[mapCount];
@@ -1027,12 +1054,15 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
         bool isFw = false;
         Buf<uint64_t>* buffer;
         
+        std::cout<<"hello1"<<std::endl;
+        
         for (uint64_t p = 0; p<kcount; ++p) {
             
             for (uint32_t c = e; c<kLen; ++c) { // generate k bases if e=0 or the next if e=k-1
                 
-                str->seq[p+c] = ctoi[*(first+p+c)]; // convert the next base
-                if (str->seq[p+c] > 3) { // if non-canonical base is found
+                str->seq[p+c / 4] |= ctoi[*(first+p+c)] << (6 - (p+c % 4) * 2);
+                
+                if (ctoi[*(first+p+c)] > 3) { // if non-canonical base is found
                     p = p+c; // move position
                     e = 0; // reset base counter
                     break;
@@ -1043,13 +1073,22 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             if (e == 0) // not enough bases for a kmer
                 continue;
 
-            key = hash(&str->seq[p], &isFw);
+            key = hash(&str->seq[p / 4], p % 4, &isFw);
+            std::cout<<+key<<std::endl;
 
             buffer = &buffers[key % mapCount];
             pos = buffer->newPos(1);
             
             buffer->seq[pos-1] = currentPos+p;
         }
+        
+        std::cout<<"hello3"<<std::endl;
+        
+        char *strDecoded = bitDecode(str->seq, 15);
+        printf("%s\n", strDecoded);
+        delete strDecoded;
+        
+        exit(1);
         
         delete readBatch;
         //    threadLog.add("Processed sequence: " + sequence->header);

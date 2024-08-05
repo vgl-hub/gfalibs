@@ -116,7 +116,7 @@ struct DBGpath {
 template<typename TYPE> // this is a generic buffer, TYPE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
 struct Buf {
     uint64_t pos = 0, size; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
-    TYPE *seq = new TYPE[size]; // the actual container
+    TYPE *seq = new TYPE[size](); // the actual container, parentheses ensure bits are set to 0
     
     Buf() : size(pow(2,8)){
         alloc += size*sizeof(TYPE);
@@ -138,7 +138,7 @@ struct Buf {
             uint64_t newSize = (pos + add)*2;
             
             alloc += newSize*sizeof(TYPE);
-            TYPE* seqNew = new TYPE[newSize];
+            TYPE* seqNew = new TYPE[newSize](); // parentheses ensure bits are set to 0
             
             memcpy(seqNew, seq, size*sizeof(TYPE));
             
