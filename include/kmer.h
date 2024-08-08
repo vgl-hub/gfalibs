@@ -640,7 +640,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
     for (auto pair : map32Total) {
         uint8_t i = hash(seqBuf->seq+pair.first.getKmer()) % mapCount;
         std::cout<<+i<<std::endl;
-        maps32[i]->insert(pair);
+//        maps32[i]->insert(pair);
     }
     
     return true;
