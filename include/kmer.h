@@ -69,7 +69,7 @@ protected: // they are protected, so that they can be further specialized by inh
             uint8_t *kmerPtr = seqBuf->seq+key.getKmer();
             uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
             
-            for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
+            for(uint8_t c = 1; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
                 fw += *(kmerPtr+c) * pows[c]; // base * 2^N
                 rv += (3-(*(kmerPtr+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
             }
