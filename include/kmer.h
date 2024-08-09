@@ -46,7 +46,7 @@ protected: // they are protected, so that they can be further specialized by inh
     std::vector<std::future<bool>> futures;
     std::string DBextension;
     
-    const uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const uint16_t mapCount = 127; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
@@ -64,17 +64,15 @@ protected: // they are protected, so that they can be further specialized by inh
             for(uint8_t p = 0; p<kPrefixLen; ++p) // precomputes the powers of k
                 pows[p] = (uint64_t) pow(4,p);
         }
-        
         std::size_t operator()(const Key& key) const {
             
             uint8_t *kmerPtr = seqBuf->seq+key.getKmer();
             uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
             
-            for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
+            for(uint8_t c = 1; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
                 fw += *(kmerPtr+c) * pows[c]; // base * 2^N
                 rv += (3-(*(kmerPtr+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
             }
-            
             // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
             return fw < rv ? fw : rv;
         }
@@ -243,6 +241,10 @@ public:
     
     void consolidate();
     
+    void writeSeqBuf();
+    
+    void loadSeqBuf();
+    
     void finalize();
     
     void stats();
@@ -272,7 +274,6 @@ public:
     bool mergeMaps(uint16_t m);
 
 };
-
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::memoryOk() {
@@ -601,7 +602,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpHighCopyKmers() {
         delete maps32[m];
         maps32[m] = new ParallelMap32;
     }
-
     phmap::BinaryOutputArchive ar_out((userInput.prefix + "/.map.hc.bin").c_str());
     map32Total.phmap_dump(ar_out);
 }
@@ -616,7 +616,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
     
         past = std::chrono::high_resolution_clock::now();
     }
-    
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -629,7 +628,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16
     alloc += mapSize(*maps[m]);
     
     return true;
-
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -640,13 +638,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
     map32Total.phmap_load(ar_in);
     
     for (auto pair : map32Total) {
-        uint64_t pos = pair.first.getKmer();
-        uint64_t i = hash(seqBuf->seq+(pos / 4), pos % 4) % mapCount;
+        uint8_t i = hash(seqBuf->seq+pair.first.getKmer()) % mapCount;
         maps32[i]->insert(pair);
     }
-    
     return true;
-    
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -692,7 +687,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
         static_cast<DERIVED*>(this)->mergeMaps(i);
     
     dumpHighCopyKmers();
-    
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -871,29 +865,40 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memor
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::writeSeqBuf() {
+
+    lg.verbose("Writing compressed sequences to disk");
+    std::ofstream bufFileW = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::app | std::ios::out | std::ios::binary);
+    bufFileW.write(reinterpret_cast<const char *>(&strVecLen), sizeof(uint64_t));
+    for (Buf<uint8_t>* str : strVec) { // for each sequence
+        bufFileW.write(reinterpret_cast<const char *>(str->seq), sizeof(uint8_t) * str->pos);
+        delete str;
+    }
+    bufFileW.close();
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadSeqBuf() {
+    
+    lg.verbose("Reading compressed sequences to memory");
+    std::ifstream bufFileR = std::ifstream(userInput.prefix + "/.seq.bin", std::ios::in | std::ios::binary);
+    delete seqBuf;
+    bufFileR.read(reinterpret_cast<char *>(&strVecLen), sizeof(uint64_t));
+    seqBuf = new Buf<uint8_t>(strVecLen);
+    bufFileR.read(reinterpret_cast<char *>(seqBuf->seq), sizeof(uint8_t) * strVecLen);
+    seqBuf->pos = strVecLen;
+    bufFileR.close();
+    seqBuf2 = seqBuf;
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
     if (userInput.kmerDB.size() == 0) {
         readingDone = true;
         joinThreads();
-
-        lg.verbose("Writing compressed sequences to disk");
-        std::ofstream bufFileW = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::app | std::ios::out | std::ios::binary);
-        bufFileW.write(reinterpret_cast<const char *>(&strVecLen), sizeof(uint64_t));
-        for (Buf<uint8_t>* str : strVec) { // for each sequence
-            bufFileW.write(reinterpret_cast<const char *>(str->seq), sizeof(uint8_t) * str->pos);
-            delete str;
-        }
-        bufFileW.close();
         
-        lg.verbose("Reading compressed sequences to memory");
-        std::ifstream bufFileR = std::ifstream(userInput.prefix + "/.seq.bin", std::ios::in | std::ios::binary);
-        delete seqBuf;
-        bufFileR.read(reinterpret_cast<char *>(&strVecLen), sizeof(uint64_t));
-        seqBuf = new Buf<uint8_t>(strVecLen);
-        bufFileR.read(reinterpret_cast<char *>(seqBuf->seq), sizeof(uint8_t) * strVecLen);
-        seqBuf->pos = strVecLen;
-        bufFileR.close();
-        seqBuf2 = seqBuf;
+        writeSeqBuf();
+        loadSeqBuf();
         
         lg.verbose("Converting buffers to maps");
         static_cast<DERIVED*>(this)->buffersToMaps();
