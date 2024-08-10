@@ -27,6 +27,6 @@ extern ThreadPool<std::function<bool()>> threadPool;
 
 extern uint32_t kLen;
 extern uint8_t kPrefixLen;
-extern Buf<uint8_t> *seqBuf, *seqBuf2;
+extern Buf2bit *seqBuf, *seqBuf2;
 
 #endif /* GLOBAL_H */
