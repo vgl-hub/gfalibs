@@ -418,6 +418,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
     uint64_t pos = 0;
     Buf<uint64_t> *buf;
     
+    ParallelMap& map = *maps[m]; // the map associated to this buffer
+    ParallelMap32& map32 = *maps32[m];
+    map.reserve(strVecLen/127/10);
+    
     std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
     std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
     
@@ -431,10 +435,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
             });
         }
         
-        ParallelMap& map = *maps[m]; // the map associated to this buffer
-        ParallelMap32& map32 = *maps32[m];
+
         uint64_t map_size = mapSize(map);
-        
         bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
         
         buf = new Buf<uint64_t>(pos);
