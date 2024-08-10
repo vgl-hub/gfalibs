@@ -1034,13 +1034,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             }
             
             uint64_t binLen = (len % 4 == 0) ? len / 4 : len / 4 + 1; // len * 2 / 8
-//            std::cout<<+binLen<<std::endl;
-
             str = new Buf2bit(binLen);
             strVec.push_back(str);
-            currentPos = strVecLen;
+            currentPos = strVecLen * 4;
             strVecLen += binLen;
-//            std::cout<<currentPos<<std::endl;
         }
 
         Buf<uint64_t> *buffers = new Buf<uint64_t>[mapCount];
@@ -1072,7 +1069,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             pos = buffer->newPos(1);
             buffer->seq[pos-1] = currentPos+p;
         }
-        
         delete readBatch;
         //    threadLog.add("Processed sequence: " + sequence->header);
         //    std::lock_guard<std::mutex> lck(mtx);
