@@ -156,15 +156,16 @@ struct Buf2bit {
     uint64_t size;
     uint8_t *seq = new uint8_t[size](); // the actual container, parentheses ensure bits are set to 0
     
-    Buf2bit(uint64_t size) : size(size){}
-    
+    Buf2bit(uint64_t size) : size(size){
+        alloc += size*sizeof(uint8_t);
+    }
     ~Buf2bit(){
         if (seq != NULL) {
             delete[] seq;
+            freed += size*sizeof(uint8_t);
         }
     }
-    
-     uint8_t getBase(uint64_t index) const {
+    inline uint8_t getBase(uint64_t index) const {
         uint8_t offset = index%4;
         return (seq[index/4] >> (6-offset*2)) & 3;
     }

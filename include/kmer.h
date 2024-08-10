@@ -66,12 +66,12 @@ protected: // they are protected, so that they can be further specialized by inh
         }
         std::size_t operator()(const Key& key) const {
 
-            uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
+            uint64_t fw = 0, rv = 0, offset = key.getKmer(); // hashes for both forward and reverse complement sequence
             
             for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
                 
-                fw += seqBuf->getBase(c+key.getKmer()) * pows[c]; // base * 2^N
-                rv += (3-seqBuf->getBase(key.getKmer()+kLen-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
+                fw += seqBuf->getBase(offset+c) * pows[c]; // base * 2^N
+                rv += (3-seqBuf->getBase(offset+kLen-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
             }
             // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
             return fw < rv ? fw : rv;
@@ -82,14 +82,16 @@ protected: // they are protected, so that they can be further specialized by inh
         
         constexpr bool operator()(const Key& key1, const Key& key2) const {
             
+            uint64_t offset1 = key1.getKmer(), offset2 = key2.getKmer();
+            
             for(uint32_t i = 0; i<kLen; ++i) { // check fw
-                if(seqBuf->getBase(key1.getKmer()+i) ^ seqBuf->getBase(key2.getKmer()+i))
+                if(seqBuf->getBase(offset1+i) ^ seqBuf->getBase(offset2+i))
                     break;
                 if (i == kLen-1)
                     return true;
             }
             for(uint32_t i = 0; i<kLen; ++i) { // if fw fails, check rv
-                if(seqBuf->getBase(key1.getKmer()+i) ^ (3-seqBuf->getBase(key2.getKmer()+kLen-i-1)))
+                if(seqBuf->getBase(offset1+i) ^ (3-seqBuf->getBase(offset2+kLen-i-1)))
                     return false;
             }
             return true;
@@ -117,7 +119,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
     phmap::flat_hash_map<uint64_t, uint64_t> finalHistogram; // the final kmer histogram
     
-    const uint8_t ctoi[256] = { // this converts ACGT>0123 and any other character to 4 in time O(1)
+    const unsigned char ctoi[256] = { // this converts ACGT>0123 and any other character to 4 in time O(1)
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
           4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -668,7 +670,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
     
     for (auto pair : map32Total) {
         uint64_t pos = pair.first.getKmer();
-        uint64_t i = hash(seqBuf,pos) % mapCount;
+        uint64_t i = hash(seqBuf, pos) % mapCount;
         maps32[i]->insert(pair);
     }
     
@@ -874,11 +876,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadSeqBuf() {
     
     lg.verbose("Reading compressed sequences to memory");
     std::ifstream bufFileR = std::ifstream(userInput.prefix + "/.seq.bin", std::ios::in | std::ios::binary);
-    delete seqBuf;
     bufFileR.read(reinterpret_cast<char *>(&strVecLen), sizeof(uint64_t));
     seqBuf = new Buf2bit(strVecLen);
     bufFileR.read(reinterpret_cast<char *>(seqBuf->seq), sizeof(uint8_t) * strVecLen);
-    seqBuf->size = strVecLen;
     bufFileR.close();
     seqBuf2 = seqBuf;
 }
@@ -1034,15 +1034,16 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             }
             
             uint64_t binLen = (len % 4 == 0) ? len / 4 : len / 4 + 1; // len * 2 / 8
+//            std::cout<<+binLen<<std::endl;
 
             str = new Buf2bit(binLen);
             strVec.push_back(str);
             currentPos = strVecLen;
             strVecLen += binLen;
+//            std::cout<<currentPos<<std::endl;
         }
 
         Buf<uint64_t> *buffers = new Buf<uint64_t>[mapCount];
-        const unsigned char *first = (unsigned char*) readBatch->c_str();
         uint32_t e = 0;
         uint64_t key, pos = 0, kcount = len-kLen+1;
         bool isFw = false;
@@ -1052,41 +1053,23 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             
             for (uint32_t c = e; c<kLen; ++c) { // generate k bases if e=0 or the next if e=k-1
                 
-                str->seq[(p+c) / 4] |= ctoi[*(first+p+c)] << (6 - ((p+c) % 4) * 2);
+                uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)];
                 
-                if (ctoi[*(first+p+c)] > 3) { // if non-canonical base is found
+                if (base < 4)
+                    str->seq[(p+c) / 4] |= base << (6 - ((p+c) % 4) * 2);
+                else { // if non-canonical/N base is found
                     p = p+c; // move position
                     e = 0; // reset base counter
                     break;
                 }
                 e = kLen-1;
             }
-            
-//            std::cout<<"original string: "<<readBatch->substr(p, kLen)<<std::endl;
-//            
-//            for(uint8_t e = 0; e < kLen / 4+1; ++e) {
-//                
-//                for (uint8_t i = sizeof(str->seq[p/4]) * 8; i > 0; --i) {
-//                    uint8_t bit = (str->seq[p/4+e] >> (i-1)) & 1;
-//                    std::cout << +bit;
-//                }
-//                
-//            }
-//                
-//            std::cout<<std::endl;
-//
-//            printf("string decoded: %s\n", strDecoded);
-//            delete strDecoded;
-            
             if (e == 0) // not enough bases for a kmer
                 continue;
             
             key = hash(str, p, &isFw);
-//            std::cout<<"hash: "<<+key<<" "<<reverseHash(key)<<std::endl;
-
             buffer = &buffers[key % mapCount];
             pos = buffer->newPos(1);
-            
             buffer->seq[pos-1] = currentPos+p;
         }
         
