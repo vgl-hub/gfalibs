@@ -420,7 +420,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
     
     ParallelMap& map = *maps[m]; // the map associated to this buffer
     ParallelMap32& map32 = *maps32[m];
-    map.reserve(strVecLen/127/10);
+    map.reserve(strVecLen/127); // total compressed kmers * 4 / n_maps * load factor 40%
     
     std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
     std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
