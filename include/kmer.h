@@ -423,8 +423,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         
         std::vector<std::function<bool()>> jobs;
         
-        for(std::size_t subMapIndex = 0; subMapIndex < map.subcnt(); ++subMapIndex)
-            jobs.push_back([this, buf, subMapIndex, i] { return static_cast<DERIVED*>(this)->processBuffer(buf, subMapIndex, i); });
+        for(std::size_t thread = 0; thread < threadPool.totalThreads(); ++thread)
+            jobs.push_back([this, buf, thread, i] { return static_cast<DERIVED*>(this)->processBuffer(buf, thread, i); });
         
         threadPool.queueJobs(jobs);
         jobWait(threadPool);
@@ -437,32 +437,28 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(Buf<uint64_t> *buf, uint8_t subMapIndex, uint16_t m) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(Buf<uint64_t> *buf, uint8_t thread, uint16_t m) {
     
     KeyHasher keyHasher;
     
     ParallelMap& map = *maps[m]; // the map associated to this buffer
     ParallelMap32& map32 = *maps32[m];
     
-    auto& inner = map.get_inner(subMapIndex);   // to retrieve the submap at given index
-    auto& submap = inner.set_;        // can be a set or a map, depending on the type of map
-    auto& inner32 = map32.get_inner(subMapIndex);
-    auto& submap32 = inner32.set_;
     uint64_t pos = buf->pos;
-    {
-        std::unique_lock<std::mutex> lck(mtx);
-        std::condition_variable &mutexCondition = threadPool.getMutexCondition();
-        mutexCondition.wait(lck, [] {
-            return !freeMemory;
-        });
-    }
+
     for (uint64_t c = 0; c<pos; ++c) {
 
         Key key(buf->seq[c]);
         
         size_t idx  = map.subidx(keyHasher(key)); // compute the submap index for this hash
-        if (idx % map.subcnt() != subMapIndex)
+        //std::cout << +keyHasher(key) << " " << +idx <<" "<< +(idx % map.subcnt()) << " " << +map.subcnt() <<" "<< +subMapIndex <<std::endl;
+        if (idx % threadPool.totalThreads() != thread)
             continue;
+        
+        auto& inner = map.get_inner(idx);   // to retrieve the submap at given index
+        auto& submap = inner.set_;        // can be a set or a map, depending on the type of map
+        auto& inner32 = map32.get_inner(idx);
+        auto& submap32 = inner32.set_;
 
         auto got = submap.find(key); // insert or find this kmer in the hash table
         if (got == submap.end()) {
