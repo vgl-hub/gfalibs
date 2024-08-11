@@ -204,7 +204,7 @@ public:
     
     void buffersToMaps();
     
-    bool processBuffers(uint16_t m);
+    bool processBuffer(Buf<uint64_t> *buf, uint8_t subMapIndex, uint16_t m);
     
     void consolidateTmpMaps();
     
@@ -393,7 +393,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
-    std::vector<std::function<bool()>> jobs;
     std::vector<uint64_t> fileSizes;
     
     for (uint16_t m = 0; m<mapCount; ++m) // compute size of buf files
@@ -401,56 +400,77 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
     std::vector<uint32_t> idx = sortedIndex(fileSizes, true); // sort by largest
     
-    for(uint32_t i : idx)
-        jobs.push_back([this, i] { return static_cast<DERIVED*>(this)->processBuffers(i); });
+    for(uint32_t i : idx) {
         
-    threadPool.queueJobs(jobs);
-    jobWait(threadPool);
-    
+        ParallelMap& map = *maps[i]; // the map associated to this buffer
+        map.reserve(strVecLen/127); // total compressed kmers * 4 / n_maps * load factor 40%
+        
+        std::string fl = userInput.prefix + "/.buf." + std::to_string(i) + ".bin";
+        std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
+        
+        uint64_t len = 0, pos = 0;
+        Buf<uint64_t> *buf = new Buf<uint64_t>;
+        
+        while(bufFile && !(bufFile.peek() == EOF)) {
+            
+            bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
+            buf->newPos(pos);
+            bufFile.read(reinterpret_cast<char *>(&buf->seq[len]), sizeof(uint64_t) * pos);
+            len += pos;
+        }
+        bufFile.close();
+        remove((userInput.prefix + "/.buf." + std::to_string(i) + ".bin").c_str());
+        
+        std::vector<std::function<bool()>> jobs;
+        
+        for(std::size_t subMapIndex = 0; subMapIndex < map.subcnt(); ++subMapIndex)
+            jobs.push_back([this, buf, subMapIndex, i] { return static_cast<DERIVED*>(this)->processBuffer(buf, subMapIndex, i); });
+        
+        threadPool.queueJobs(jobs);
+        jobWait(threadPool);
+        delete buf;
+        dumpTmpMap(userInput.prefix, i);
+        reloadMap32(i);
+    }
     consolidateTmpMaps();
     dumpHighCopyKmers();
-
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(Buf<uint64_t> *buf, uint8_t subMapIndex, uint16_t m) {
     
-    uint64_t pos = 0;
-    Buf<uint64_t> *buf;
+    KeyHasher keyHasher;
     
     ParallelMap& map = *maps[m]; // the map associated to this buffer
     ParallelMap32& map32 = *maps32[m];
-    map.reserve(strVecLen/127); // total compressed kmers * 4 / n_maps * load factor 40%
     
-    std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
-    std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
-    
-    while(bufFile && !(bufFile.peek() == EOF)) {
-        
-        {
-            std::unique_lock<std::mutex> lck(mtx);
-            std::condition_variable &mutexCondition = threadPool.getMutexCondition();
-            mutexCondition.wait(lck, [] {
-                return !freeMemory;
-            });
-        }
-        
+    auto& inner = map.get_inner(subMapIndex);   // to retrieve the submap at given index
+    auto& submap = inner.set_;        // can be a set or a map, depending on the type of map
+    auto& inner32 = map32.get_inner(subMapIndex);
+    auto& submap32 = inner32.set_;
+    uint64_t pos = buf->pos;
+    {
+        std::unique_lock<std::mutex> lck(mtx);
+        std::condition_variable &mutexCondition = threadPool.getMutexCondition();
+        mutexCondition.wait(lck, [] {
+            return !freeMemory;
+        });
+    }
+    for (uint64_t c = 0; c<pos; ++c) {
 
-        uint64_t map_size = mapSize(map);
-        bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
+        Key key(buf->seq[c]);
         
-        buf = new Buf<uint64_t>(pos);
-        
-        buf->pos = pos;
-        buf->size = pos;
-        
-        bufFile.read(reinterpret_cast<char *>(buf->seq), sizeof(uint64_t) * buf->pos);
-        
-        for (uint64_t c = 0; c<pos; ++c) {
+        size_t idx  = map.subidx(keyHasher(key)); // compute the submap index for this hash
+        if (idx % map.subcnt() != subMapIndex)
+            continue;
+
+        auto got = submap.find(key); // insert or find this kmer in the hash table
+        if (got == submap.end()) {
+            submap.insert(std::make_pair(key,1));
+        }else{
+
+            uint8_t &count = got->second;
             
-            Key key(buf->seq[c]);
-
-            uint8_t &count = map[key];
             bool overflow = (count >= 254 ? true : false);
             
             if (!overflow)
@@ -458,31 +478,22 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffers(uint16_t m) {
             
             if (overflow) {
                 
-                uint32_t &count32 = map32[key];
-                
-                if (count32 == 0) { // first time we add the kmer
-                    count32 = count;
-                    count = 255; // invalidates int8 kmer
+                auto got = submap32.find(key); // insert or find this kmer in the hash table
+                if (got == submap32.end()) {
+                    submap32.insert(std::make_pair(key,1));
+                }else{
+                    TYPE2 &count32 = got->second;
+                    
+                    if (count32 == 0) { // first time we add the kmer
+                        count32 = count;
+                        count = 255; // invalidates int8 kmer
+                    }
+                    if (count32 < LARGEST)
+                        ++count32; // increase kmer coverage
                 }
-
-                if (count32 < LARGEST)
-                    ++count32; // increase kmer coverage
             }
         }
-        
-        freed += buf->size * sizeof(uint8_t);
-        delete buf;
-        alloc += mapSize(*maps[m]) - map_size;
-        
-        if (freeMemory || !bufFile || bufFile.peek() == EOF) {
-            dumpTmpMap(userInput.prefix, m);
-            reloadMap32(m);
-        }
     }
-
-    bufFile.close();
-    remove((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str());
-    
     return true;
 }
 
