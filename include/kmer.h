@@ -5,6 +5,7 @@
 #include <parallel-hashmap/phmap.h>
 #include "parallel-hashmap/phmap_dump.h"
 
+#include <bit-packing.h>
 #include <fastx.h>
 
 #define LARGEST 4294967295 // 2^32-1
@@ -53,7 +54,8 @@ protected: // they are protected, so that they can be further specialized by inh
     uint64_t* pows = new uint64_t[k]; // storing precomputed values of each power significantly speeds up hashing
 
     std::vector<Buf<uint64_t>*> buffersVec; // a vector for all kmer buffers
-    std::vector<Buf2bit*> strVec; // sequence vector
+    std::vector<Buf2bit<>*> syncmersVec; // a vector for all kmer buffers
+    std::vector<Buf2bit<>*> strVec; // sequence vector
     uint64_t strVecLen = 0;
     
     struct KeyHasher {
@@ -230,11 +232,9 @@ public:
     
     bool traverseInReads(Sequences* readBatch);
     
-    inline uint64_t hash(Buf2bit *kmerPtr, uint64_t p, bool* isFw = NULL);
+    inline uint64_t hash(Buf2bit<> *kmerPtr, uint64_t p, bool* isFw = NULL);
     
     inline std::string reverseHash(uint64_t hash);
-    
-    uint8_t* bitDecode(uint8_t *binaryStr, uint8_t *strDecoded, uint8_t offset, uint64_t stringLength);
     
     bool hashSequences();
     
@@ -343,6 +343,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
     
     bool hashing = true;
     std::vector<Buf<uint64_t>*> buffersVecCpy;
+    std::vector<Buf2bit<>*> syncmersVecCpy;
     std::ofstream bufFiles[mapCount];
     
     for (uint16_t b = 0; b<mapCount; ++b) // we open all files at once
@@ -380,6 +381,19 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
                 freed += buffer->size * sizeof(uint64_t);
             }
             delete[] buffers;
+        }
+        // syncmers
+        for (Buf2bit<>* syncmers : syncmersVecCpy) { // for each array of buffers
+            
+            for (uint16_t b = 0; b<mapCount; ++b) { // for each buffer file
+                Buf2bit<>* buffer = &syncmers[b];
+                bufFiles[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
+                bufFiles[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint64_t) * buffer->pos);
+                delete[] buffer->seq;
+                buffer->seq = NULL;
+                freed += buffer->size * sizeof(uint64_t);
+            }
+            delete[] syncmers;
         }
     }
     
@@ -438,19 +452,15 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(Buf<uint64_t> *buf, uint8_t thread, uint16_t m) {
-    
-    KeyHasher keyHasher;
-    
+
     ParallelMap& map = *maps[m]; // the map associated to this buffer
     ParallelMap32& map32 = *maps32[m];
     
     uint64_t pos = buf->pos;
 
     for (uint64_t c = 0; c<pos; ++c) {
-
-        Key key(buf->seq[c]);
         
-        size_t idx  = map.subidx(keyHasher(key)); // compute the submap index for this hash
+        size_t idx  = map.subidx(*(uint8_t*) buf->seq+c); // compute the submap index for this hash
         //std::cout << +keyHasher(key) << " " << +idx <<" "<< +(idx % map.subcnt()) << " " << +map.subcnt() <<" "<< +subMapIndex <<std::endl;
         if (idx % threadPool.totalThreads() != thread)
             continue;
@@ -459,6 +469,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(Buf<uint64_t> *buf, 
         auto& submap = inner.set_;        // can be a set or a map, depending on the type of map
         auto& inner32 = map32.get_inner(idx);
         auto& submap32 = inner32.set_;
+                                 
+        Key key(buf->seq[c]);
 
         auto got = submap.find(key); // insert or find this kmer in the hash table
         if (got == submap.end()) {
@@ -709,7 +721,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a singl
     uint64_t pos;
     std::ifstream bufFile = std::ifstream(userInput.kmerDB[0]+ "/.seq.bin", std::ios::in | std::ios::binary);
     bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-    seqBuf = new Buf2bit(pos);
+    seqBuf = new Buf2bit<>(pos);
     seqBuf->size = pos;
     bufFile.read(reinterpret_cast<char *>(seqBuf->seq), sizeof(uint8_t) * seqBuf->size);
 
@@ -717,7 +729,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a singl
         
         bufFile = std::ifstream(userInput.kmerDB[0] + "/.seq.bin", std::ios::in | std::ios::binary);
         bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-        seqBuf2 = new Buf2bit(pos);
+        seqBuf2 = new Buf2bit<>(pos);
         seqBuf2->size = pos;
         bufFile.read(reinterpret_cast<char *>(seqBuf2->seq), sizeof(uint8_t) * seqBuf2->size);
         
@@ -828,7 +840,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenc
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(Buf2bit *kmerPtr, uint64_t p, bool *isFw) { // hashing function for kmers
+inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(Buf2bit<> *kmerPtr, uint64_t p, bool *isFw) { // hashing function for kmers
     
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
@@ -873,7 +885,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::writeSeqBuf() {
     lg.verbose("Writing compressed sequences to disk");
     std::ofstream bufFileW = std::ofstream(userInput.prefix + "/.seq.bin", std::fstream::app | std::ios::out | std::ios::binary);
     bufFileW.write(reinterpret_cast<const char *>(&strVecLen), sizeof(uint64_t));
-    for (Buf2bit* str : strVec) { // for each sequence
+    for (Buf2bit<>* str : strVec) { // for each sequence
         bufFileW.write(reinterpret_cast<const char *>(str->seq), sizeof(uint8_t) * str->size);
         delete str;
     }
@@ -886,7 +898,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadSeqBuf() {
     lg.verbose("Reading compressed sequences to memory");
     std::ifstream bufFileR = std::ifstream(userInput.prefix + "/.seq.bin", std::ios::in | std::ios::binary);
     bufFileR.read(reinterpret_cast<char *>(&strVecLen), sizeof(uint64_t));
-    seqBuf = new Buf2bit(strVecLen);
+    seqBuf = new Buf2bit<>(strVecLen);
     bufFileR.read(reinterpret_cast<char *>(seqBuf->seq), sizeof(uint8_t) * strVecLen);
     bufFileR.close();
     seqBuf2 = seqBuf;
@@ -995,26 +1007,11 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::printHist(std::unique_ptr<std::ost
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-uint8_t* Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::bitDecode(uint8_t *binaryStr, uint8_t *str, uint8_t offset, uint64_t k) {
-    
-    uint8_t a = offset + k % 4;
-    uint64_t pos = 0;
-    for (uint64_t i = 0; i < k/4; ++i) {
-        for (int8_t e = 6-offset*2; e >= 0; e = e - 2)
-            str[pos++] = (binaryStr[i] >> e) & 3;
-        offset = 0;
-    }
-    for (uint64_t i = 0; i < a; ++i)
-        str[pos++] = (binaryStr[k/4] >> (6-i*2)) & 3;
-    return str;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
     //   Log threadLog;
     std::string *readBatch;
     uint64_t len = 0, currentPos = 0;
-    Buf2bit *str;
+    Buf2bit<> *str;
     
     while (true) {
             
@@ -1043,7 +1040,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             }
             
             uint64_t binLen = (len % 4 == 0) ? len / 4 : len / 4 + 1; // len * 2 / 8
-            str = new Buf2bit(binLen);
+            str = new Buf2bit<>(binLen);
             strVec.push_back(str);
             currentPos = strVecLen * 4;
             strVecLen += binLen;
@@ -1051,32 +1048,80 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
 
         Buf<uint64_t> *buffers = new Buf<uint64_t>[mapCount];
         uint32_t e = 0;
-        uint64_t key, pos = 0, kcount = len-kLen+1;
+        uint64_t key, pos = 0, kcount = len-kLen+1; // initially we don't know if there are subsequences, so the sequence end is kcount
         bool isFw = false;
         Buf<uint64_t>* buffer;
+        
+        // syncmers
+        uint8_t smerIdx, substrStart = 0, s = 7;
+        uint16_t newSmer, smallestSmer = pows[s];
+        std::string kmer;
+        Buf2bit<> *subsequences = new Buf2bit<>[mapCount];
+        bool scanSmers = true;
         
         for (uint64_t p = 0; p<kcount; ++p) {
             
             for (uint32_t c = e; c<kLen; ++c) { // generate k bases if e=0 or the next if e=k-1
                 
-                uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)];
-                
-                if (base < 4)
-                    str->seq[(p+c) / 4] |= base << (6 - ((p+c) % 4) * 2);
+                uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)]; // convert current char base to number
+                if (base < 4) // filter non ACGTacgt bases
+                    str->seq[(p+c) / 4] |= base << (6 - ((p+c) % 4) * 2); // 2-bit packing base packing
                 else { // if non-canonical/N base is found
                     p = p+c; // move position
                     e = 0; // reset base counter
+                    
+                    // syncmers
+                    scanSmers = true; // if we have started a new sequence we need to scan s-mers again
+                    smallestSmer = pows[s]; // lowest possible s-mer
+                    substrStart = p+1; // the new substr will start here
                     break;
                 }
-                e = kLen-1;
+                e = kLen-1; // after the first kmer we only read one char at a time
+                // syncmers
+                if (c == kLen-1 && scanSmers) { // when we start a new sequence we check all s-mers
+                    for (uint32_t i = 0; i<kLen-s+1; ++i) { // identify lexicographically smaller s-mer
+
+                        newSmer = bitHash(str->seq, p+i, s);                        
+                        if (newSmer < smallestSmer) {
+                            smallestSmer = newSmer;
+                            smerIdx = p+i;
+                        }
+                    }
+                    std::cout<<"lexicographically smaller smer:"<<std::bitset<16>(smallestSmer).to_string()<<std::endl;
+                    scanSmers = false;
+                }
             }
             if (e == 0) // not enough bases for a kmer
                 continue;
             
-            key = hash(str, p, &isFw);
+            key = hash(str, p, &isFw); // hash kmer and add to respective buffer
             buffer = &buffers[key % mapCount];
             pos = buffer->newPos(1);
             buffer->seq[pos-1] = currentPos+p;
+            
+            // syncmers
+            newSmer = bitHash(str->seq, p+k-s, s); // new candidate s-mer
+            if (newSmer < smallestSmer) {
+                smerIdx = p+k-s;
+                smallestSmer = newSmer;
+            }
+            
+            std::cout<<" "<<+p<<" smer: "<<+smallestSmer<<std::endl;
+            //std::cout<<"syncmer: "<<syncmer<<std::endl;
+            if (smerIdx == p || smerIdx == p+k-s || readBatch->at(p+k) == 'N') { // if smallest s-mer is at the start or at the end of sequence it's a syncmer, or if we reached the end of a sequence
+                uint8_t offset = readBatch->at(p+k) == 'N' ? 0 : 1;
+                std::string subseq = readBatch->substr(substrStart,p-substrStart+k-offset);
+                std::string subseq2 = str->substr(substrStart,p-substrStart+k-offset);
+                std::cout<<+p<<"found new syncmer: "<<readBatch->substr(p,k)<<std::endl;
+                std::cout<<+p<<"found new syncmer: "<<str->substr(p,k)<<std::endl;
+                uint8_t idx = *(uint64_t*)&smallestSmer % mapCount;
+                pos = subsequences[idx].newPos(subseq.size());
+                memcpy(&subsequences[idx].seq[pos-subseq.size()], &subseq2, sizeof(uint8_t)*subseq.size());
+
+                std::cout<<"subsequence: "<<subseq<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*(k-1)/subseq.size()<<")"<<std::endl;
+                std::cout<<"subsequence: "<<subseq2<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*(k-1)/subseq.size()<<")"<<std::endl;
+                substrStart = p;
+            }
         }
         delete readBatch;
         //    threadLog.add("Processed sequence: " + sequence->header);
@@ -1085,6 +1130,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
         std::lock_guard<std::mutex> lck(hashMtx);
         freed += len * sizeof(char);
         buffersVec.push_back(buffers);
+        syncmersVec.push_back(subsequences);
     }
     return true;
 }

@@ -113,7 +113,7 @@ struct DBGpath {
     
 };
 
-template<typename TYPE> // this is a generic buffer, TYPE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
+template<typename TYPE = uint8_t> // this is a generic buffer, TYPE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
 struct Buf {
     uint64_t pos = 0, size; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
     TYPE *seq = new TYPE[size](); // the actual container, parentheses ensure bits are set to 0
@@ -149,25 +149,6 @@ struct Buf {
             
         }
         return pos += add;
-    }
-};
-
-struct Buf2bit {
-    uint64_t size;
-    uint8_t *seq = new uint8_t[size](); // the actual container, parentheses ensure bits are set to 0
-    
-    Buf2bit(uint64_t size) : size(size){
-        alloc += size*sizeof(uint8_t);
-    }
-    ~Buf2bit(){
-        if (seq != NULL) {
-            delete[] seq;
-            freed += size*sizeof(uint8_t);
-        }
-    }
-    inline uint8_t getBase(uint64_t index) const {
-        uint8_t offset = index%4;
-        return (seq[index/4] >> (6-offset*2)) & 3;
     }
 };
 

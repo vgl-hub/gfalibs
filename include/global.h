@@ -11,6 +11,7 @@
 #include "threadpool.h"
 #include "bed.h"
 #include "struct.h"
+#include "bit-packing.h"
 
 //global time
 extern std::chrono::high_resolution_clock::time_point start;
@@ -27,6 +28,6 @@ extern ThreadPool<std::function<bool()>> threadPool;
 
 extern uint32_t kLen;
 extern uint8_t kPrefixLen;
-extern Buf2bit *seqBuf, *seqBuf2;
+extern Buf2bit<> *seqBuf, *seqBuf2;
 
 #endif /* GLOBAL_H */
