@@ -2,7 +2,8 @@
 #define KMER_H
 
 #include <future>
-#include <parallel-hashmap/phmap.h>
+#include <set>
+#include "parallel-hashmap/phmap.h"
 #include "parallel-hashmap/phmap_dump.h"
 
 #include <bit-packing.h>
@@ -1053,75 +1054,60 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
         Buf<uint64_t>* buffer;
         
         // syncmers
-        uint8_t smerIdx, substrStart = 0, s = 7;
-        uint16_t newSmer, smallestSmer = pows[s];
-        std::string kmer;
+        uint8_t s = 7;
+        std::multiset<uint16_t> smers;
+        uint64_t substrStart = 0;
         Buf2bit<> *subsequences = new Buf2bit<>[mapCount];
-        bool scanSmers = true;
         
         for (uint64_t p = 0; p<kcount; ++p) {
             
             for (uint32_t c = e; c<kLen; ++c) { // generate k bases if e=0 or the next if e=k-1
                 
                 uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)]; // convert current char base to number
-                if (base < 4) // filter non ACGTacgt bases
+                std::cout<<+base;
+                if (base < 4) { // filter non ACGTacgt bases
                     str->seq[(p+c) / 4] |= base << (6 - ((p+c) % 4) * 2); // 2-bit packing base packing
+                    if (c+1 >= s)
+                        smers.insert(bitHash(str->seq, p+c+1-s, s));
+                }
                 else { // if non-canonical/N base is found
                     p = p+c; // move position
                     e = 0; // reset base counter
-                    
-                    // syncmers
-                    scanSmers = true; // if we have started a new sequence we need to scan s-mers again
-                    smallestSmer = pows[s]; // lowest possible s-mer
-                    substrStart = p+1; // the new substr will start here
+                    smers.clear(); // syncmers
                     break;
                 }
                 e = kLen-1; // after the first kmer we only read one char at a time
-                // syncmers
-                if (c == kLen-1 && scanSmers) { // when we start a new sequence we check all s-mers
-                    for (uint32_t i = 0; i<kLen-s+1; ++i) { // identify lexicographically smaller s-mer
-
-                        newSmer = bitHash(str->seq, p+i, s);                        
-                        if (newSmer < smallestSmer) {
-                            smallestSmer = newSmer;
-                            smerIdx = p+i;
-                        }
-                    }
-                    std::cout<<"lexicographically smaller smer:"<<std::bitset<16>(smallestSmer).to_string()<<std::endl;
-                    scanSmers = false;
-                }
             }
             if (e == 0) // not enough bases for a kmer
                 continue;
+            
+//            std::cout<<std::endl;
+//            for (int i : smers)
+//                std::cout<<+i<<" "<<std::bitset<16>(i).to_string()<<std::endl;
             
             key = hash(str, p, &isFw); // hash kmer and add to respective buffer
             buffer = &buffers[key % mapCount];
             pos = buffer->newPos(1);
             buffer->seq[pos-1] = currentPos+p;
             
-            // syncmers
-            newSmer = bitHash(str->seq, p+k-s, s); // new candidate s-mer
-            if (newSmer < smallestSmer) {
-                smerIdx = p+k-s;
-                smallestSmer = newSmer;
-            }
-            
-            std::cout<<" "<<+p<<" smer: "<<+smallestSmer<<std::endl;
+            //std::cout<<" "<<+p<<" "<<+substrStart<<" "<<readBatch->at(p)<<"smallest smer: "<<+*smers.begin()<<std::endl;
             //std::cout<<"syncmer: "<<syncmer<<std::endl;
-            if (smerIdx == p || smerIdx == p+k-s || readBatch->at(p+k) == 'N') { // if smallest s-mer is at the start or at the end of sequence it's a syncmer, or if we reached the end of a sequence
-                uint8_t offset = readBatch->at(p+k) == 'N' ? 0 : 1;
-                std::string subseq = readBatch->substr(substrStart,p-substrStart+k-offset);
-                std::string subseq2 = str->substr(substrStart,p-substrStart+k-offset);
-                std::cout<<+p<<"found new syncmer: "<<readBatch->substr(p,k)<<std::endl;
+            if (*smers.begin() == bitHash(str->seq, p, s) || *smers.begin() == bitHash(str->seq, p+k-s, s) || readBatch->at(p+k) == 'N') { // if smallest s-mer is at the start or at the end of sequence it's a syncmer, or if we reached the end of a sequence
+
+                std::string subseq = readBatch->substr(substrStart,p-substrStart+k);
+                std::string subseq2 = str->substr(substrStart,p-substrStart+k);
+//                std::cout<<+p<<"found new syncmer: "<<readBatch->substr(p,k)<<std::endl;
                 std::cout<<+p<<"found new syncmer: "<<str->substr(p,k)<<std::endl;
-                uint8_t idx = *(uint64_t*)&smallestSmer % mapCount;
+                uint8_t idx = *smers.begin() % mapCount;
+                std::cout<<"map: "<<+idx<<std::endl;
                 pos = subsequences[idx].newPos(subseq.size());
                 memcpy(&subsequences[idx].seq[pos-subseq.size()], &subseq2, sizeof(uint8_t)*subseq.size());
 
-                std::cout<<"subsequence: "<<subseq<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*(k-1)/subseq.size()<<")"<<std::endl;
-                std::cout<<"subsequence: "<<subseq2<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*(k-1)/subseq.size()<<")"<<std::endl;
-                substrStart = p;
+                std::cout<<"subsequence: "<<subseq<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*subseq.size()/(subseq.size()+k)<<")"<<std::endl;
+                std::cout<<"subsequence: "<<subseq2<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*subseq.size()/(subseq.size()+k)<<")"<<std::endl;
+                substrStart = p+1;
             }
+            smers.erase(bitHash(str->seq, p, s)); // forget s-mer out of window
         }
         delete readBatch;
         //    threadLog.add("Processed sequence: " + sequence->header);
