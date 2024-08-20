@@ -73,8 +73,8 @@ protected: // they are protected, so that they can be further specialized by inh
             
             for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
                 
-                fw += seqBuf->getBase(offset+c) * pows[c]; // base * 2^N
-                rv += (3-seqBuf->getBase(offset+kLen-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
+                fw += seqBuf->at(offset+c) * pows[c]; // base * 2^N
+                rv += (3-seqBuf->at(offset+kLen-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
             }
             // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
             return fw < rv ? fw : rv;
@@ -88,13 +88,13 @@ protected: // they are protected, so that they can be further specialized by inh
             uint64_t offset1 = key1.getKmer(), offset2 = key2.getKmer();
             
             for(uint32_t i = 0; i<kLen; ++i) { // check fw
-                if(seqBuf->getBase(offset1+i) ^ seqBuf->getBase(offset2+i))
+                if(seqBuf->at(offset1+i) ^ seqBuf->at(offset2+i))
                     break;
                 if (i == kLen-1)
                     return true;
             }
             for(uint32_t i = 0; i<kLen; ++i) { // if fw fails, check rv
-                if(seqBuf->getBase(offset1+i) ^ (3-seqBuf->getBase(offset2+kLen-i-1)))
+                if(seqBuf->at(offset1+i) ^ (3-seqBuf->at(offset2+kLen-i-1)))
                     return false;
             }
             return true;
@@ -846,8 +846,8 @@ inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(Buf2bit<> *kmerPtr
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
     for(uint8_t c = 0; c<k; ++c) { // for each position up to kPrefixLen
-        fw += kmerPtr->getBase(p+c) * pows[c]; // base * 2^N
-        rv += (3-(kmerPtr->getBase(p+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
+        fw += kmerPtr->at(p+c) * pows[c]; // base * 2^N
+        rv += (3-(kmerPtr->at(p+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
     }
     
     if (isFw != NULL)
@@ -1055,6 +1055,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
         
         // syncmers
         uint8_t s = 7;
+        uint16_t prevSyncSmer;
         std::multiset<uint16_t> smers;
         uint64_t substrStart = 0;
         Buf2bit<> *subsequences = new Buf2bit<>[mapCount];
@@ -1066,14 +1067,15 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
                 uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)]; // convert current char base to number
                 std::cout<<+base;
                 if (base < 4) { // filter non ACGTacgt bases
-                    str->seq[(p+c) / 4] |= base << (6 - ((p+c) % 4) * 2); // 2-bit packing base packing
+                    str->assign(p+c, base); // 2-bit packing base packing
                     if (c+1 >= s)
-                        smers.insert(bitHash(str->seq, p+c+1-s, s));
+                        smers.insert(str->bitHash(p+c+1-s, s));
                 }
                 else { // if non-canonical/N base is found
                     p = p+c; // move position
                     e = 0; // reset base counter
                     smers.clear(); // syncmers
+                    substrStart = p+1; // the new substr will start here
                     break;
                 }
                 e = kLen-1; // after the first kmer we only read one char at a time
@@ -1092,12 +1094,28 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
             
             //std::cout<<" "<<+p<<" "<<+substrStart<<" "<<readBatch->at(p)<<"smallest smer: "<<+*smers.begin()<<std::endl;
             //std::cout<<"syncmer: "<<syncmer<<std::endl;
-            if (*smers.begin() == bitHash(str->seq, p, s) || *smers.begin() == bitHash(str->seq, p+k-s, s) || readBatch->at(p+k) == 'N') { // if smallest s-mer is at the start or at the end of sequence it's a syncmer, or if we reached the end of a sequence
-
-                std::string subseq = readBatch->substr(substrStart,p-substrStart+k);
-                std::string subseq2 = str->substr(substrStart,p-substrStart+k);
-//                std::cout<<+p<<"found new syncmer: "<<readBatch->substr(p,k)<<std::endl;
-                std::cout<<+p<<"found new syncmer: "<<str->substr(p,k)<<std::endl;
+            
+            std::string subseq, subseq2;
+            bool substr = false;
+            
+            if (*smers.begin() == str->bitHash(p, s)) { // if smallest s-mer is at the start
+                
+                std::cout<<+p<<"found new syncmer1: "<<str->substr(p,k)<<std::endl;
+                substr = true;
+                
+            } else if (*smers.begin() == str->bitHash(p+k-s, s)) { // or at the end of sequence, it's a syncmer
+                
+                std::cout<<+p<<"found new syncmer2: "<<str->substr(p,k)<<std::endl;
+                prevSyncSmer = *smers.begin(); // we remember this s-mer to see if the next syncmer has the same smallest s-mer
+                
+            } else if (readBatch->at(p+k) == 'N') { // or if we reached the end of a sequence
+                substr = true;
+            }
+            
+            if (substr) {
+                
+                subseq = readBatch->substr(substrStart,p-substrStart+k);
+                subseq2 = str->substr(substrStart,p-substrStart+k);
                 uint8_t idx = *smers.begin() % mapCount;
                 std::cout<<"map: "<<+idx<<std::endl;
                 pos = subsequences[idx].newPos(subseq.size());
@@ -1105,9 +1123,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
 
                 std::cout<<"subsequence: "<<subseq<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*subseq.size()/(subseq.size()+k)<<")"<<std::endl;
                 std::cout<<"subsequence: "<<subseq2<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*subseq.size()/(subseq.size()+k)<<")"<<std::endl;
+                substr = false;
                 substrStart = p+1;
             }
-            smers.erase(bitHash(str->seq, p, s)); // forget s-mer out of window
+            smers.erase(str->bitHash(p, s)); // forget s-mer out of window
         }
         delete readBatch;
         //    threadLog.add("Processed sequence: " + sequence->header);

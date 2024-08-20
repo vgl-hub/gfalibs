@@ -30,15 +30,39 @@ const unsigned char ctoi[256] = { // this converts ACGT>0123 and any other chara
 const uint8_t itoc[4] = {'A', 'C', 'G', 'T'}; // 0123>ACGT
 
 template <typename TYPE = uint8_t>
-struct Buf2bit : Buf<TYPE> {
+struct Buf2bit : Buf<TYPE> { // 2-bit specialization of a buffer
     
     using Buf<TYPE>::Buf;
     
-    inline uint8_t getBase(uint64_t index) const {
+    Buf2bit(uint64_t size) : Buf<TYPE>((size/4+(size % 4 != 0))) { // constructor to allocate size bytes
+        alloc += this->size*sizeof(TYPE);
+        this->pos = size;
+    }
+    
+    Buf2bit(std::string str) : Buf<TYPE>((str.size()/4+(str.size() % 4 != 0))) { // build 2-bit string from std::string
+        
+        this->pos = str.size();
+        for (uint64_t i = 0; i<this->pos; ++i)
+            this->seq[i / 4] |= ctoi[(unsigned char)str[i]] << (6 - (i % 4) * 2); // 2-bit packing base packing
+    }
+    
+    uint64_t length() const { // size in characters of the 2-bit string
+        return this->pos;
+    }
+    
+    inline uint8_t at(uint64_t index) const { // return char at pos
         return (this->seq[index/4] >> (6-(index%4)*2)) & 3;
     }
     
-    inline std::string substr(uint64_t offset, uint64_t k) {
+    inline void assign(uint64_t p, char base) { // assign base ACGT
+        this->seq[p/4] |= ctoi[(unsigned char)base] << (6 - (p%4) * 2);
+    }
+    
+    inline void assign(uint64_t p, uint8_t base) { // assign base 0123
+        this->seq[p/4] |= base << (6 - (p%4) * 2);
+    }
+    
+    inline std::string substr(uint64_t offset, uint64_t k) { // substring 2-bit string and return std::string
         
         uint8_t *binaryStrAt = &this->seq[offset/4];
         uint8_t offsetBit = offset % 4;
@@ -57,69 +81,74 @@ struct Buf2bit : Buf<TYPE> {
         return str;
     }
     
+    inline std::string toString() { // overload to use default values and convert the whole string
+        return substr(0, this->pos);
+    }
+    
+    inline void newSize(uint64_t add) { // for backward compatibility we make a new function to increase the size of the container
+        
+        if (this->pos + add > this->size) {
+            
+            uint64_t newSize = (this->pos + add)*2;
+            
+            alloc += newSize*sizeof(TYPE);
+            TYPE* seqNew = new TYPE[newSize](); // parentheses ensure bits are set to 0
+            
+            memcpy(seqNew, this->seq, this->size*sizeof(TYPE));
+            
+            delete[] this->seq;
+            freed += this->size*sizeof(TYPE);
+            this->size = newSize;
+            this->seq = seqNew;
+        }
+    }
+    
+    inline Buf2bit& append(const Buf2bit& buf2bit) { // append 2-bit string to 2-bit string
+        
+        uint64_t lenB = buf2bit.length();
+        this->newSize((lenB/4+(lenB % 4 != 0))); // increase size of the container if needed
+        for (uint64_t i = 0; i<lenB; ++i)
+            this->assign(this->pos++,buf2bit.at(i));
+        
+        return *this;
+    }
+    
+    inline uint8_t* toArray(uint64_t offset, uint64_t k) { // convert 2-bit string to uint8_t array
+        
+        uint8_t *str = new uint8_t[k];
+        uint8_t *binaryStrAt = &this->seq[offset/4];
+        uint8_t offsetBit = offset % 4;
+        
+        uint8_t res = offsetBit + k % 4;
+        uint64_t p = 0;
+        for (uint64_t i = 0; i < k/4+res/4; ++i) {
+            for (int8_t e = 6-offsetBit*2; e >= 0; e = e - 2)
+                str[p++] = (binaryStrAt[i] >> e) & 3;
+            offsetBit = 0;
+        }
+        for (uint8_t i = 0; i < res % 4; ++i)
+            str[p++] = (binaryStrAt[k/4+res/4] >> (6-i*2)) & 3;
+        return str;
+    }
+
+    inline uint16_t bitHash(uint64_t offset, uint32_t k) { // convert position to hash
+        
+        uint8_t *binaryStrAt = &this->seq[offset/4], shift = (offset % 4)*2;
+        uint16_t hash = 0;
+        hash |= ((uint16_t)binaryStrAt[0] << (CHAR_BIT + shift)) + (binaryStrAt[1] << shift) + (binaryStrAt[2] >> (8-shift));
+        return hash >> (8-k)*2;
+    }
+    
 };
 
-inline uint8_t* bitDecodeToArr(uint8_t *binaryStr, uint64_t offset, uint64_t k) {
+static inline Buf2bit<> revCom(Buf2bit<> &seq) { // reverse complement
     
-    uint8_t *str = new uint8_t[k];
-    uint8_t *binaryStrAt = &binaryStr[offset/4];
-    uint8_t offsetBit = offset % 4;
+    uint64_t len = seq.length();
+    Buf2bit<> rc(len);
     
-    uint8_t res = offsetBit + k % 4;
-    uint64_t pos = 0;
-    for (uint64_t i = 0; i < k/4+res/4; ++i) {
-        for (int8_t e = 6-offsetBit*2; e >= 0; e = e - 2)
-            str[pos++] = (binaryStrAt[i] >> e) & 3;
-        offsetBit = 0;
-    }
-    for (uint8_t i = 0; i < res % 4; ++i)
-        str[pos++] = (binaryStrAt[k/4+res/4] >> (6-i*2)) & 3;
-    return str;
+    for (uint64_t i = 0; i<len; ++i)
+        rc.assign(i,static_cast<uint8_t>(3-seq.at(len-i-1)));
+    return rc;
 }
-
-inline uint8_t* bitDecodeToArr(uint8_t *binaryStr, uint8_t *str, uint64_t offset, uint64_t k) {
-    
-    uint8_t *binaryStrAt = &binaryStr[offset/4];
-    uint8_t offsetBit = offset % 4;
-    
-    uint8_t res = offsetBit + k % 4;
-    uint64_t pos = 0;
-    for (uint64_t i = 0; i < k/4+res/4; ++i) {
-        for (int8_t e = 6-offsetBit*2; e >= 0; e = e - 2)
-            str[pos++] = (binaryStrAt[i] >> e) & 3;
-        offsetBit = 0;
-    }
-    for (uint8_t i = 0; i < res % 4; ++i)
-        str[pos++] = (binaryStrAt[k/4+res/4] >> (6-i*2)) & 3;
-    return str;
-}
-
-inline std::string bitDecodeToStr(uint8_t *binaryStr, uint8_t offset, uint64_t k) {
-    
-    uint8_t *binaryStrAt = &binaryStr[offset/4];
-    uint8_t offsetBit = offset % 4;
-    
-    std::string str;
-    uint8_t res = offsetBit + k % 4;
-
-    for (uint64_t i = 0; i < k/4+res/4; ++i) {
-        for (int8_t e = 6-offsetBit*2; e >= 0; e = e - 2)
-            str.push_back(itoc[(binaryStrAt[i] >> e) & 3]);
-        offsetBit = 0;
-    }
-    for (uint8_t i = 0; i < res % 4; ++i)
-        str.push_back(itoc[(binaryStrAt[k/4+res/4] >> (6-i*2)) & 3]);
-    
-    return str;
-}
-
-inline uint16_t bitHash(uint8_t *binaryStr, uint64_t offset, uint32_t k) {
-    
-    uint8_t *binaryStrAt = &binaryStr[offset/4], shift = (offset % 4)*2;
-    uint16_t hash = 0;
-    hash |= ((uint16_t)binaryStrAt[0] << (CHAR_BIT + shift)) + (binaryStrAt[1] << shift) + (binaryStrAt[2] >> (8-shift));
-    return hash >> (8-k)*2;
-}
-
 
 #endif /* BIT_PACKING_H */
