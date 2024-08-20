@@ -1040,11 +1040,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashSequences() {
                 continue;
             }
             
-            uint64_t binLen = (len % 4 == 0) ? len / 4 : len / 4 + 1; // len * 2 / 8
-            str = new Buf2bit<>(binLen);
+            str = new Buf2bit<>(len);
             strVec.push_back(str);
             currentPos = strVecLen * 4;
-            strVecLen += binLen;
+            strVecLen += len;
         }
 
         Buf<uint64_t> *buffers = new Buf<uint64_t>[mapCount];
