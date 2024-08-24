@@ -62,7 +62,7 @@ struct Buf2bit : Buf<TYPE> { // 2-bit specialization of a buffer
         this->seq[p/4] |= base << (6 - (p%4) * 2);
     }
     
-    inline std::string substr(uint64_t offset, uint64_t k) { // substring 2-bit string and return std::string
+    inline std::string substr(uint64_t offset, uint64_t k) const { // substring 2-bit string and return std::string
         
         uint8_t *binaryStrAt = &this->seq[offset/4];
         uint8_t offsetBit = offset % 4;
@@ -81,7 +81,7 @@ struct Buf2bit : Buf<TYPE> { // 2-bit specialization of a buffer
         return str;
     }
     
-    inline std::string toString() { // overload to use default values and convert the whole string
+    inline std::string toString() const { // overload to use default values and convert the whole string
         return substr(0, this->pos);
     }
     
@@ -150,5 +150,80 @@ static inline Buf2bit<> revCom(Buf2bit<> &seq) { // reverse complement
         rc.assign(i,static_cast<uint8_t>(3-seq.at(len-i-1)));
     return rc;
 }
+
+template <typename TYPE = uint8_t>
+struct Buf1bit : Buf<TYPE> { // 1-bit specialization of a buffer
+    
+    using Buf<TYPE>::Buf;
+    
+    Buf1bit(uint64_t size) : Buf<TYPE>((size/8+(size % 8 != 0))) { // constructor to allocate size bytes
+        alloc += this->size*sizeof(TYPE);
+        this->pos = size;
+    }
+    
+    uint64_t length() const { // size in characters of the 2-bit string
+        return this->pos;
+    }
+    
+    inline uint8_t at(uint64_t index) const { // return char at pos
+        return (this->seq[index/8] >> (7-index%8)) & 1;
+    }
+    
+    inline void assign(uint64_t p) { // assign 1
+        this->seq[p/8] |= 1 << (7 - p%8);
+    }
+    
+    inline std::string substr(uint64_t offset, uint64_t k) { // substring 1-bit string and return std::string
+        
+        uint8_t *binaryStrAt = &this->seq[offset/8];
+        uint8_t offsetBit = offset % 8;
+        
+        std::string str;
+        uint8_t res = offsetBit + k % 8;
+        for (uint64_t i = 0; i < k/8+res/8; ++i) {
+            for (int8_t e = 7-offsetBit; e >= 0; --e)
+                str.push_back('0' + ((binaryStrAt[i] >> e) & 1));
+            offsetBit = 0;
+        }
+        for (uint8_t i = 0; i < res % 8; ++i)
+            str.push_back('0' + ((binaryStrAt[k/8+res/8] >> (7-i)) & 1));
+        return str;
+    }
+    
+    inline std::string toString() { // overload to use default values and convert the whole string
+        return substr(0, this->pos);
+    }
+    
+    inline void newSize(uint64_t add) { // for backward compatibility we make a new function to increase the size of the container
+        
+        if (this->pos + add > this->size) {
+            
+            uint64_t newSize = (this->pos + add)*2;
+            
+            alloc += newSize*sizeof(TYPE);
+            TYPE* seqNew = new TYPE[newSize](); // parentheses ensure bits are set to 0
+            
+            memcpy(seqNew, this->seq, this->size*sizeof(TYPE));
+            
+            delete[] this->seq;
+            freed += this->size*sizeof(TYPE);
+            this->size = newSize;
+            this->seq = seqNew;
+        }
+    }
+    
+    inline Buf1bit& append(const Buf1bit& buf1bit) { // append 2-bit string to 2-bit string
+        
+        uint64_t lenB = buf1bit.length();
+        this->newSize((lenB/8+(lenB % 8 != 0))); // increase size of the container if needed
+        for (uint64_t i = 0; i<lenB; ++i) {
+            if(buf1bit.at(i))
+                this->assign(this->pos+i);
+        }
+        this->pos += lenB;
+        
+        return *this;
+    }
+};
 
 #endif /* BIT_PACKING_H */
