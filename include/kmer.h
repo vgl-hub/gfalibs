@@ -216,7 +216,7 @@ public:
     
     void buffersToMaps();
     
-    bool processBuffer(ParallelMap &map, ParallelMap32 &map32, uint16_t t, uint8_t m, uint64_t start, uint64_t end);
+    bool processBuffer(uint8_t thread, uint16_t m);
     
     void consolidateTmpMaps();
     
@@ -452,46 +452,17 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         
         pos = seqBuf[m].seq->pos;
         
+        maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq), KeyEqualTo(seqBuf[m].seq)); // total compressed kmers * load factor 40%;
+        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq), KeyEqualTo(seqBuf[m].seq));
+        
         if (pos != 0) {
-            
-            std::vector<ParallelMap*> tmpMaps;
-            std::vector<ParallelMap32*> tmpMaps32;
-            
+
             std::vector<std::function<bool()>> jobs;
-            
-            uint64_t last = seqBuf[m].seq->pos-kLen+1, start = 0, end;
-            uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
-            
-            for(std::size_t t = 0; t < threadPool.totalThreads(); ++t) {
-                
-                end = start + quota;
-                if (end > last)
-                    end = last;
-                while (!seqBuf[m].mask->at(end+kLen-1) && end < last)
-                    ++end;
-                
-                if (t == threadPool.totalThreads()-1)
-                    end = last;
-                
-                ParallelMap *map = new ParallelMap(0, KeyHasher(seqBuf[m].seq), KeyEqualTo(seqBuf[m].seq)); // total compressed kmers * load factor 40%;
-                ParallelMap32 *map32 = new ParallelMap32(0, KeyHasher(seqBuf[m].seq), KeyEqualTo(seqBuf[m].seq));
-                
-                tmpMaps.push_back(map);
-                tmpMaps32.push_back(map32);
-                jobs.push_back([this, map, map32, t, m, start, end] { return static_cast<DERIVED*>(this)->processBuffer(*map, *map32, t, m, start, end); });
-                if (end == last)
-                    break;
-                start = end;
-            }
+            for(std::size_t t = 0; t < threadPool.totalThreads(); ++t)
+                jobs.push_back([this, t, m] { return static_cast<DERIVED*>(this)->processBuffer(t, m); });
             
             threadPool.queueJobs(jobs);
             jobWait(threadPool);
-            maps[m] = tmpMaps[0];
-            maps32[m] = tmpMaps32[0];
-            for (uint16_t i = 1; i < tmpMaps.size(); ++i) {
-                mergeMaps(*tmpMaps[i], *maps[m], *maps32[m]);
-                delete tmpMaps[i];
-            }
         }
         dumpTmpMap(userInput.prefix, m);
 //        reloadMap32(m);}
@@ -501,29 +472,62 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(ParallelMap &map, ParallelMap32 &map32, uint16_t t, uint8_t m, uint64_t start, uint64_t end) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t thread, uint16_t m) {
     
-    for (uint64_t c = start; c<end; ++c) {
-        
-        Key key(c);
-        uint8_t &count = map[key];
-        bool overflow = (count >= 254 ? true : false);
-        
-        if (!overflow)
-            ++count; // increase kmer coverage
-            
-        if (overflow) {
+    SeqBuf &buf = seqBuf[m];
+    KeyHasher keyHasher(seqBuf[m].seq);
+    
+    ParallelMap &map = *maps[m]; // the map associated to this buffer
+    ParallelMap32 &map32 = *maps32[m];
+    
+    uint64_t pos = buf.seq->pos;
 
-            TYPE2 &count32 = map32[key];
-            if (count32 == 0) { // first time we add the kmer
-                count32 = count;
-                count = 255; // invalidates int8 kmer
+    for (uint64_t c = 0; c<pos; ++c) {
+        
+        if (!buf.mask->at(c+kLen-1)) {
+            
+            Key key(c);
+            size_t idx = map.subidx(keyHasher(key)); // compute the submap index for this hash
+            if (idx % threadPool.totalThreads() != thread)
+                continue;
+            
+            auto& inner = map.get_inner(idx);   // to retrieve the submap at given index
+            auto& submap = inner.set_;        // can be a set or a map, depending on the type of map
+            auto& inner32 = map32.get_inner(idx);
+            auto& submap32 = inner32.set_;
+
+            auto got = submap.find(key); // insert or find this kmer in the hash table
+            if (got == submap.end()) {
+                submap.insert(std::make_pair(key,1));
+            }else{
+                
+                uint8_t &count = got->second;
+                
+                bool overflow = (count >= 254 ? true : false);
+                
+                if (!overflow)
+                    ++count; // increase kmer coverage
+                
+                if (overflow) {
+                    
+                    auto got = submap32.find(key); // insert or find this kmer in the hash table
+                    if (got == submap32.end()) {
+                        submap32.insert(std::make_pair(key,1));
+                    }else{
+                        TYPE2 &count32 = got->second;
+                        
+                        if (count32 == 0) { // first time we add the kmer
+                            count32 = count;
+                            count = 255; // invalidates int8 kmer
+                        }
+                        if (count32 < LARGEST)
+                            ++count32; // increase kmer coverage
+                    }
+                }
             }
-            if (count32 < LARGEST)
-                ++count32; // increase kmer coverage
+        }else{
+            c += kLen;
         }
-        if(seqBuf[m].mask->at(c+kLen-1))
-            c += kLen-1;
     }
     return true;
 }
