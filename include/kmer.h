@@ -35,21 +35,26 @@ public:
 
 struct KeyHasher {
 
-    uint64_t* pows = new uint64_t[kPrefixLen];
+    uint8_t prefix;
+    uint32_t k;
+    uint64_t* pows;
     Buf2bit<> *seqBuf;
     
-    KeyHasher(Buf2bit<> *seqBuf = NULL) : seqBuf(seqBuf) {
-        for(uint8_t p = 0; p<kPrefixLen; ++p) // precomputes the powers of k
+    KeyHasher() {}
+    
+    KeyHasher(Buf2bit<> *seqBuf, uint8_t prefix, uint32_t k) : prefix(prefix), k(k), seqBuf(seqBuf) {
+        pows = new uint64_t[prefix];
+        for(uint8_t p = 0; p<prefix; ++p) // precomputes the powers of k
             pows[p] = (uint64_t) pow(4,p);
     }
     std::size_t operator()(const Key& key) const {
 
         uint64_t fw = 0, rv = 0, offset = key.getKmer(); // hashes for both forward and reverse complement sequence
         
-        for(uint8_t c = 0; c<kPrefixLen; ++c) { // for each position up to kPrefixLen
+        for(uint8_t c = 0; c<prefix; ++c) { // for each position up to prefix len
             
             fw += seqBuf->at(offset+c) * pows[c]; // base * 2^N
-            rv += (3-seqBuf->at(offset+kLen-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
+            rv += (3-seqBuf->at(offset+k-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
         }
         // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
         return fw < rv ? fw : rv;
@@ -58,22 +63,26 @@ struct KeyHasher {
 
 struct KeyEqualTo {
     
+    uint8_t prefix;
+    uint32_t k;
     Buf2bit<> *seqBuf;
     
-    KeyEqualTo(Buf2bit<> *seqBuf = NULL) : seqBuf(seqBuf) {}
+    KeyEqualTo() {}
+    
+    KeyEqualTo(Buf2bit<> *seqBuf, uint8_t prefix, uint32_t k) : prefix(prefix), k(k), seqBuf(seqBuf) {}
     
     bool operator()(const Key& key1, const Key& key2) const {
         
         uint64_t offset1 = key1.getKmer(), offset2 = key2.getKmer();
         
-        for(uint32_t i = 0; i<kLen; ++i) { // check fw
+        for(uint32_t i = 0; i<k; ++i) { // check fw
             if(seqBuf->at(offset1+i) ^ seqBuf->at(offset2+i))
                 break;
-            if (i == kLen-1)
+            if (i == k-1)
                 return true;
         }
-        for(uint32_t i = 0; i<kLen; ++i) { // if fw fails, check rv
-            if(seqBuf->at(offset1+i) ^ (3-seqBuf->at(offset2+kLen-i-1)))
+        for(uint32_t i = 0; i<k; ++i) { // if fw fails, check rv
+            if(seqBuf->at(offset1+i) ^ (3-seqBuf->at(offset2+k-i-1)))
                 return false;
         }
         return true;
@@ -93,7 +102,8 @@ protected: // they are protected, so that they can be further specialized by inh
     UserInput &userInput;
     InSequences inSequences; // when we read a reference we can store it here
     
-    uint8_t k; // kPrefixLen
+    uint8_t prefix; // prefix length
+    uint32_t k; // kmer length
     uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
     std::atomic<bool> readingDone{false};
     std::vector<std::thread> threads;
@@ -160,7 +170,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
 public:
     
-    Kmap(UserInput& userInput) : userInput(userInput), k{kPrefixLen} {
+    Kmap(UserInput& userInput) : userInput(userInput), prefix(userInput.kPrefixLen), k{userInput.kLen} {
         
         DBextension = "kc";
         
@@ -452,8 +462,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         
         pos = seqBuf[m].seq->pos;
         
-        maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq), KeyEqualTo(seqBuf[m].seq)); // total compressed kmers * load factor 40%;
-        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq), KeyEqualTo(seqBuf[m].seq));
+        maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k)); // total compressed kmers * load factor 40%;
+        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
         
         if (pos != 0) {
 
@@ -464,6 +474,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             threadPool.queueJobs(jobs);
             jobWait(threadPool);
         }
+        delete seqBuf[m].seq;
+        delete seqBuf[m].mask;
         dumpTmpMap(userInput.prefix, m);
 //        reloadMap32(m);}
     }
@@ -475,7 +487,7 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t thread, uint16_t m) {
     
     SeqBuf &buf = seqBuf[m];
-    KeyHasher keyHasher(seqBuf[m].seq);
+    KeyHasher keyHasher(seqBuf[m].seq, prefix, k);
     
     ParallelMap &map = *maps[m]; // the map associated to this buffer
     ParallelMap32 &map32 = *maps32[m];
@@ -484,7 +496,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t thread, uint
 
     for (uint64_t c = 0; c<pos; ++c) {
         
-        if (!buf.mask->at(c+kLen-1)) {
+        if (!buf.mask->at(c+k-1)) {
             
             Key key(c);
             size_t idx = map.subidx(keyHasher(key)); // compute the submap index for this hash
@@ -526,7 +538,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t thread, uint
                 }
             }
         }else{
-            c += kLen;
+            c += k;
         }
     }
     return true;
@@ -858,7 +870,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output
         case 2: { // .kc
             std::ofstream ofs(userInput.outFile + "/.index"); // adding index
             ostream = std::make_unique<std::ostream>(ofs.rdbuf());
-            *ostream<<+kLen<<"\n"<<mapCount<<std::endl;
+            *ostream<<+k<<"\n"<<mapCount<<std::endl;
             ofs.close();
             break;
         }
@@ -899,9 +911,9 @@ inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(Buf2bit<> *kmerPtr
     
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
-    for(uint8_t c = 0; c<k; ++c) { // for each position up to kPrefixLen
+    for(uint8_t c = 0; c<k; ++c) { // for each position up to prefix len
         fw += kmerPtr->at(p+c) * pows[c]; // base * 2^N
-        rv += (3-(kmerPtr->at(p+kLen-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
+        rv += (3-(kmerPtr->at(p+k-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
     }
     
     if (isFw != NULL)
@@ -974,7 +986,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::stats() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::DBstats() {
     
-    uint64_t missing = pow(4,kLen)-totDistinct;
+    uint64_t missing = pow(4,k)-totDistinct;
     
     std::cout<<"DB Summary statistics:\n"
              <<"Total kmers: "<<tot<<"\n"
@@ -1060,7 +1072,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
             readBatches.pop();
             len = readBatch->size();
             
-            if (len<kLen) {
+            if (len<k) {
                 delete readBatch;
                 freed += len * sizeof(char);
                 continue;
@@ -1070,7 +1082,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
 
         SeqBuf *buffers = new SeqBuf[mapCount];
         uint32_t e = 0;
-        uint64_t kcount = len-kLen+1; // initially we don't know if there are subsequences, so the sequence end is kcount
+        uint64_t kcount = len-k+1; // initially we don't know if there are subsequences, so the sequence end is kcount
         
         // syncmers
         uint8_t s = 7;
@@ -1080,7 +1092,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
         
         for (uint64_t p = 0; p<kcount; ++p) {
             
-            for (uint32_t c = e; c<kLen; ++c) { // generate k bases if e=0 or the next if e=k-1
+            for (uint32_t c = e; c<k; ++c) { // generate k bases if e=0 or the next if e=k-1
                 
                 uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)]; // convert current char base to number
 //                std::cout<<+base;
@@ -1098,7 +1110,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
                     substrStart = p+1; // the new substr will start here
                     break;
                 }
-                e = kLen-1; // after the first kmer we only read one char at a time
+                e = k-1; // after the first kmer we only read one char at a time
             }
             if (e == 0) // not enough bases for a kmer
                 continue;

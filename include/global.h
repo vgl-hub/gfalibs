@@ -26,7 +26,4 @@ extern int maxThreads;
 extern std::mutex mtx;
 extern ThreadPool<std::function<bool()>> threadPool;
 
-extern uint32_t kLen;
-extern uint8_t kPrefixLen;
-
 #endif /* GLOBAL_H */

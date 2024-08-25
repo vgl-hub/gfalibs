@@ -32,7 +32,8 @@ struct UserInput { // a container for user input
     std::vector<std::string> kmerDB; // a database of kmers (or DBG)
     std::string prefix = ".", outFile = "";
     
-    uint32_t kmerLen = 21;
+    uint32_t kLen = 21;
+    uint8_t kPrefixLen = 5;
     
 };
 
