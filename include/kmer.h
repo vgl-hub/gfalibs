@@ -277,6 +277,8 @@ public:
     void cleanup();
     
     bool mergeMaps(uint16_t m);
+    
+    void mergeMaps(ParallelMap &map1, ParallelMap &map2, ParallelMap32 &map32);
 
 };
 
@@ -349,20 +351,13 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
     
     bool hashing = true;
     std::vector<SeqBuf*> buffersVecCpy;
-    std::ofstream bufFiles[mapCount], maskFiles[mapCount];
     
-    for (uint16_t b = 0; b<mapCount; ++b) // we open all files at once
-        bufFiles[b] = std::ofstream(userInput.prefix + "/.buf." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
-
-    for (uint16_t b = 0; b<mapCount; ++b) // we open all files at once
-        maskFiles[b] = std::ofstream(userInput.prefix + "/.mask." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
-
     while (hashing) {
         
         if (readingDone) { // if we have finished reading the input
             
             uint8_t hashingDone = 0;
-        
+            
             for (uint8_t i = 1; i < futures.size(); ++i) { // we check how many hashing threads are still running
                 if (futures[i].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
                     ++hashingDone;
@@ -378,31 +373,35 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
             buffersVec.clear();
         }
         
-        for (SeqBuf *buffers : buffersVecCpy) { // for each array of buffers
+        if (buffersVecCpy.size()>0) {
             
             for (uint16_t b = 0; b<mapCount; ++b) { // for each buffer file
-                Buf2bit<> *buffer = buffers[b].seq;
-                bufFiles[b].write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
-                bufFiles[b].write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint8_t) * (buffer->pos/4 + (buffer->pos % 4 != 0)));
-                delete[] buffer->seq;
-                buffer->seq = NULL;
-                freed += buffer->size * sizeof(uint8_t);
                 
-                Buf1bit<> *mask = buffers[b].mask;
-                maskFiles[b].write(reinterpret_cast<const char *>(&mask->pos), sizeof(uint64_t));
-                maskFiles[b].write(reinterpret_cast<const char *>(mask->seq), sizeof(uint8_t) * (mask->pos/8 + (mask->pos % 8 != 0)));
-                delete[] mask->seq;
-                mask->seq = NULL;
-                freed += mask->size * sizeof(uint8_t);
+                std::ofstream bufFile(userInput.prefix + "/.buf." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
+                std::ofstream maskFile(userInput.prefix + "/.mask." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
                 
+                for (SeqBuf *buffers : buffersVecCpy) { // for each array of buffers
+                    
+                    Buf2bit<> *buffer = buffers[b].seq;
+                    bufFile.write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
+                    bufFile.write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint8_t) * (buffer->pos/4 + (buffer->pos % 4 != 0)));
+                    delete[] buffer->seq;
+                    buffer->seq = NULL;
+                    freed += buffer->size * sizeof(uint8_t);
+                    
+                    Buf1bit<> *mask = buffers[b].mask;
+                    maskFile.write(reinterpret_cast<const char *>(&mask->pos), sizeof(uint64_t));
+                    maskFile.write(reinterpret_cast<const char *>(mask->seq), sizeof(uint8_t) * (mask->pos/8 + (mask->pos % 8 != 0)));
+                    delete[] mask->seq;
+                    mask->seq = NULL;
+                    freed += mask->size * sizeof(uint8_t);
+                    
+                }
             }
-            delete[] buffers;
+            for (SeqBuf *buffers : buffersVecCpy)
+                delete[] buffers;
         }
     }
-    
-    for (uint16_t b = 0; b<mapCount; ++b) // we close all files
-        bufFiles[b].close();
-    
     return true;
     
 }
@@ -490,7 +489,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             maps[m] = tmpMaps[0];
             maps32[m] = tmpMaps32[0];
             for (uint16_t i = 1; i < tmpMaps.size(); ++i) {
-                unionSum(tmpMaps[i], maps[m], m);
+                mergeMaps(*tmpMaps[i], *maps[m], *maps32[m]);
                 delete tmpMaps[i];
             }
         }
@@ -770,6 +769,45 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a singl
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeMaps(ParallelMap &map1, ParallelMap &map2, ParallelMap32 &map32) {
+    
+    for (auto pair : map1) { // for each element in map1, find it in map2 and increase its value
+        
+        bool overflow = false;
+        
+        if (pair.second == 255) // already added to int32 map
+            continue;
+        
+        auto got = map32.find(pair.first); // check if this is already a high-copy kmer
+        if (got != map32.end()) {
+            overflow = true;
+        }else{
+            TYPE1 &count = map2[pair.first]; // insert or find this kmer in the hash table
+                
+            if (255 - count <= pair.second)
+                overflow = true;
+            
+            if (!overflow)
+                count += pair.second; // increase kmer coverage
+        }
+        if (overflow) {
+            TYPE2 &count32 = map32[pair.first];
+            
+            if (count32 == 0) { // first time we add the kmer
+                TYPE1& count = map2[pair.first];
+                count32 = count;
+                count = 255; // invalidates int8 kmer
+            }
+            
+            if (LARGEST - count32 >= pair.second)
+                count32 += pair.second; // increase kmer coverage
+            else
+                count32 = LARGEST;
+        }
+    }
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpMap(std::string prefix, uint16_t m) {
     
     prefix.append("/.map." + std::to_string(m) + ".bin");
@@ -1044,8 +1082,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
 //                std::cout<<+base;
                 if (base < 4) { // filter non ACGTacgt bases
                     str->assign(p+c, base); // 2-bit packing base packing
-                    if (c+1 >= s)
-                        smers.insert(str->bitHash(p+c+1-s, s));
+                    if (c+1 >= s) {
+                        uint16_t hash = str->bitHash(p+c+1-s, s), hashRc = revCom(hash, s);
+                        smers.insert(hash < hashRc ? hash : hashRc);
+                    }
                 }
                 else { // if non-canonical/N base is found
                     p = p+c; // move position
@@ -1093,7 +1133,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
                 substr = false;
                 substrStart = p+1;
             }
-            smers.erase(str->bitHash(p, s)); // forget s-mer out of window
+            uint16_t hash = str->bitHash(p, s), hashRc = revCom(hash, s);
+            smers.erase(hash < hashRc ? hash : hashRc); // forget s-mer out of window
         }
         delete readBatch;
         //    threadLog.add("Processed sequence: " + sequence->header);
@@ -1161,7 +1202,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeSubMaps(ParallelMap* map1, Pa
     }
     return true;
 }
-
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::unionSum(ParallelMap* map1, ParallelMap* map2, uint16_t m) {

@@ -151,6 +151,23 @@ static inline Buf2bit<> revCom(Buf2bit<> &seq) { // reverse complement
     return rc;
 }
 
+static inline uint16_t revCom(uint16_t hash, uint8_t k) { // reverse complement
+    
+    hash = hash ^ ((1 << (k*2)) - 1);
+    uint16_t rc = 0;
+
+    int8_t max = k*2-2;
+    for (int8_t i = 0; i < k/2; ++i) {
+        int8_t e = max-2*i;
+        rc |= (hash << (e-2*i)) & (3 << e);
+        rc |= (hash >> (e-2*i)) & (3 << (max-e));
+    }
+    if (k%2) // uneven k
+        rc |= (hash & (3 << (k-1)));
+    
+    return rc;
+}
+
 template <typename TYPE = uint8_t>
 struct Buf1bit : Buf<TYPE> { // 1-bit specialization of a buffer
     
