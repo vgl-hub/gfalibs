@@ -419,12 +419,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
             
             if (*smers.begin() == std::min(hashS, revCom(hashS, s))) { // if smallest s-mer is at the start
                 
-                std::cout<<"found new syncmer1: "<<str->substr(p,k)<<std::endl;
+//                std::cout<<"found new syncmer1: "<<str->substr(p,k)<<std::endl;
                 substr = true;
                 
             } else if (*smers.begin() == std::min(hashE, revCom(hashE, s))) { // or at the end of sequence, it's a syncmer
                 
-                std::cout<<"found new syncmer2: "<<str->substr(p,k)<<std::endl;
+//                std::cout<<"found new syncmer2: "<<str->substr(p,k)<<std::endl;
                 prevSyncSmer = *smers.begin(); // we remember this s-mer to see if the next syncmer has the same smallest s-mer
                 
             } else if (readBatch->at(p+k) == 'N' || readBatch->at(p+k) == 'n') { // or if we reached the end of a sequence
@@ -436,14 +436,14 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
                 std::string subseq;
                 subseq = str->substr(substrStart,p-substrStart+k);
                 uint8_t idx = *smers.begin() % mapCount;
-                std::cout<<"map: "<<+idx<<std::endl;
+//                std::cout<<"map: "<<+idx<<std::endl;
                 buffers[idx].seq->append(subseq);
                 
                 Buf1bit<> bitMask(subseq.size());
                 bitMask.assign(subseq.size()-1);
                 buffers[idx].mask->append(bitMask);
 
-                std::cout<<"subsequence: "<<subseq<< " (length: " + std::to_string(subseq.size()) + ")"<<std::endl;
+//                std::cout<<"subsequence: "<<subseq<< " (length: " + std::to_string(subseq.size()) + ")"<<std::endl;
                 substr = false;
                 substrStart = p+1;
             }
@@ -582,9 +582,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         maskFile.close();
         remove((userInput.prefix + "/.mask." + std::to_string(m) + ".bin").c_str());
         
-        std::cout<<+m<<std::endl;
-        std::cout<<seqBuf[m].seq->toString()<<std::endl;
-        std::cout<<seqBuf[m].mask->toString()<<std::endl;
+//        std::cout<<+m<<std::endl;
+//        std::cout<<seqBuf[m].seq->toString()<<std::endl;
+//        std::cout<<seqBuf[m].mask->toString()<<std::endl;
         
         if (len != 0) {
             
