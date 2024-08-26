@@ -468,7 +468,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             
             maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
             maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
-            maps[m]->reserve(pos*10/4); // total compressed kmers * load factor 40%;
+            maps[m]->reserve(pos/2); // total compressed kmers * load factor 40%;
+            alloc += mapSize(*maps[m]);
 
             std::vector<std::function<bool()>> jobs;
             
