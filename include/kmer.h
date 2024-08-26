@@ -228,7 +228,7 @@ public:
     
     bool processBuffer(uint8_t *idxBuf, uint16_t m, uint64_t start, uint64_t end);
     
-    bool hashBuffer(uint8_t *idxBuf, uint8_t thread, uint16_t m);
+    bool hashBuffer(uint8_t *idxBuf, uint16_t thread, uint16_t m);
     
     void consolidateTmpMaps();
     
@@ -465,6 +465,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         pos = seqBuf[m].seq->pos;
         
         if (pos != 0) {
+            
+            maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k)); // total compressed kmers * load factor 40%;
+            maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
 
             std::vector<std::function<bool()>> jobs;
             
@@ -473,7 +476,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             uint64_t last = seqBuf[m].seq->pos-k+1, start = 0, end;
             uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
             
-            for(std::size_t t = 0; t < threadPool.totalThreads(); ++t) {
+            for(uint16_t t = 0; t < threadPool.totalThreads(); ++t) {
                 
                 end = start + quota;
                 if (end > last)
@@ -494,11 +497,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             jobWait(threadPool);
             
             jobs.clear();
-            
-            maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k)); // total compressed kmers * load factor 40%;
-            maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
                         
-            for(std::size_t t = 0; t < threadPool.totalThreads(); ++t)
+            for(uint16_t t = 0; t < threadPool.totalThreads(); ++t)
                 jobs.push_back([this, idxBuf, t, m] { return static_cast<DERIVED*>(this)->hashBuffer(idxBuf, t, m); });
             
             threadPool.queueJobs(jobs);
@@ -536,7 +536,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t *idxBuf, uin
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint8_t thread, uint16_t m) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint16_t thread, uint16_t m) {
     
     SeqBuf &buf = seqBuf[m];
     
@@ -550,18 +550,15 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint8_
         
         if (!buf.mask->at(c+k-1)) {
             
-            Key key(c);
-            
             if (idxBuf[c] / modulo == thread) {
                 
+                Key key(c);
                 uint8_t &count = map[key];
-                
                 bool overflow = (count >= 254 ? true : false);
                 
                 if (!overflow)
                     ++count; // increase kmer coverage
-                
-                if (overflow) {
+                else {
                     
                     TYPE2 &count32 = map32[key];
                     
