@@ -466,8 +466,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         
         if (pos != 0) {
             
-            maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k)); // total compressed kmers * load factor 40%;
+            maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
             maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
+            maps[m]->reserve(pos*10/4); // total compressed kmers * load factor 40%;
 
             std::vector<std::function<bool()>> jobs;
             
