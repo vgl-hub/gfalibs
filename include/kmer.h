@@ -110,7 +110,7 @@ protected: // they are protected, so that they can be further specialized by inh
     std::vector<std::future<bool>> futures;
     std::string DBextension;
     
-    const uint16_t mapCount = 127; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const static uint16_t mapCount = 127; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
@@ -164,7 +164,7 @@ protected: // they are protected, so that they can be further specialized by inh
     std::queue<std::string*> readBatches;
     std::queue<Sequences*> sequenceBatches;
     
-    SeqBuf seqBuf[127], seqBuf2[127];
+    SeqBuf seqBuf[mapCount], seqBuf2[mapCount];
     
     std::mutex readMtx, hashMtx;
     
@@ -188,6 +188,7 @@ public:
             for(uint16_t m = 0; m<mapCount; ++m) {// remove tmp buffers and maps if any
                 threadPool.queueJob([=]{ return remove((userInput.prefix + "/.map." + std::to_string(m) + ".bin").c_str()); });
                 threadPool.queueJob([=]{ return remove((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str()); });
+                threadPool.queueJob([=]{ return remove((userInput.prefix + "/.mask." + std::to_string(m) + ".bin").c_str()); });
                 uint8_t fileNum = 0;
                 while (fileExists(userInput.prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) +  ".tmp.bin")) {
                     threadPool.queueJob([=]{ return remove((userInput.prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) +  ".tmp.bin").c_str()); });
@@ -340,6 +341,127 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::joinThreads() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
+    //   Log threadLog;
+    std::string *readBatch;
+    uint64_t len = 0, currentPos = 0;
+    Buf2bit<> *str;
+    
+    while (true) {
+            
+        {
+            std::unique_lock<std::mutex> lck(readMtx);
+            
+            if (readingDone && readBatches.size() == 0)
+                return true;
+
+            if (readBatches.size() == 0)
+                continue;
+            
+            std::condition_variable &mutexCondition = threadPool.getMutexCondition();
+            mutexCondition.wait(lck, [] {
+                return !freeMemory;
+            });
+            
+            readBatch = readBatches.front();
+            readBatches.pop();
+            len = readBatch->size();
+            
+            if (len<k) {
+                delete readBatch;
+                freed += len * sizeof(char);
+                continue;
+            }
+            str = new Buf2bit<>(len);
+        }
+
+        SeqBuf *buffers = new SeqBuf[mapCount];
+        uint32_t e = 0;
+        uint64_t kcount = len-k+1; // initially we don't know if there are subsequences, so the sequence end is kcount
+        
+        // syncmers
+        uint8_t s = 7;
+        uint16_t prevSyncSmer;
+        std::multiset<uint16_t> smers;
+        uint64_t substrStart = 0;
+        
+        for (uint64_t p = 0; p<kcount; ++p) {
+            
+            for (uint32_t c = e; c<k; ++c) { // generate k bases if e=0 or the next if e=k-1
+                
+                uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)]; // convert current char base to number
+//                std::cout<<+base;
+                if (base < 4) { // filter non ACGTacgt bases
+                    str->assign(p+c, base); // 2-bit packing base packing
+                    if (c+1 >= s) {
+                        uint16_t hash = str->bitHash(p+c+1-s, s), hashRc = revCom(hash, s);
+                        smers.insert(hash < hashRc ? hash : hashRc);
+                    }
+                }
+                else { // if non-canonical/N base is found
+                    p = p+c; // move position
+                    e = 0; // reset base counter
+                    smers.clear(); // syncmers
+                    substrStart = p+1; // the new substr will start here
+                    break;
+                }
+                e = k-1; // after the first kmer we only read one char at a time
+            }
+            if (e == 0) // not enough bases for a kmer
+                continue;
+
+//            std::cout<<" "<<+p<<" "<<+substrStart<<" "<<readBatch->at(p)<<"smallest smer: "<<+*smers.begin()<<std::endl;
+            
+            bool substr = false;
+            uint16_t hashS = str->bitHash(p, s);
+            uint16_t hashE = str->bitHash(p+k-s, s);
+            
+            
+            if (*smers.begin() == std::min(hashS, revCom(hashS, s))) { // if smallest s-mer is at the start
+                
+                std::cout<<"found new syncmer1: "<<str->substr(p,k)<<std::endl;
+                substr = true;
+                
+            } else if (*smers.begin() == std::min(hashE, revCom(hashE, s))) { // or at the end of sequence, it's a syncmer
+                
+                std::cout<<"found new syncmer2: "<<str->substr(p,k)<<std::endl;
+                prevSyncSmer = *smers.begin(); // we remember this s-mer to see if the next syncmer has the same smallest s-mer
+                
+            } else if (readBatch->at(p+k) == 'N' || readBatch->at(p+k) == 'n') { // or if we reached the end of a sequence
+                substr = true;
+            }
+            
+            if (substr) {
+                
+                std::string subseq;
+                subseq = str->substr(substrStart,p-substrStart+k);
+                uint8_t idx = *smers.begin() % mapCount;
+                std::cout<<"map: "<<+idx<<std::endl;
+                buffers[idx].seq->append(subseq);
+                
+                Buf1bit<> bitMask(subseq.size());
+                bitMask.assign(subseq.size()-1);
+                buffers[idx].mask->append(bitMask);
+
+                std::cout<<"subsequence: "<<subseq<< " (length: " + std::to_string(subseq.size()) + ")"<<std::endl;
+                substr = false;
+                substrStart = p+1;
+            }
+            uint16_t hash = str->bitHash(p, s), hashRc = revCom(hash, s);
+            smers.erase(hash < hashRc ? hash : hashRc); // forget s-mer out of window
+        }
+        delete readBatch;
+        //    threadLog.add("Processed sequence: " + sequence->header);
+        //    std::lock_guard<std::mutex> lck(mtx);
+        //    logs.push_back(threadLog);
+        std::lock_guard<std::mutex> lck(hashMtx);
+        freed += len * sizeof(char);
+        buffersVec.push_back(buffers);
+    }
+    return true;
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
     
     std::packaged_task<bool()> task([this] { return dumpBuffers(); });
@@ -389,26 +511,27 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
             
             for (uint16_t b = 0; b<mapCount; ++b) { // for each buffer file
                 
+                Buf2bit<> buffer;
+                Buf1bit<> mask;
+                
+                for (SeqBuf *buffers : buffersVecCpy) { // for each array of buffers
+                    buffer.append(*buffers[b].seq);
+                    delete[] buffers[b].seq->seq;
+                    buffers[b].seq->seq = NULL;
+                    
+                    mask.append(*buffers[b].mask);
+                    delete[] buffers[b].mask->seq;
+                    buffers[b].mask->seq = NULL;
+                    
+                    freed += buffers[b].seq->size * sizeof(uint8_t) * 2;
+                }
                 std::ofstream bufFile(userInput.prefix + "/.buf." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
                 std::ofstream maskFile(userInput.prefix + "/.mask." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
                 
-                for (SeqBuf *buffers : buffersVecCpy) { // for each array of buffers
-                    
-                    Buf2bit<> *buffer = buffers[b].seq;
-                    bufFile.write(reinterpret_cast<const char *>(&buffer->pos), sizeof(uint64_t));
-                    bufFile.write(reinterpret_cast<const char *>(buffer->seq), sizeof(uint8_t) * (buffer->pos/4 + (buffer->pos % 4 != 0)));
-                    delete[] buffer->seq;
-                    buffer->seq = NULL;
-                    freed += buffer->size * sizeof(uint8_t);
-                    
-                    Buf1bit<> *mask = buffers[b].mask;
-                    maskFile.write(reinterpret_cast<const char *>(&mask->pos), sizeof(uint64_t));
-                    maskFile.write(reinterpret_cast<const char *>(mask->seq), sizeof(uint8_t) * (mask->pos/8 + (mask->pos % 8 != 0)));
-                    delete[] mask->seq;
-                    mask->seq = NULL;
-                    freed += mask->size * sizeof(uint8_t);
-                    
-                }
+                bufFile.write(reinterpret_cast<const char *>(&buffer.pos), sizeof(uint64_t));
+                bufFile.write(reinterpret_cast<const char *>(buffer.seq), sizeof(uint8_t) * (buffer.pos/4 + (buffer.pos % 4 != 0)));
+                maskFile.write(reinterpret_cast<const char *>(&mask.pos), sizeof(uint64_t));
+                maskFile.write(reinterpret_cast<const char *>(mask.seq), sizeof(uint8_t) * (mask.pos/8 + (mask.pos % 8 != 0)));
             }
             for (SeqBuf *buffers : buffersVecCpy)
                 delete[] buffers;
@@ -423,21 +546,22 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
     for (uint16_t m = 0; m<mapCount; ++m) {
         
+        SeqBuf buf;
+        seqBuf[m] = buf;
+        uint64_t len = 0, pos;
+        
         std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
         if (!fileExists(fl)) {
             fprintf(stderr, "Buffer file %s does not exist. Terminating.\n", fl.c_str());
             exit(EXIT_FAILURE);
         }
         std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
-        
-        uint64_t len = 0, pos = 0;
-        Buf2bit<> *buf = new Buf2bit<>;
-        seqBuf[m].seq = buf;
-        
         while(bufFile && !(bufFile.peek() == EOF)) {
             bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-            buf->newPos(pos);
-            bufFile.read(reinterpret_cast<char *>(&buf->seq[len/4]), sizeof(uint8_t) * (pos/4 + (pos % 4 != 0)));
+            Buf2bit<> tmpBuf;
+            tmpBuf.newPos(pos);
+            bufFile.read(reinterpret_cast<char *>(tmpBuf.seq), sizeof(uint8_t) * (pos/4 + (pos % 4 != 0)));
+            buf.seq->append(tmpBuf);
             len += pos;
         }
         bufFile.close();
@@ -448,23 +572,21 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             exit(EXIT_FAILURE);
         }
         std::ifstream maskFile(fl, std::ios::in | std::ios::binary);
-        
-        len = 0, pos = 0;
-        Buf1bit<> *mask = new Buf1bit<>;
-        seqBuf[m].mask = mask;
-        
         while(maskFile && !(maskFile.peek() == EOF)) {
             maskFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-            mask->newPos(pos);
-            maskFile.read(reinterpret_cast<char *>(&mask->seq[len/8]), sizeof(uint8_t) * (pos/8 + (pos % 8 != 0)));
-            len += pos;
+            Buf1bit<> tmpMask;
+            tmpMask.newPos(pos);
+            maskFile.read(reinterpret_cast<char *>(tmpMask.seq), sizeof(uint8_t) * (pos/8 + (pos % 8 != 0)));
+            buf.mask->append(tmpMask);
         }
         maskFile.close();
         remove((userInput.prefix + "/.mask." + std::to_string(m) + ".bin").c_str());
         
-        pos = seqBuf[m].seq->pos;
+        std::cout<<+m<<std::endl;
+        std::cout<<seqBuf[m].seq->toString()<<std::endl;
+        std::cout<<seqBuf[m].mask->toString()<<std::endl;
         
-        if (pos != 0) {
+        if (len != 0) {
             
             maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
             maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
@@ -1078,124 +1200,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::printHist(std::unique_ptr<std::ost
     for (auto pair : table)
         *ostream<<pair.first<<"\t"<<pair.second<<"\n";
 
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
-    //   Log threadLog;
-    std::string *readBatch;
-    uint64_t len = 0, currentPos = 0;
-    Buf2bit<> *str;
-    
-    while (true) {
-            
-        {
-            std::unique_lock<std::mutex> lck(readMtx);
-            
-            if (readingDone && readBatches.size() == 0)
-                return true;
-
-            if (readBatches.size() == 0)
-                continue;
-            
-            std::condition_variable &mutexCondition = threadPool.getMutexCondition();
-            mutexCondition.wait(lck, [] {
-                return !freeMemory;
-            });
-            
-            readBatch = readBatches.front();
-            readBatches.pop();
-            len = readBatch->size();
-            
-            if (len<k) {
-                delete readBatch;
-                freed += len * sizeof(char);
-                continue;
-            }
-            str = new Buf2bit<>(len);
-        }
-
-        SeqBuf *buffers = new SeqBuf[mapCount];
-        uint32_t e = 0;
-        uint64_t kcount = len-k+1; // initially we don't know if there are subsequences, so the sequence end is kcount
-        
-        // syncmers
-        uint8_t s = 7;
-        uint16_t prevSyncSmer;
-        std::multiset<uint16_t> smers;
-        uint64_t substrStart = 0;
-        
-        for (uint64_t p = 0; p<kcount; ++p) {
-            
-            for (uint32_t c = e; c<k; ++c) { // generate k bases if e=0 or the next if e=k-1
-                
-                uint8_t base = ctoi[(unsigned char)readBatch->at(p+c)]; // convert current char base to number
-//                std::cout<<+base;
-                if (base < 4) { // filter non ACGTacgt bases
-                    str->assign(p+c, base); // 2-bit packing base packing
-                    if (c+1 >= s) {
-                        uint16_t hash = str->bitHash(p+c+1-s, s), hashRc = revCom(hash, s);
-                        smers.insert(hash < hashRc ? hash : hashRc);
-                    }
-                }
-                else { // if non-canonical/N base is found
-                    p = p+c; // move position
-                    e = 0; // reset base counter
-                    smers.clear(); // syncmers
-                    substrStart = p+1; // the new substr will start here
-                    break;
-                }
-                e = k-1; // after the first kmer we only read one char at a time
-            }
-            if (e == 0) // not enough bases for a kmer
-                continue;
-
-//            std::cout<<" "<<+p<<" "<<+substrStart<<" "<<readBatch->at(p)<<"smallest smer: "<<+*smers.begin()<<std::endl;
-            
-            bool substr = false;
-            
-            if (*smers.begin() == str->bitHash(p, s)) { // if smallest s-mer is at the start
-                
-//                std::cout<<+p<<"found new syncmer1: "<<str->substr(p,k)<<std::endl;
-                substr = true;
-                
-            } else if (*smers.begin() == str->bitHash(p+k-s, s)) { // or at the end of sequence, it's a syncmer
-                
-//                std::cout<<+p<<"found new syncmer2: "<<str->substr(p,k)<<std::endl;
-                prevSyncSmer = *smers.begin(); // we remember this s-mer to see if the next syncmer has the same smallest s-mer
-                
-            } else if (readBatch->at(p+k) == 'N' || readBatch->at(p+k) == 'n') { // or if we reached the end of a sequence
-                substr = true;
-            }
-            
-            if (substr) {
-                
-                std::string subseq;
-                subseq = str->substr(substrStart,p-substrStart+k);
-                uint8_t idx = *smers.begin() % mapCount;
-//                std::cout<<"map: "<<+idx<<std::endl;
-                buffers[idx].seq->append(subseq);
-                
-                Buf1bit<> bitMask(subseq.size());
-                bitMask.assign(subseq.size()-1);
-                buffers[idx].mask->append(bitMask);
-
-//                std::cout<<"subsequence: "<<subseq2<< "(length: " + std::to_string(subseq.size()) + ", ratio full k: "<<+(float)k*(k-1)/subseq.size()<<", ratio prefix k: "<<+(float)kPrefixLen*subseq.size()/(subseq.size()+k)<<")"<<std::endl;
-                substr = false;
-                substrStart = p+1;
-            }
-            uint16_t hash = str->bitHash(p, s), hashRc = revCom(hash, s);
-            smers.erase(hash < hashRc ? hash : hashRc); // forget s-mer out of window
-        }
-        delete readBatch;
-        //    threadLog.add("Processed sequence: " + sequence->header);
-        //    std::lock_guard<std::mutex> lck(mtx);
-        //    logs.push_back(threadLog);
-        std::lock_guard<std::mutex> lck(hashMtx);
-        freed += len * sizeof(char);
-        buffersVec.push_back(buffers);
-    }
-    return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
