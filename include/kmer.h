@@ -174,7 +174,7 @@ public:
         
         DBextension = "kc";
         
-        for(uint8_t p = 0; p<k; ++p) // precomputes the powers of k
+        for(uint8_t p = 0; p<prefix; ++p) // precomputes the powers of k
             pows[p] = (uint64_t) pow(4,p);
         
         for(uint16_t m = 0; m<mapCount; ++m)
@@ -502,40 +502,24 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t thread, uint
             size_t idx = map.subidx(keyHasher(key)); // compute the submap index for this hash
             if (idx % threadPool.totalThreads() != thread)
                 continue;
+                
+            uint8_t &count = map[key];
             
-            auto& inner = map.get_inner(idx);   // to retrieve the submap at given index
-            auto& submap = inner.set_;        // can be a set or a map, depending on the type of map
-            auto& inner32 = map32.get_inner(idx);
-            auto& submap32 = inner32.set_;
-
-            auto got = submap.find(key); // insert or find this kmer in the hash table
-            if (got == submap.end()) {
-                submap.insert(std::make_pair(key,1));
-            }else{
+            bool overflow = (count >= 254 ? true : false);
+            
+            if (!overflow)
+                ++count; // increase kmer coverage
+            
+            if (overflow) {
                 
-                uint8_t &count = got->second;
+                TYPE2 &count32 = map32[key];
                 
-                bool overflow = (count >= 254 ? true : false);
-                
-                if (!overflow)
-                    ++count; // increase kmer coverage
-                
-                if (overflow) {
-                    
-                    auto got = submap32.find(key); // insert or find this kmer in the hash table
-                    if (got == submap32.end()) {
-                        submap32.insert(std::make_pair(key,1));
-                    }else{
-                        TYPE2 &count32 = got->second;
-                        
-                        if (count32 == 0) { // first time we add the kmer
-                            count32 = count;
-                            count = 255; // invalidates int8 kmer
-                        }
-                        if (count32 < LARGEST)
-                            ++count32; // increase kmer coverage
-                    }
+                if (count32 == 0) { // first time we add the kmer
+                    count32 = count;
+                    count = 255; // invalidates int8 kmer
                 }
+                if (count32 < LARGEST)
+                    ++count32; // increase kmer coverage
             }
         }else{
             c += k;
@@ -911,7 +895,7 @@ inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(Buf2bit<> *kmerPtr
     
     uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
     
-    for(uint8_t c = 0; c<k; ++c) { // for each position up to prefix len
+    for(uint8_t c = 0; c<prefix; ++c) { // for each position up to prefix len
         fw += kmerPtr->at(p+c) * pows[c]; // base * 2^N
         rv += (3-(kmerPtr->at(p+k-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
     }
@@ -925,10 +909,10 @@ inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(Buf2bit<> *kmerPtr
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 inline std::string Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reverseHash(uint64_t hash) { // hashing function for kmers
     
-    std::string seq(k, 'A');
+    std::string seq(prefix, 'A');
     
-    for(uint8_t c = k; c > 0; --c) { // for each position up to klen
-        uint8_t i = c-1; // to prevent overflow
+    for(uint32_t c = prefix; c > 0; --c) { // for each position up to klen
+        uint32_t i = c-1; // to prevent overflow
         seq[i] = itoc[hash / pows[i]]; // base * 2^N
         hash = hash % pows[i]; // we walk the kmer backward to compute the rvcp
     }
