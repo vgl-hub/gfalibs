@@ -226,7 +226,9 @@ public:
     
     void buffersToMaps();
     
-    bool processBuffer(uint8_t thread, uint16_t m);
+    bool processBuffer(uint8_t *idxBuf, uint16_t m, uint64_t start, uint64_t end);
+    
+    bool hashBuffer(uint8_t *idxBuf, uint8_t thread, uint16_t m);
     
     void consolidateTmpMaps();
     
@@ -462,17 +464,47 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         
         pos = seqBuf[m].seq->pos;
         
-        maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k)); // total compressed kmers * load factor 40%;
-        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
-        
         if (pos != 0) {
 
             std::vector<std::function<bool()>> jobs;
-            for(std::size_t t = 0; t < threadPool.totalThreads(); ++t)
-                jobs.push_back([this, t, m] { return static_cast<DERIVED*>(this)->processBuffer(t, m); });
+            
+            uint8_t *idxBuf = new uint8_t[pos];
+            
+            uint64_t last = seqBuf[m].seq->pos-k+1, start = 0, end;
+            uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
+            
+            for(std::size_t t = 0; t < threadPool.totalThreads(); ++t) {
+                
+                end = start + quota;
+                if (end > last)
+                    end = last;
+                while (!seqBuf[m].mask->at(end+k-1) && end < last)
+                    ++end;
+                
+                if (t == threadPool.totalThreads()-1)
+                    end = last;
+                
+                jobs.push_back([this, idxBuf, m, start, end] { return static_cast<DERIVED*>(this)->processBuffer(idxBuf, m, start, end); });
+                if (end == last)
+                    break;
+                start = end;
+            }
             
             threadPool.queueJobs(jobs);
             jobWait(threadPool);
+            
+            jobs.clear();
+            
+            maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k)); // total compressed kmers * load factor 40%;
+            maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
+                        
+            for(std::size_t t = 0; t < threadPool.totalThreads(); ++t)
+                jobs.push_back([this, idxBuf, t, m] { return static_cast<DERIVED*>(this)->hashBuffer(idxBuf, t, m); });
+            
+            threadPool.queueJobs(jobs);
+            jobWait(threadPool);
+            
+            delete[] idxBuf;
         }
         delete seqBuf[m].seq;
         delete seqBuf[m].mask;
@@ -484,42 +516,62 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t thread, uint16_t m) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t *idxBuf, uint16_t m, uint64_t start, uint64_t end) {
     
     SeqBuf &buf = seqBuf[m];
-    KeyHasher keyHasher(seqBuf[m].seq, prefix, k);
+    ParallelMap &map = *maps[m]; // the map associated to this buffer
+
+    for (uint64_t c = start; c<end; ++c) {
+        
+        if (!buf.mask->at(c+k-1)) {
+            
+            Key key(c);
+            idxBuf[c] = map.subidx(map.hash(key)); // compute the submap index for this hash
+
+        }else{
+            c += k;
+        }
+    }
+    return true;
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint8_t thread, uint16_t m) {
+    
+    SeqBuf &buf = seqBuf[m];
     
     ParallelMap &map = *maps[m]; // the map associated to this buffer
     ParallelMap32 &map32 = *maps32[m];
     
     uint64_t pos = buf.seq->pos;
+    size_t modulo = map.subcnt() / threadPool.totalThreads();
 
     for (uint64_t c = 0; c<pos; ++c) {
         
         if (!buf.mask->at(c+k-1)) {
             
             Key key(c);
-            size_t idx = map.subidx(keyHasher(key)); // compute the submap index for this hash
-            if (idx % threadPool.totalThreads() != thread)
-                continue;
-                
-            uint8_t &count = map[key];
             
-            bool overflow = (count >= 254 ? true : false);
-            
-            if (!overflow)
-                ++count; // increase kmer coverage
-            
-            if (overflow) {
+            if (idxBuf[c] / modulo == thread) {
                 
-                TYPE2 &count32 = map32[key];
+                uint8_t &count = map[key];
                 
-                if (count32 == 0) { // first time we add the kmer
-                    count32 = count;
-                    count = 255; // invalidates int8 kmer
+                bool overflow = (count >= 254 ? true : false);
+                
+                if (!overflow)
+                    ++count; // increase kmer coverage
+                
+                if (overflow) {
+                    
+                    TYPE2 &count32 = map32[key];
+                    
+                    if (count32 == 0) { // first time we add the kmer
+                        count32 = count;
+                        count = 255; // invalidates int8 kmer
+                    }
+                    if (count32 < LARGEST)
+                        ++count32; // increase kmer coverage
                 }
-                if (count32 < LARGEST)
-                    ++count32; // increase kmer coverage
             }
         }else{
             c += k;
@@ -1268,8 +1320,10 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::cleanup() {
         
         std::vector<std::function<bool()>> jobs;
         
-        for(uint16_t m = 0; m<mapCount; ++m) // remove tmp files
+        for(uint16_t m = 0; m<mapCount; ++m) { // remove tmp files
             jobs.push_back([this, m] { return remove((userInput.prefix + "/.map." + std::to_string(m) + ".bin").c_str()); });
+            jobs.push_back([this, m] { return remove((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str()); });
+        }
         
         threadPool.queueJobs(jobs);
         
