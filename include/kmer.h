@@ -231,9 +231,9 @@ public:
     
     void buffersToMaps();
     
-    bool processBuffer(uint16_t *idxBuf, uint16_t m, uint64_t start, uint64_t end);
+    bool processBuffer(uint8_t *idxBuf, uint16_t m, uint64_t start, uint64_t end);
     
-    bool hashBuffer(uint16_t *idxBuf, uint16_t thread, uint16_t m);
+    bool hashBuffer(uint8_t *idxBuf, uint16_t thread, uint16_t m);
     
     void consolidateTmpMaps();
     
@@ -584,10 +584,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         }
         maskFile.close();
         remove((userInput.prefix + "/.mask." + std::to_string(m) + ".bin").c_str());
-
-        std::cout<<+m<<std::endl;
-        std::cout<<seqBuf[m].seq->toString()<<std::endl;
-        std::cout<<seqBuf[m].mask->toString()<<std::endl;
         
         if (len != 0) {
             maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
@@ -596,24 +592,17 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             alloc += mapSize(*maps[m]);
 
             std::vector<std::function<bool()>> jobs;
-            uint16_t *idxBuf = new uint16_t[len];
+            uint8_t *idxBuf = new uint8_t[len];
             
-            uint64_t last = seqBuf[m].seq->pos-k+1, start = 0, end;
+            uint64_t last = seqBuf[m].seq->pos-1, start = 0, end;
             uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
             for(uint16_t t = 0; t < threadPool.totalThreads(); ++t) {
                 
-                end = start + quota;
-                if (end > last)
-                    end = last;
-                while (!seqBuf[m].mask->at(end+k-1) && end < last)
+                end = std::min(start + quota, last);
+                while (!seqBuf[m].mask->at(end))
                     ++end;
                 
-                if (t == threadPool.totalThreads()-1)
-                    end = last;
-                
                 jobs.push_back([this, idxBuf, m, start, end] { return static_cast<DERIVED*>(this)->processBuffer(idxBuf, m, start, end); });
-                if (end == last)
-                    break;
                 start = end;
             }
             
@@ -631,41 +620,41 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         delete seqBuf[m].seq;
         delete seqBuf[m].mask;
         dumpTmpMap(userInput.prefix, m);
-//        reloadMap32(m);}
+        reloadMap32(m);
     }
     consolidateTmpMaps();
-//    dumpHighCopyKmers();
+    dumpHighCopyKmers();
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint16_t *idxBuf, uint16_t m, uint64_t start, uint64_t end) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t *idxBuf, uint16_t m, uint64_t start, uint64_t end) {
     
     SeqBuf &buf = seqBuf[m];
     ParallelMap &map = *maps[m]; // the map associated to this buffer
 
-    for (uint64_t c = start; c<end; ++c) {
+    for (uint64_t c = start; c<end-k+1; ++c) {
         if (!buf.mask->at(c+k-1)) {
             Key key(c);
             idxBuf[c] = map.subidx(map.hash(key)); // compute the submap index for this hash
         }else
-            c += k;
+            c += k-1;
     }
     return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t *idxBuf, uint16_t thread, uint16_t m) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint16_t thread, uint16_t m) {
     
     SeqBuf &buf = seqBuf[m];
     ParallelMap &map = *maps[m]; // the map associated to this buffer
     ParallelMap32 &map32 = *maps32[m];
 
     uint64_t pos = buf.seq->pos;
-    size_t modulo = map.subcnt() / threadPool.totalThreads();
+    uint8_t totThreads = threadPool.totalThreads();
     
     for (uint64_t c = 0; c<pos-k+1; ++c) {
         if (!buf.mask->at(c+k-1)) {
-            if (idxBuf[c] / modulo == thread) {
+            if (idxBuf[c] % totThreads == thread) {
                 
                 Key key(c);
                 uint8_t &count = map[key];
@@ -686,7 +675,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t *idxBuf, uint1
                 }
             }
         }else{
-            c += k;
+            c += k-1;
         }
     }
     return true;
@@ -868,11 +857,11 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
         }
     }
     
-//    for (auto pair : map32Total) {
-//        uint64_t pos = pair.first.getKmer();
-//        uint64_t i = hash(seqBuf, pos) % mapCount;
-//        maps32[i]->insert(pair);
-//    }
+    for (auto pair : map32Total) {
+        uint64_t pos = pair.first.getKmer();
+        uint64_t i = hash(seqBuf, pos) % mapCount;
+        maps32[i]->insert(pair);
+    }
     
     std::vector<std::function<bool()>> jobs;
     std::vector<uint64_t> fileSizes;
