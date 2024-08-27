@@ -857,11 +857,11 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
         }
     }
     
-    for (auto pair : map32Total) {
-        uint64_t pos = pair.first.getKmer();
-        uint64_t i = hash(seqBuf, pos) % mapCount;
-        maps32[i]->insert(pair);
-    }
+//    for (auto pair : map32Total) {
+//        uint64_t pos = pair.first.getKmer();
+//        uint64_t i = hash(seqBuf, pos) % mapCount;
+//        maps32[i]->insert(pair);
+//    }
     
     std::vector<std::function<bool()>> jobs;
     std::vector<uint64_t> fileSizes;
