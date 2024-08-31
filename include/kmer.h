@@ -542,13 +542,15 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             std::vector<std::function<bool()>> jobs;
             uint8_t *idxBuf = new uint8_t[len];
             
-            uint64_t last = seqBuf[m].seq->pos-1, start = 0, end;
+            uint64_t last = seqBuf[m].seq->pos, start = 0, end;
             uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
             for(uint16_t t = 0; t < threadPool.totalThreads(); ++t) {
                 
                 end = std::min(start + quota, last);
                 while (!seqBuf[m].mask->at(end))
                     ++end;
+                
+//                std::cout<<+start<<" "<<+end<<std::endl;
                 
                 jobs.push_back([this, idxBuf, m, start, end] { return static_cast<DERIVED*>(this)->processBuffer(idxBuf, m, start, end); });
                 start = end;
@@ -580,7 +582,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::processBuffer(uint8_t *idxBuf, uin
     SeqBuf &buf = seqBuf[m];
     ParallelMap &map = *maps[m]; // the map associated to this buffer
 
-    for (uint64_t c = start; c<end-k+1; ++c) {
+    for (uint64_t c = start; c<end-k+2; ++c) {
         Key key(c);
         idxBuf[c] = map.subidx(map.hash(key)); // compute the submap index for this hash
         if (buf.mask->at(c+k-1))
@@ -745,7 +747,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
     
     if (elapsed.count() > 0.1) {
-        lg.verbose("Read batches: " + std::to_string(readBatches.size() + sequenceBatches.size()) + ". Syncmer buffers: " + std::to_string(buffersVec.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+        lg.verbose("Read batches: " + std::to_string(readBatches.size() + sequenceBatches.size()) + ". Buffers: " + std::to_string(buffersVec.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
     
         past = std::chrono::high_resolution_clock::now();
     }
