@@ -203,7 +203,7 @@ public:
 
             }
             jobWait(threadPool);
-            initHashing(); // start parallel hashing
+            initBuffering(); // start parallel buffering
         }
         
     };
@@ -225,7 +225,7 @@ public:
     
     bool memoryOk(int64_t delta);
     
-    void initHashing();
+    void initBuffering();
     
     bool dumpBuffers();
     
@@ -269,7 +269,7 @@ public:
     
     void finalize();
     
-    void stats();
+    void computeStats();
     
     void DBstats();
     
@@ -412,7 +412,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
     
     std::packaged_task<bool()> task([this] { return dumpBuffers(); });
     futures.push_back(task.get_future());
@@ -433,22 +433,22 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
     
-    bool hashing = true;
+    bool buffering = true;
     std::vector<SeqBuf*> buffersVecCpy;
     
-    while (hashing) {
+    while (buffering) {
         
         if (readingDone) { // if we have finished reading the input
             
-            uint8_t hashingDone = 0;
+            uint8_t bufferingDone = 0;
             
             for (uint8_t i = 1; i < futures.size(); ++i) { // we check how many hashing threads are still running
                 if (futures[i].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
-                    ++hashingDone;
+                    ++bufferingDone;
             }
             
-            if (hashingDone == futures.size() - 1) // if all hashing threads are done we exit the loop after one more iteration
-                hashing = false;
+            if (bufferingDone == futures.size() - 1) // if all hashing threads are done we exit the loop after one more iteration
+                buffering = false;
         }
         
         {
@@ -542,7 +542,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             std::vector<std::function<bool()>> jobs;
             uint8_t *idxBuf = new uint8_t[len];
             
-            uint64_t last = seqBuf[m].seq->pos, start = 0, end;
+            uint64_t last = seqBuf[m].seq->pos-1, start = 0, end;
             uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
             for(uint16_t t = 0; t < threadPool.totalThreads(); ++t) {
                 
@@ -624,6 +624,38 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint16
         }
         if (buf.mask->at(c+k-1))
             c += k-1;
+    }
+    
+    uint64_t unique = 0, distinct = 0; // stats on the fly
+    phmap::flat_hash_map<uint64_t, uint64_t> hist;
+    
+    for (auto pair : map) {
+        
+        if (map.subidx(map.hash(pair.first)) % totThreads == thread) {
+            if (pair.second == 255) // check the large table
+                continue;
+            
+            if (pair.second == 1)
+                ++unique;
+            
+            ++distinct;
+            ++hist[pair.second];
+        }
+    }
+    for (auto pair : map32) {
+        if (map.subidx(map.hash(pair.first)) % totThreads == thread) {
+            ++distinct;
+            ++hist[pair.second];
+        }
+    }
+    
+    std::lock_guard<std::mutex> lck(mtx);
+    totUnique += unique;
+    totDistinct += distinct;
+    
+    for (auto pair : hist) {
+        finalHistogram[pair.first] += pair.second;
+        tot += pair.first * pair.second;
     }
     return true;
 }
@@ -935,7 +967,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output
     if (userInput.outFile != "")
         ext = getFileExt("." + userInput.outFile);
     
-    static_cast<DERIVED*>(this)->stats();
+    static_cast<DERIVED*>(this)->DBstats();
     
     lg.verbose("Writing ouput: " + ext);
     
@@ -1044,7 +1076,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::stats() {
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeStats() {
     
     lg.verbose("Computing summary statistics");
     
@@ -1097,13 +1129,11 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::summary(uint16_t m) {
         ++distinct;
         ++hist[pair.second];
     }
-    
     for (auto pair : *maps32[m]) {
         
         ++distinct;
         ++hist[pair.second];
     }
- 
     std::lock_guard<std::mutex> lck(mtx);
     totUnique += unique;
     totDistinct += distinct;
@@ -1113,9 +1143,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::summary(uint16_t m) {
         finalHistogram[pair.first] += pair.second;
         tot += pair.first * pair.second;
     }
-    
     return true;
-    
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
