@@ -637,37 +637,37 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
             c += k-1;
     }
     
-    uint64_t unique = 0, distinct = 0; // stats on the fly
-    phmap::flat_hash_map<uint64_t, uint64_t> hist;
-    
-    for (auto pair : map) {
-        
-        if ((map.subidx(map.hash(pair.first.getKmer())) % totThreads) == thread) {
-            if (pair.second == 255) // check the large table
-                continue;
-            
-            if (pair.second == 1)
-                ++unique;
-            
-            ++distinct;
-            ++hist[pair.second];
-        }
-    }
-    for (auto pair : map32) {
-        if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
-            ++distinct;
-            ++hist[pair.second];
-        }
-    }
-    
-    std::lock_guard<std::mutex> lck(mtx);
-    totUnique += unique;
-    totDistinct += distinct;
-    
-    for (auto pair : hist) {
-        finalHistogram[pair.first] += pair.second;
-        tot += pair.first * pair.second;
-    }
+//    uint64_t unique = 0, distinct = 0; // stats on the fly
+//    phmap::flat_hash_map<uint64_t, uint64_t> hist;
+//    
+//    for (auto pair : map) {
+//        
+//        if ((map.subidx(map.hash(pair.first.getKmer())) % totThreads) == thread) {
+//            if (pair.second == 255) // check the large table
+//                continue;
+//            
+//            if (pair.second == 1)
+//                ++unique;
+//            
+//            ++distinct;
+//            ++hist[pair.second];
+//        }
+//    }
+//    for (auto pair : map32) {
+//        if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
+//            ++distinct;
+//            ++hist[pair.second];
+//        }
+//    }
+//    
+//    std::lock_guard<std::mutex> lck(mtx);
+//    totUnique += unique;
+//    totDistinct += distinct;
+//    
+//    for (auto pair : hist) {
+//        finalHistogram[pair.first] += pair.second;
+//        tot += pair.first * pair.second;
+//    }
     return true;
 }
 
