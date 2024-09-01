@@ -613,61 +613,61 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
     
     for (uint64_t c = 0; c<pos-k+1; ++c) {
         
-        if ((map.subidx(map.hash(c)) % totThreads) == thread) {
-            
-            Key key(c);
-            TYPE1 &count = map[key];
-            bool overflow = (count >= 254 ? true : false);
-            
-            if (!overflow)
-                ++count; // increase kmer coverage
-            else {
-                
-                TYPE2 &count32 = map32[key];
-                
-                if (count32 == 0) { // first time we add the kmer
-                    count32 = count;
-                    count = 255; // invalidates int8 kmer
-                }
-                if (count32 < LARGEST)
-                    ++count32; // increase kmer coverage
-            }
-        }
+//        if ((map.subidx(map.hash(c)) % totThreads) == thread) {
+//            
+//            Key key(c);
+//            TYPE1 &count = map[key];
+//            bool overflow = (count >= 254 ? true : false);
+//            
+//            if (!overflow)
+//                ++count; // increase kmer coverage
+//            else {
+//                
+//                TYPE2 &count32 = map32[key];
+//                
+//                if (count32 == 0) { // first time we add the kmer
+//                    count32 = count;
+//                    count = 255; // invalidates int8 kmer
+//                }
+//                if (count32 < LARGEST)
+//                    ++count32; // increase kmer coverage
+//            }
+//        }
         if (buf.mask->at(c+k-1))
             c += k-1;
     }
     
-//    uint64_t unique = 0, distinct = 0; // stats on the fly
-//    phmap::flat_hash_map<uint64_t, uint64_t> hist;
-//    
-//    for (auto pair : map) {
-//        
-//        if ((map.subidx(map.hash(pair.first.getKmer())) % totThreads) == thread) {
-//            if (pair.second == 255) // check the large table
-//                continue;
-//            
-//            if (pair.second == 1)
-//                ++unique;
-//            
-//            ++distinct;
-//            ++hist[pair.second];
-//        }
-//    }
-//    for (auto pair : map32) {
-//        if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
-//            ++distinct;
-//            ++hist[pair.second];
-//        }
-//    }
-//    
-//    std::lock_guard<std::mutex> lck(mtx);
-//    totUnique += unique;
-//    totDistinct += distinct;
-//    
-//    for (auto pair : hist) {
-//        finalHistogram[pair.first] += pair.second;
-//        tot += pair.first * pair.second;
-//    }
+    uint64_t unique = 0, distinct = 0; // stats on the fly
+    phmap::flat_hash_map<uint64_t, uint64_t> hist;
+    
+    for (auto pair : map) {
+        
+        if ((map.subidx(map.hash(pair.first.getKmer())) % totThreads) == thread) {
+            if (pair.second == 255) // check the large table
+                continue;
+            
+            if (pair.second == 1)
+                ++unique;
+            
+            ++distinct;
+            ++hist[pair.second];
+        }
+    }
+    for (auto pair : map32) {
+        if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
+            ++distinct;
+            ++hist[pair.second];
+        }
+    }
+    
+    std::lock_guard<std::mutex> lck(mtx);
+    totUnique += unique;
+    totDistinct += distinct;
+    
+    for (auto pair : hist) {
+        finalHistogram[pair.first] += pair.second;
+        tot += pair.first * pair.second;
+    }
     return true;
 }
 
