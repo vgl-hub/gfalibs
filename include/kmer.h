@@ -613,9 +613,9 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
     
     for (uint64_t c = 0; c<pos-k+1; ++c) {
         
-//        if ((map.subidx(map.hash(c)) % totThreads) == thread) {
-//            
-//            Key key(c);
+        if ((map.subidx(map.hash(c)) % totThreads) == thread) {
+            
+            Key key(c);
 //            TYPE1 &count = map[key];
 //            bool overflow = (count >= 254 ? true : false);
 //            
@@ -632,7 +632,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
 //                if (count32 < LARGEST)
 //                    ++count32; // increase kmer coverage
 //            }
-//        }
+        }
         if (buf.mask->at(c+k-1))
             c += k-1;
     }
