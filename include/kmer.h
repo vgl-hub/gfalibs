@@ -616,7 +616,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
         if ((map.subidx(map.hash(c)) % totThreads) == thread) {
             
             Key key(c);
-//            TYPE1 &count = map[key];
+            TYPE1 &count = map[key];
 //            bool overflow = (count >= 254 ? true : false);
 //            
 //            if (!overflow)
