@@ -557,7 +557,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
                 while (!seqBuf[m].mask->at(end))
                     ++end;
                 
-                std::cout<<+start<<" "<<+end<<std::endl;
+//                std::cout<<+start<<" "<<+end<<std::endl;
                 
                 jobs.push_back([this, idxBuf, m, start, end] { return static_cast<DERIVED*>(this)->hashBuffer(idxBuf, m, start, end); });
                 start = end;
@@ -617,21 +617,21 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
             
             Key key(c);
             TYPE1 &count = map[key];
-//            bool overflow = (count >= 254 ? true : false);
-//            
-//            if (!overflow)
-//                ++count; // increase kmer coverage
-//            else {
-//                
-//                TYPE2 &count32 = map32[key];
-//                
-//                if (count32 == 0) { // first time we add the kmer
-//                    count32 = count;
-//                    count = 255; // invalidates int8 kmer
-//                }
-//                if (count32 < LARGEST)
-//                    ++count32; // increase kmer coverage
-//            }
+            bool overflow = (count >= 254 ? true : false);
+            
+            if (!overflow)
+                ++count; // increase kmer coverage
+            else {
+                
+                TYPE2 &count32 = map32[key];
+                
+                if (count32 == 0) { // first time we add the kmer
+                    count32 = count;
+                    count = 255; // invalidates int8 kmer
+                }
+                if (count32 < LARGEST)
+                    ++count32; // increase kmer coverage
+            }
         }
         if (buf.mask->at(c+k-1))
             c += k-1;
