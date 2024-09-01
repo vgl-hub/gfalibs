@@ -612,7 +612,15 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
     uint8_t totThreads = threadPool.totalThreads();
     
     for (uint64_t c = 0; c<pos-k+1; ++c) {
+
+        
         if ((map.subidx(map.hash(c)) % totThreads) == thread) {
+            
+            std::cout<<+c<<std::endl;
+            std::cout<<+map.hash(c)<<std::endl;
+            std::cout<<+map.subidx(map.hash(c))<<std::endl;
+            std::cout<<+(map.subidx(map.hash(c)) % totThreads)<<std::endl;
+            std::cout<<+thread<<std::endl<<std::endl;
             
             Key key(c);
             TYPE1 &count = map[key];
@@ -620,17 +628,17 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
             
             if (!overflow)
                 ++count; // increase kmer coverage
-//            else {
-//                
-//                TYPE2 &count32 = map32[key];
-//                
-//                if (count32 == 0) { // first time we add the kmer
-//                    count32 = count;
-//                    count = 255; // invalidates int8 kmer
-//                }
-//                if (count32 < LARGEST)
-//                    ++count32; // increase kmer coverage
-//            }
+            else {
+                
+                TYPE2 &count32 = map32[key];
+                
+                if (count32 == 0) { // first time we add the kmer
+                    count32 = count;
+                    count = 255; // invalidates int8 kmer
+                }
+                if (count32 < LARGEST)
+                    ++count32; // increase kmer coverage
+            }
         }
         if (buf.mask->at(c+k-1))
             c += k-1;
@@ -652,12 +660,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
             ++hist[pair.second];
         }
     }
-//    for (auto pair : map32) {
-//        if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
-//            ++distinct;
-//            ++hist[pair.second];
-//        }
-//    }
+    for (auto pair : map32) {
+        if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
+            ++distinct;
+            ++hist[pair.second];
+        }
+    }
     
     std::lock_guard<std::mutex> lck(mtx);
     totUnique += unique;
