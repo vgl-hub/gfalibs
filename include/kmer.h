@@ -33,6 +33,12 @@ public:
     }
 };
 
+struct HcKmer {
+    uint64_t key;
+    uint32_t value;
+    uint8_t map;
+};
+
 struct KeyHasher {
 
     uint8_t prefix;
@@ -41,16 +47,8 @@ struct KeyHasher {
     Buf2bit<> *seqBuf;
     
     KeyHasher() {}
-//    ~KeyHasher() {                        << PROBLEM
-//        if (pows != NULL)
-//            delete[] pows;
-//    }
     
-    KeyHasher(Buf2bit<> *seqBuf, uint8_t prefix, uint32_t k) : prefix(prefix), k(k), seqBuf(seqBuf) {
-        pows = new uint64_t[prefix];
-        for(uint8_t p = 0; p<prefix; ++p) // precomputes the powers of k
-            pows[p] = (uint64_t) pow(4,p);
-    }
+    KeyHasher(Buf2bit<> *seqBuf, uint8_t prefix, uint32_t k, uint64_t* pows) : prefix(prefix), k(k), pows(pows), seqBuf(seqBuf) {}
     std::size_t operator()(const Key& key) const {
 
         uint64_t fw = 0, rv = 0, offset = key.getKmer(); // hashes for both forward and reverse complement sequence
@@ -534,8 +532,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 //        std::cout<<seqBuf[m].mask->toString()<<std::endl;
         
         if (len != 0) {
-            maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
-            maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k), KeyEqualTo(seqBuf[m].seq, prefix, k));
+            maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
+            maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
             maps[m]->reserve(pos/2); // total compressed kmers * load factor 40%;
             alloc += mapSize(*maps[m]);
 
@@ -570,7 +568,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         delete seqBuf[m].seq;
         delete seqBuf[m].mask;
         dumpTmpMap(userInput.prefix, m);
-        reloadMap32(m);
     }
     consolidateTmpMaps();
     dumpHighCopyKmers();
@@ -605,7 +602,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint16
         if (idxBuf[c] % totThreads == thread) {
             
             Key key(c);
-            uint8_t &count = map[key];
+            TYPE1 &count = map[key];
             bool overflow = (count >= 254 ? true : false);
             
             if (!overflow)
@@ -643,7 +640,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint8_t *idxBuf, uint16
         }
     }
     for (auto pair : map32) {
-        if (map.subidx(map.hash(pair.first)) % totThreads == thread) {
+        if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
             ++distinct;
             ++hist[pair.second];
         }
@@ -668,8 +665,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reloadMap32(uint16_t m) {
     
     for (auto pair : map32) {
         TYPE1 count = 255;
-        auto newPair = std::make_pair(pair.first, count);
-        map.insert(newPair);
+        map.insert(std::make_pair(pair.first, count));
     }
     return true;
     
@@ -741,7 +737,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpTmpMap(std::string prefix, uin
     deleteMap(m);
     
     return true;
-    
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -755,22 +750,54 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::deleteMap(uint16_t m) {
     alloc += mapSize(*maps[m]);
     
     return true;
-    
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpHighCopyKmers() {
     
-    ParallelMap32 map32Total;
+    std::ofstream bufFile = std::ofstream(userInput.prefix + "/.hc.bin", std::ios::out | std::ios::binary);
+    
+    uint64_t pos = 0;
+    for (uint16_t m = 0; m<mapCount; ++m)
+        pos += maps32[m]->size();
+    
+    bufFile.write(reinterpret_cast<const char *>(&pos), sizeof(uint64_t));
     
     for (uint16_t m = 0; m<mapCount; ++m) {
-        for (auto pair : *maps32[m])
-            map32Total.insert(pair);
+        
+        for (auto pair : *maps32[m]) {
+            HcKmer hcKmer;
+            hcKmer.key = pair.first.getKmer();
+            hcKmer.value = pair.second;
+            hcKmer.map = m;
+            bufFile.write(reinterpret_cast<const char *>(&hcKmer.key), sizeof(uint64_t));
+            bufFile.write(reinterpret_cast<const char *>(&hcKmer.value), sizeof(uint32_t));
+            bufFile.write(reinterpret_cast<const char *>(&hcKmer.map), sizeof(uint8_t));
+
+        }
         delete maps32[m];
         maps32[m] = new ParallelMap32;
     }
-    phmap::BinaryOutputArchive ar_out((userInput.prefix + "/.map.hc.bin").c_str());
-    map32Total.phmap_dump(ar_out);
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
+    
+    std::ifstream bufFile = std::ifstream(userInput.prefix + "/.hc.bin", std::ios::in | std::ios::binary);
+    uint64_t pos;
+    bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
+    Buf<HcKmer> buffer(pos);
+    
+    for (uint64_t i = 0; i<pos; ++i){
+        HcKmer hcKmer = buffer.seq[i];
+        bufFile.read(reinterpret_cast<char *>(&hcKmer.key), sizeof(uint64_t));
+        bufFile.read(reinterpret_cast<char *>(&hcKmer.value), sizeof(uint32_t));
+        bufFile.read(reinterpret_cast<char *>(&hcKmer.map), sizeof(uint8_t));
+//        std::cout<<+hcKmer.key<<" "<<+hcKmer.value<<" "<<+hcKmer.map<<std::endl;
+        maps32[hcKmer.map]->emplace(std::make_pair(hcKmer.key,hcKmer.value));
+    }
+    
+    return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -798,20 +825,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
-    
-    ParallelMap32 map32Total;
-    phmap::BinaryInputArchive ar_in((userInput.prefix + "/.map.hc.bin").c_str());
-    map32Total.phmap_load(ar_in);
-    
-//    for (auto pair : map32Total) {
-//        uint8_t i = hash(seqBuf, pair.first.getKmer()) % mapCount;
-//        maps32[i]->insert(pair);
-//    }
-    return true;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of the maps that store the same hashes
     
     ParallelMap32 map32Total; // first merge high-copy kmers
@@ -819,7 +832,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
     for (unsigned int i = 0; i < userInput.kmerDB.size(); ++i) { // for each kmerdb loads the map and merges it
         
         std::string prefix = userInput.kmerDB[i]; // loads the next map
-        prefix.append("/.map.hc.bin");
+        prefix.append("/.hc.bin");
         
         ParallelMap32 nextMap;
         phmap::BinaryInputArchive ar_in(prefix.c_str());
@@ -839,7 +852,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
 //    for (auto pair : map32Total) {
 //        uint64_t pos = pair.first.getKmer();
 //        uint64_t i = hash(seqBuf, pos) % mapCount;
-//        maps32[i]->insert(pair);
+//        maps32[i]->emplace(pair);
 //    }
     
     std::vector<std::function<bool()>> jobs;
@@ -957,6 +970,7 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output from the program
     
     const static phmap::parallel_flat_hash_map<std::string,int> string_to_case{ // different outputs available
+        {"stdout",0},
         {"hist",1},
         {"kc",2}
 
@@ -975,6 +989,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output
     
     switch (string_to_case.count(ext) ? string_to_case.at(ext) : 0) {
             
+        case 0: { // default
+            break;
+        }
         case 1: { // .hist
             std::ofstream ofs(userInput.outFile);
             ostream = std::make_unique<std::ostream>(ofs.rdbuf());
@@ -990,7 +1007,10 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output
             ofs.close();
             break;
         }
-        default: {}
+        default: { // unrecognized ext
+            std::cout<<"Unrecognized format (."<<ext<<")."<<std::endl;
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
@@ -1070,8 +1090,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
         
         lg.verbose("Converting buffers to maps");
         static_cast<DERIVED*>(this)->buffersToMaps();
-        
-//        loadHighCopyKmers();
     }
 }
 
@@ -1130,10 +1148,11 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::summary(uint16_t m) {
         ++hist[pair.second];
     }
     for (auto pair : *maps32[m]) {
-        
+        std::cout<<"hey"<<std::endl;
         ++distinct;
         ++hist[pair.second];
     }
+    
     std::lock_guard<std::mutex> lck(mtx);
     totUnique += unique;
     totDistinct += distinct;
@@ -1180,7 +1199,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeSubMaps(ParallelMap* map1, Pa
             
             auto got = submap2.find(pair.first); // insert or find this kmer in the hash table
             if (got == submap2.end()) {
-                submap2.insert(pair);
+                submap2.emplace(pair);
             }else{
                 
                 TYPE1& count = got->second;
@@ -1285,7 +1304,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::cleanup() {
         
         threadPool.queueJobs(jobs);
         
-        remove((userInput.prefix + "/.map.hc.bin").c_str());
+        remove((userInput.prefix + "/.hc.bin").c_str());
         remove((userInput.prefix + "/.seq.bin").c_str());
         
         if (userInput.prefix != ".")
