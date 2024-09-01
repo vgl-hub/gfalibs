@@ -557,7 +557,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
                 while (!seqBuf[m].mask->at(end))
                     ++end;
                 
-//                std::cout<<+start<<" "<<+end<<std::endl;
+                std::cout<<+start<<" "<<+end<<std::endl;
                 
                 jobs.push_back([this, idxBuf, m, start, end] { return static_cast<DERIVED*>(this)->hashBuffer(idxBuf, m, start, end); });
                 start = end;
@@ -612,15 +612,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapBuffer(uint16_t thread, uint16_
     uint8_t totThreads = threadPool.totalThreads();
     
     for (uint64_t c = 0; c<pos-k+1; ++c) {
-
         
         if ((map.subidx(map.hash(c)) % totThreads) == thread) {
-            
-            std::cout<<+c<<std::endl;
-            std::cout<<+map.hash(c)<<std::endl;
-            std::cout<<+map.subidx(map.hash(c))<<std::endl;
-            std::cout<<+(map.subidx(map.hash(c)) % totThreads)<<std::endl;
-            std::cout<<+thread<<std::endl<<std::endl;
             
             Key key(c);
             TYPE1 &count = map[key];
