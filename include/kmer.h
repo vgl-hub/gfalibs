@@ -104,7 +104,7 @@ protected: // they are protected, so that they can be further specialized by inh
     UserInput &userInput;
     InSequences inSequences; // when we read a reference we can store it here
     
-    uint8_t prefix; // prefix length
+    uint8_t prefix, s; // prefix length, smer length
     uint32_t k; // kmer length
     uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
     std::atomic<bool> readingDone{false};
@@ -172,7 +172,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
 public:
     
-    Kmap(UserInput& userInput) : userInput(userInput), prefix(userInput.kPrefixLen), k{userInput.kLen} {
+    Kmap(UserInput& userInput) : userInput(userInput), prefix(userInput.kPrefixLen), s{userInput.sLen}, k{userInput.kLen} {
         
         DBextension = "kc";
         
@@ -376,7 +376,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
         }
 
         SeqBuf *buffers = new SeqBuf[mapCount];
-        uint8_t s = 7;
         
         String2bit str(*readBatch);
 //        std::cout<<str.toString()<<std::endl;
@@ -1114,7 +1113,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeStats() {
         jobs.clear();
         deleteMapRange(mapRange);
     }
-    static_cast<DERIVED*>(this)->DBstats();
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>

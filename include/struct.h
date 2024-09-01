@@ -33,7 +33,7 @@ struct UserInput { // a container for user input
     std::string prefix = ".", outFile = "";
     
     uint32_t kLen = 21;
-    uint8_t kPrefixLen = 31;
+    uint8_t kPrefixLen = 21, sLen = 7;
     
 };
 
