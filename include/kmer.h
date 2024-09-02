@@ -638,7 +638,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
 //            std::cout<<"hey0.3"<<std::endl;
         }
 //        std::cout<<"hey1"<<std::endl;
-        uint64_t last = seqBuf[m].seq->pos-1, start = 0, end;
+        uint64_t last = seqBuf[m].seq->pos-1, start = 0, end = 0;
         uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
         for(uint16_t t = 0; t < threadPool.totalThreads(); ++t) {
             
