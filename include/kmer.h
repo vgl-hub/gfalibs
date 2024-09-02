@@ -65,7 +65,7 @@ protected: // they are protected, so that they can be further specialized by inh
     std::vector<std::future<bool>> futures;
     std::string DBextension;
     
-    const uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const uint16_t mapCount = 127; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency, prime number
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
