@@ -266,6 +266,8 @@ public:
     
     void status();
     
+    void status2(uint8_t buffers);
+    
     void kunion();
     
     bool mergeSubMaps(ParallelMap* map1, ParallelMap* map2, uint8_t subMapIndex, uint16_t m);
@@ -525,6 +527,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
+    uint8_t buffers = 0; // keep track of the number of processed buffers
     std::array<bool,mapCount> deleteTmp{};
     initHashing();
     
@@ -588,7 +591,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
                         deleteTmp[i] = true; // mark buffer for deletion
                 }
             }
-//            std::cout<<"hello4"<<std::endl;
             for(uint16_t i = 0; i<deleteTmp.size(); ++i) {
                 if (deleteTmp[i]) {
                     delete[] idxBuffers[i];
@@ -597,9 +599,10 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
                     dumpTmpMap(userInput.prefix, i, mapsIdt[i]);
                     mapDoneCounts[i] = 0;
                     deleteTmp[i] = false;
+                    ++buffers;
                 }
             }
-//            std::cout<<"hello5"<<std::endl;
+            status2(buffers);
         }else{
             maps32[m] = new ParallelMap32; // to avoid cases where the map does not exist
         }
@@ -898,6 +901,18 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
     
     if (elapsed.count() > 0.1) {
         lg.verbose("Read batches: " + std::to_string(readBatches.size() + sequenceBatches.size()) + ". Buffers: " + std::to_string(buffersVec.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+    
+        past = std::chrono::high_resolution_clock::now();
+    }
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status2(uint8_t buffers) {
+    
+    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
+    
+    if (elapsed.count() > 0.1) {
+        lg.verbose("Buffers: " + std::to_string(buffers) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
     
         past = std::chrono::high_resolution_clock::now();
     }
