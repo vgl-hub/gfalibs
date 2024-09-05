@@ -527,12 +527,12 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
-    uint8_t buffers = 0; // keep track of the number of processed buffers
+    uint8_t buffers = mapCount; // keep track of the number of processed buffers
     std::array<bool,mapCount> deleteTmp{};
     initHashing();
     
     for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
-//        std::cout<<"hello1"<<std::endl;
+        //        std::cout<<"hello1"<<std::endl;
         uint64_t len = 0, pos;
         
         std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
@@ -550,7 +550,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             len += pos;
         }
         bufFile.close();
-
+        
         fl = userInput.prefix + "/.mask." + std::to_string(m) + ".bin";
         if (!fileExists(fl)) {
             fprintf(stderr, "Mask file %s does not exist. Terminating.\n", fl.c_str());
@@ -567,19 +567,19 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         maskFile.close();
         remove((userInput.prefix + "/.mask." + std::to_string(m) + ".bin").c_str());
         
-//        std::cout<<seqBuf[m].seq->toString()<<std::endl;
-//        std::cout<<seqBuf[m].mask->toString()<<std::endl;
-//        std::cout<<"hello2"<<std::endl;
+        //        std::cout<<seqBuf[m].seq->toString()<<std::endl;
+        //        std::cout<<seqBuf[m].mask->toString()<<std::endl;
+        //        std::cout<<"hello2"<<std::endl;
         if (len != 0) {
-
+            
             uint64_t *idxBuf = new uint64_t[len];
             idxBuffers[m] = idxBuf;
             
             mapsIdt[m] = new ParallelMapIdt(0, KeyHasherIdt(idxBuf), KeyEqualTo(seqBuf[m].seq, prefix, k));
             mapsIdt[m]->reserve(pos/2); // total compressed kmers * load factor 40%;
-//            alloc += mapSize(map);
+            //            alloc += mapSize(map);
             maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
-//            std::cout<<"hello3"<<std::endl;
+            //            std::cout<<"hello3"<<std::endl;
             {
                 std::lock_guard<std::mutex> lck(hashMtx);
                 mapReady[m] = true;
@@ -599,7 +599,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
                     dumpTmpMap(userInput.prefix, i, mapsIdt[i]);
                     mapDoneCounts[i] = 0;
                     deleteTmp[i] = false;
-                    ++buffers;
+                    --buffers;
                 }
             }
             status2(buffers);
@@ -607,15 +607,22 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             maps32[m] = new ParallelMap32; // to avoid cases where the map does not exist
         }
     }
-    jobWait(threadPool);
-    for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // delete/dump residuals
-        if (mapDoneCounts[i] == threadPool.totalThreads()) {
-            delete[] idxBuffers[i];
-            delete seqBuf[i].seq;
-            delete seqBuf[i].mask;
-            dumpTmpMap(userInput.prefix, i, mapsIdt[i]);
+    while (buffers != 0) {
+        for(uint16_t i = 0; i<deleteTmp.size(); ++i) {
+            if (deleteTmp[i]) {
+                delete[] idxBuffers[i];
+                delete seqBuf[i].seq;
+                delete seqBuf[i].mask;
+                dumpTmpMap(userInput.prefix, i, mapsIdt[i]);
+                mapDoneCounts[i] = 0;
+                deleteTmp[i] = false;
+                --buffers;
+            }
         }
+        status2(buffers);
     }
+    jobWait(threadPool);
+
 //    std::cout<<"hello6"<<std::endl;
     consolidateTmpMaps();
     dumpHighCopyKmers();
