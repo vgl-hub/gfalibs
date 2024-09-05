@@ -607,9 +607,22 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
             maps32[m] = new ParallelMap32; // to avoid cases where the map does not exist
         }
     }
+    std::condition_variable &mutexCondition = threadPool.getMutexCondition();
     while (buffers != 0) {
-        for(uint16_t i = 0; i<deleteTmp.size(); ++i) {
-            if (deleteTmp[i]) {
+        
+        {
+            std::unique_lock<std::mutex> lck(hashMtx);
+            mutexCondition.wait(lck, [this] {
+                for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // delete/dump residuals
+                    if (mapDoneCounts[i] == threadPool.totalThreads())
+                        return true;
+                }
+                return false;
+            });
+        }
+        
+        for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // delete/dump residuals
+            if (mapDoneCounts[i] == threadPool.totalThreads()) {
                 delete[] idxBuffers[i];
                 delete seqBuf[i].seq;
                 delete seqBuf[i].mask;
@@ -749,6 +762,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
         }
         ++mapDoneCounts[m];
         ++m;
+        mutexCondition.notify_one();
     }
     return true;
 }
