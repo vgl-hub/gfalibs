@@ -612,17 +612,19 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         
         {
             std::unique_lock<std::mutex> lck(hashMtx);
-            mutexCondition.wait(lck, [this] {
+            mutexCondition.wait(lck, [this, &deleteTmp] {
                 for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // delete/dump residuals
-                    if (mapDoneCounts[i] == threadPool.totalThreads())
+                    if (mapDoneCounts[i] == threadPool.totalThreads()) {
+                        deleteTmp[i] = true; // mark buffer for deletion
                         return true;
+                    }
                 }
                 return false;
             });
         }
         
-        for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // delete/dump residuals
-            if (mapDoneCounts[i] == threadPool.totalThreads()) {
+        for(uint16_t i = 0; i<deleteTmp.size(); ++i) { // delete/dump residuals
+            if (deleteTmp[i]) {
                 delete[] idxBuffers[i];
                 delete seqBuf[i].seq;
                 delete seqBuf[i].mask;
