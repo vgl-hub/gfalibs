@@ -762,7 +762,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
         }
         ++mapDoneCounts[m];
         ++m;
-        mutexCondition.notify_one();
+        mutexCondition.notify_all();
     }
     return true;
 }
