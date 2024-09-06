@@ -193,15 +193,38 @@ struct Buf2bit : Buf<TYPE> { // 2-bit specialization of a buffer
         return str;
     }
 
-    inline uint16_t bitHash(uint64_t offset, uint32_t k) { // convert position to hash
+    template <uint16_t (*filterFN)(uint16_t, uint8_t)>
+    inline uint16_t bitHash(uint64_t offset, uint8_t k) { // convert position to hash
         
         uint8_t *binaryStrAt = &this->seq[offset/4], shift = (offset % 4)*2;
         uint16_t hash = 0;
         hash |= ((uint16_t)binaryStrAt[0] << (CHAR_BIT + shift)) + (binaryStrAt[1] << shift) + (binaryStrAt[2] >> (8-shift));
+        
+        hash = filterFN(hash, k);
+        
         return hash >> (8-k)*2;
     }
-    
 };
+
+// non-canonical minimizers
+static inline uint16_t hashNoFilter(uint16_t hash, uint8_t k = 7) {
+    (void)k;
+    return hash;
+}
+
+static inline uint16_t hashNC(uint16_t hash, uint8_t k) {
+    if (((hash & 0xFC00) >> 10) == 0) // AAA
+        return 16385;
+    
+    if (((hash & 0xFC00) >> 10) == 4) // ACA
+        return 16385;
+    
+    for (uint16_t i = 1; i<k-1; ++i) { // NAAN
+        if ((hash & (15 << 2*(6-i))) == 0)
+            return 16385;
+    }
+    return hash;
+}
 
 static inline Buf2bit<> revCom(Buf2bit<> &seq) { // reverse complement
     
@@ -213,6 +236,7 @@ static inline Buf2bit<> revCom(Buf2bit<> &seq) { // reverse complement
     return rc;
 }
 
+template <uint16_t (*filterFN)(uint16_t, uint8_t)>
 static inline uint16_t revCom(uint16_t hash, uint8_t k) { // reverse complement
     
     hash = hash ^ ((1 << (k*2)) - 1);
@@ -227,7 +251,9 @@ static inline uint16_t revCom(uint16_t hash, uint8_t k) { // reverse complement
     if (k%2) // uneven k
         rc |= (hash & (3 << (k-1)));
     
-    return rc;
+    rc = filterFN(rc << (8-k)*2, k);
+    
+    return rc >> (8-k)*2;
 }
 
 template <typename TYPE = uint8_t>
@@ -244,7 +270,7 @@ struct Buf1bit : Buf<TYPE> { // 1-bit specialization of a buffer
         
         this->pos = str.size();
         for (uint64_t i = 0; i<this->pos; ++i)
-            this->seq[i / 8] |= ctoi[(unsigned char)str[i]] << (7 - i % 8); // 1-bit packing
+            this->seq[i / 8] |= (str[i] - '0') << (7 - i % 8); // 1-bit packing
     }
     
     uint64_t length() const { // size in characters of the 2-bit string
@@ -344,7 +370,7 @@ class String2bit {
     Buf1bit<> mask;
 
 public:
-    String2bit(const std::string &str, bool generateMask = true) : array(str), mask(str.size()) { // build 2-bit string from std::string
+    String2bit(std::string str, bool generateMask = true) : array(str), mask(str.size()) { // build 2-bit string from std::string
         
         if (generateMask) {
             uint64_t strLen = str.size();
@@ -357,6 +383,10 @@ public:
     }
     
     String2bit(Buf2bit<> array, Buf1bit<> mask) : array(std::move(array)), mask(std::move(mask)) {}
+    
+    uint16_t bitHash(uint64_t offset, uint8_t k) {
+        return this->array.bitHash<hashNoFilter>(offset, k);
+    }
     
     std::string toString() {
         
@@ -390,6 +420,7 @@ public:
         return mask.pos;
     }
     
+    template <uint16_t (*filterFN)(uint16_t, uint8_t)>
     Buf1bit<> minimizersToMask(uint32_t k, uint8_t s) {
         
         std::multiset<uint16_t> smers;
@@ -405,7 +436,7 @@ public:
                 if (!this->mask.at(p+c)) { // filter non ACGTacgt bases
 
                     if (c+1 >= s) {
-                        uint16_t hash = this->array.bitHash(p+c+1-s, s), hashRc = revCom(hash, s);
+                        uint16_t hash = this->array.bitHash<filterFN>(p+c+1-s, s), hashRc = revCom<filterFN>(hash, s);
                         smers.insert(hash < hashRc ? hash : hashRc);
                     }
                 }
@@ -428,12 +459,13 @@ public:
                 minimizerMask.assign(p);
                 minimizer = *smers.begin();
             }
-            uint16_t hash = this->array.bitHash(p, s), hashRc = revCom(hash, s);
+            uint16_t hash = this->array.bitHash<filterFN>(p, s), hashRc = revCom<filterFN>(hash, s);
             smers.erase(smers.find(hash < hashRc ? hash : hashRc));
         }
         return minimizerMask;
     }
     
+    template <uint16_t (*filterFN)(uint16_t, uint8_t)>
     std::string minimizersHexString(uint32_t k, uint8_t s) {
         
         std::multiset<uint16_t> smers;
@@ -448,7 +480,7 @@ public:
                 if (!this->mask.at(p+c)) { // filter non ACGTacgt bases
 
                     if (c+1 >= s) {
-                        uint16_t hash = this->array.bitHash(p+c+1-s, s), hashRc = revCom(hash, s);
+                        uint16_t hash = this->array.bitHash<filterFN>(p+c+1-s, s), hashRc = revCom<filterFN>(hash, s);
                         smers.insert(hash < hashRc ? hash : hashRc);
                     }
                 }
@@ -465,31 +497,28 @@ public:
                 continue;
             
             minimizerMask += decToHexa(*smers.begin());
-            uint16_t hash = this->array.bitHash(p, s), hashRc = revCom(hash, s);
+            uint16_t hash = this->array.bitHash<filterFN>(p, s), hashRc = revCom<filterFN>(hash, s);
             smers.erase(smers.find((hash < hashRc ? hash : hashRc)));
         }
         return minimizerMask;
     }
     
-    uint16_t bitHash(uint64_t offset, uint32_t k) {
-        return this->array.bitHash(offset, k);
-    }
-    
+    template <uint16_t (*filterFN)(uint16_t, uint8_t)>
     uint32_t getMinimizer(uint8_t s) {
         uint64_t kcount = this->size()-s+1;
         uint32_t minimizer = std::pow(4,s)+1;
         
         for (uint64_t p = 0; p<kcount; ++p) {
-            uint16_t hash = this->array.bitHash(p, s), hashRc = revCom(hash, s);
+            uint16_t hash = this->array.bitHash<filterFN>(p, s), hashRc = revCom<filterFN>(hash, s);
             uint16_t smer = (hash < hashRc ? hash : hashRc);
             if (smer < minimizer)
                 minimizer = smer;
         }
         return minimizer;
     }
-    
 };
 
+template <uint16_t (*filterFN)(uint16_t, uint8_t)>
 class MinimizerStream {
     
     uint64_t substringStart = 0, i = 0;
@@ -501,7 +530,7 @@ class MinimizerStream {
     
 public:
     
-    MinimizerStream(String2bit &str, uint32_t k, uint8_t s) : k(k), str(str), minimizerMask(str.minimizersToMask(k,s)) {
+    MinimizerStream(String2bit &str, uint32_t k, uint8_t s) : k(k), str(str), minimizerMask(str.minimizersToMask<filterFN>(k,s)) {
         if (minimizerMask.length() < k)
             state = false;
     }
