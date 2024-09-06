@@ -501,7 +501,10 @@ class MinimizerStream {
     
 public:
     
-    MinimizerStream(String2bit &str, uint32_t k, uint8_t s) : k(k), str(str), minimizerMask(str.minimizersToMask(k,s)) {}
+    MinimizerStream(String2bit &str, uint32_t k, uint8_t s) : k(k), str(str), minimizerMask(str.minimizersToMask(k,s)) {
+        if (minimizerMask.length() < k)
+            state = false;
+    }
     
     explicit operator bool() const noexcept {
         return (state);

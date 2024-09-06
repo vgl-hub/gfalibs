@@ -128,7 +128,6 @@ template<class T>
 uint32_t ThreadPool<T>::queueJob(const T& job) {
     
     uint32_t jid;
-    
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         
@@ -147,7 +146,6 @@ std::vector<uint32_t> ThreadPool<T>::queueJobs(const std::vector<T> &newJobs) {
     
     std::vector<uint32_t> jids;
     uint32_t jid;
-    
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         
