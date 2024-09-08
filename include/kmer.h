@@ -544,7 +544,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
                 --buffers;
             }
         }
-        
     };
     
     for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
@@ -596,6 +595,19 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         status2(buffers);
     }
     while (buffers) {
+        
+        {
+            std::unique_lock<std::mutex> lck(hashMtx);
+            hashMutexCondition.wait(lck, [&] {
+                
+                for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) {
+                    if (mapDoneCounts[i] == threadPool.totalThreads())
+                        return true;
+                }
+                
+                return false;
+            });
+        }
         cleanUp(mapCount-1);
         status2(buffers);
     }
