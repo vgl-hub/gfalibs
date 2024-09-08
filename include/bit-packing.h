@@ -74,7 +74,6 @@ struct Buf2bit : Buf<TYPE> { // 2-bit specialization of a buffer
     using Buf<TYPE>::Buf;
     
     Buf2bit(uint64_t size) : Buf<TYPE>((size/4+(size % 4 != 0))) { // constructor to allocate size bytes
-        alloc += this->size*sizeof(TYPE);
         this->pos = size;
     }
     
@@ -165,7 +164,7 @@ struct Buf2bit : Buf<TYPE> { // 2-bit specialization of a buffer
         }
     }
     
-    inline Buf2bit& append(const Buf2bit& buf2bit) { // append 2-bit string to 2-bit string
+    inline Buf2bit& append(const Buf2bit &buf2bit) { // append 2-bit string to 2-bit string
         
         uint64_t lenB = buf2bit.length();
         this->newSize((lenB/4+(lenB % 4 != 0))); // increase size of the container if needed
@@ -258,7 +257,6 @@ struct Buf1bit : Buf<TYPE> { // 1-bit specialization of a buffer
     using Buf<TYPE>::Buf;
     
     Buf1bit(uint64_t size) : Buf<TYPE>((size/8+(size % 8 != 0))) { // constructor to allocate size bytes
-        alloc += this->size*sizeof(TYPE);
         this->pos = size;
     }
     

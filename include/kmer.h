@@ -129,7 +129,7 @@ protected: // they are protected, so that they can be further specialized by inh
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
-    uint64_t* pows = new uint64_t[k]; // storing precomputed values of each power significantly speeds up hashing
+    uint64_t* pows = new uint64_t[prefix]; // storing precomputed values of each power significantly speeds up hashing
 
     std::vector<SeqBuf*> buffersVec; // a vector for all kmer buffers
     
@@ -402,6 +402,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
             if (substr.size() >= k) {
                 uint8_t idx = substr.getMinimizer<hashNC>(s) % mapCount;
                 buffers[idx].seq->append(substr.data());
+                
                 Buf1bit<> bitMask(substr.size());
                 bitMask.assign(substr.size()-1);
                 buffers[idx].mask->append(bitMask);
@@ -558,8 +559,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
         while(bufFile && !(bufFile.peek() == EOF)) {
             bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-            Buf2bit<> tmpBuf;
-            tmpBuf.newPos(pos);
+            Buf2bit<> tmpBuf(pos);
             bufFile.read(reinterpret_cast<char *>(tmpBuf.seq), sizeof(uint8_t) * (pos/4 + (pos % 4 != 0)));
             seqBuf[m].seq->append(tmpBuf);
             len += pos;
@@ -574,8 +574,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         std::ifstream maskFile(fl, std::ios::in | std::ios::binary);
         while(maskFile && !(maskFile.peek() == EOF)) {
             maskFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-            Buf1bit<> tmpMask;
-            tmpMask.newPos(pos);
+            Buf1bit<> tmpMask(pos);
             maskFile.read(reinterpret_cast<char *>(tmpMask.seq), sizeof(uint8_t) * (pos/8 + (pos % 8 != 0)));
             seqBuf[m].mask->append(tmpMask);
         }
@@ -907,13 +906,13 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status2(uint8_t buffers) {
     
-    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
+//    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
     
-    if (elapsed.count() > 0.1) {
+//    if (elapsed.count() > 0.1) {
         lg.verbose("Buffers: " + std::to_string(buffers) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
     
-        past = std::chrono::high_resolution_clock::now();
-    }
+//        past = std::chrono::high_resolution_clock::now();
+//    }
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
