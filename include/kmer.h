@@ -390,7 +390,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
 //        std::cout<<str.toString()<<std::endl;
 //        std::cout<<str.maskToString()<<std::endl;
 //        std::cout<<str.minimizersToMask(k,s).toString()<<std::endl;
-        MinimizerStream mStream(str, k, s);
+        MinimizerStream<hashNC> mStream(str, k, s);
 //        uint32_t prev = 0;
         while (mStream) {
             String2bit substr = mStream.next();
@@ -400,7 +400,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
 //            else
 //                prev += substr.size()+mStream.gapSize();
             if (substr.size() >= k) {
-                uint8_t idx = substr.getMinimizer(s) % mapCount;
+                uint8_t idx = substr.getMinimizer<hashNC>(s) % mapCount;
                 buffers[idx].seq->append(substr.data());
                 Buf1bit<> bitMask(substr.size());
                 bitMask.assign(substr.size()-1);
