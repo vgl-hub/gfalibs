@@ -694,6 +694,10 @@ static inline void unmaskSequence(std::string &sequence) {
     std::transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
 }
 
+static inline void eraseChar(std::string& input, char rmChar) {
+    input.erase(std::remove(input.begin(), input.end(), rmChar), input.end());
+}
+
 static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::string input) {
     
     std::string header, cBegin, cEnd; // the header for coordinates provided as positional argument
@@ -722,5 +726,7 @@ static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::s
     
     return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
+
+
 
 #endif /* FUNCTIONS_H */
