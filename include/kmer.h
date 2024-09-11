@@ -122,7 +122,7 @@ protected: // they are protected, so that they can be further specialized by inh
     std::vector<std::future<bool>> futures;
     std::string DBextension;
     
-    const static uint16_t mapCount = 127; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
+    const static uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
@@ -186,7 +186,7 @@ protected: // they are protected, so that they can be further specialized by inh
     std::array<uint16_t,mapCount> hashBufferReady{}, mapDoneCounts{};
     uint64_t *idxBuffers[mapCount];
     
-    std::mutex readMtx, bufferMtx, hashMtx;
+    std::mutex readMtx, hashMtx;
     std::condition_variable hashMutexCondition;
     
     int bufferFiles[mapCount];
@@ -219,12 +219,12 @@ public:
 
             }
             jobWait(threadPool);
+            
+            for(uint16_t m = 0; m<mapCount; ++m)
+                bufferFiles[m] = open((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str(), O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+            
             initBuffering(); // start parallel buffering
         }
-        
-        for(uint16_t m = 0; m<mapCount; ++m)
-            bufferFiles[m] = open((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str(), O_RDWR | O_CREAT);
-        
     };
     
     ~Kmap(){ // always need to call the destructor and delete for any object called with new to avoid memory leaks
@@ -364,8 +364,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
     //   Log threadLog;
     std::string *readBatch;
     uint64_t len = 0;
-    
-    Distribution_Bundle* bundle = Begin_Distribution(bufferFiles, bufferMtx.native_handle(), k, s);
+
+    Distribution_Bundle* bundle = Begin_Distribution(k, s, bufferFiles);
     
     while (true) {
             
@@ -387,6 +387,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
         delete readBatch;
         freed += len * sizeof(char);
     }
+    End_Distribution(bundle);
     return true;
 }
 
@@ -422,6 +423,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
+    
+    std::cout<<"buffers to maps"<<std::endl;
     
     uint8_t buffers = mapCount; // keep track of the number of processed buffers
     std::array<bool,mapCount> deleteTmp{};
