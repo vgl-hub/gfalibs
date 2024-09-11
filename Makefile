@@ -10,7 +10,7 @@ SOURCE = src
 INCLUDE = include
 LDFLAGS :=
 
-SOURCES = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log stream-obj uid-generator struct output memory)
+SOURCES = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log stream-obj uid-generator struct output memory MinScan)
 
 all: $(SOURCES)
 	@

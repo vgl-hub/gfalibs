@@ -8,6 +8,8 @@
 
 #include <bit-packing.h>
 #include <fastx.h>
+#include <fcntl.h>
+#include <MinScan.h>
 
 #define LARGEST 4294967295 // 2^32-1
 
@@ -104,11 +106,6 @@ struct KeyEqualTo {
     }
 };
 
-struct SeqBuf {
-    Buf2bit<> *seq = new Buf2bit<>;
-    Buf1bit<> *mask = new Buf1bit<>;
-};
-
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2> // DERIVED implements the CRTP technique, INPUT is a specialized userInput type depending on the tool, KEY is the key type for the hashtable, TYPE1 is the low frequency type of elements we wish to store in the maps, e.g. uint8_t kmer counts, TYPE2 is the high frequency type of elements we wish to store in the maps, e.g. uint32_t kmer counts
 class Kmap {
 
@@ -130,8 +127,6 @@ protected: // they are protected, so that they can be further specialized by inh
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
     uint64_t* pows = new uint64_t[prefix]; // storing precomputed values of each power significantly speeds up hashing
-
-    std::vector<SeqBuf*> buffersVec; // a vector for all kmer buffers
     
     using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
                                               KeyHasher,
@@ -190,10 +185,11 @@ protected: // they are protected, so that they can be further specialized by inh
     uint8_t mapReady = 0, toDelete = 0, deleted = 0;
     std::array<uint16_t,mapCount> hashBufferReady{}, mapDoneCounts{};
     uint64_t *idxBuffers[mapCount];
-    SeqBuf seqBuf[mapCount], seqBuf2[mapCount];
     
     std::mutex readMtx, bufferMtx, hashMtx;
     std::condition_variable hashMutexCondition;
+    
+    int bufferFiles[mapCount];
     
 public:
     
@@ -213,7 +209,6 @@ public:
             for(uint16_t m = 0; m<mapCount; ++m) {// remove tmp buffers and maps if any
                 threadPool.queueJob([=]{ return remove((userInput.prefix + "/.map." + std::to_string(m) + ".bin").c_str()); });
                 threadPool.queueJob([=]{ return remove((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str()); });
-                threadPool.queueJob([=]{ return remove((userInput.prefix + "/.mask." + std::to_string(m) + ".bin").c_str()); });
                 uint8_t fileNum = 0;
                 while (fileExists(userInput.prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) +  ".tmp.bin")) {
                     threadPool.queueJob([=]{ return remove((userInput.prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) +  ".tmp.bin").c_str()); });
@@ -226,6 +221,9 @@ public:
             jobWait(threadPool);
             initBuffering(); // start parallel buffering
         }
+        
+        for(uint16_t m = 0; m<mapCount; ++m)
+            bufferFiles[m] = open((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str(), O_RDWR | O_CREAT);
         
     };
     
@@ -243,8 +241,6 @@ public:
     bool memoryOk(int64_t delta);
     
     void initBuffering();
-    
-    bool dumpBuffers();
     
     void buffersToMaps();
     
@@ -369,6 +365,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
     std::string *readBatch;
     uint64_t len = 0;
     
+    Distribution_Bundle* bundle = Begin_Distribution(bufferFiles, bufferMtx.native_handle(), k, s);
+    
     while (true) {
             
         {
@@ -384,47 +382,16 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
             readBatches.pop();
         }
 
-        SeqBuf *buffers = new SeqBuf[mapCount];
+        Distribute_Sequence(const_cast<char*>(readBatch->data()), readBatch->size(), bundle);
         
-        String2bit str(*readBatch);
-//        std::cout<<str.toString()<<std::endl;
-//        std::cout<<str.maskToString()<<std::endl;
-//        std::cout<<str.minimizersToMask(k,s).toString()<<std::endl;
-        MinimizerStream<hashNC> mStream(str, k, s);
-//        uint32_t prev = 0;
-        while (mStream) {
-            String2bit substr = mStream.next();
-//            std::cout<<std::string(prev,' ')<<substr.toString()<<" "<<+substr.getMinimizer(s)<<std::endl;
-//            if (!mStream.gapSize())
-//                prev += substr.size()-k+1;
-//            else
-//                prev += substr.size()+mStream.gapSize();
-            if (substr.size() >= k) {
-                uint8_t idx = substr.getMinimizer<hashNC>(s) % mapCount;
-                buffers[idx].seq->append(substr.data());
-                
-                Buf1bit<> bitMask(substr.size());
-                bitMask.assign(substr.size()-1);
-                buffers[idx].mask->append(bitMask);
-            }
-        }
         delete readBatch;
-        //    threadLog.add("Processed sequence: " + sequence->header);
-        //    std::lock_guard<std::mutex> lck(mtx);
-        //    logs.push_back(threadLog);
-        std::lock_guard<std::mutex> lck(bufferMtx);
         freed += len * sizeof(char);
-        buffersVec.push_back(buffers);
     }
     return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
-    
-    std::packaged_task<bool()> task([this] { return dumpBuffers(); });
-    futures.push_back(task.get_future());
-    threads.push_back(std::thread(std::move(task)));
     
     int16_t threadN = threadPool.totalThreads(); // substract the writing thread
     
@@ -436,67 +403,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
         futures.push_back(task.get_future());
         threads.push_back(std::thread(std::move(task)));
     }
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpBuffers() {
-    
-    bool buffering = true;
-    std::vector<SeqBuf*> buffersVecCpy;
-    
-    while (buffering) {
-        
-        if (readingDone) { // if we have finished reading the input
-            
-            uint8_t bufferingDone = 0;
-            
-            for (uint8_t i = 1; i < futures.size(); ++i) { // we check how many hashing threads are still running
-                if (futures[i].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
-                    ++bufferingDone;
-            }
-            
-            if (bufferingDone == futures.size() - 1) // if all hashing threads are done we exit the loop after one more iteration
-                buffering = false;
-        }
-        
-        {
-            std::unique_lock<std::mutex> lck(bufferMtx); // we safely collect the new buffers
-            buffersVecCpy = buffersVec;
-            buffersVec.clear();
-        }
-        
-        if (buffersVecCpy.size()>0) {
-            
-            for (uint16_t b = 0; b<mapCount; ++b) { // for each buffer file
-                
-                Buf2bit<> buffer;
-                Buf1bit<> mask;
-                
-                for (SeqBuf *buffers : buffersVecCpy) { // for each array of buffers
-                    buffer.append(*buffers[b].seq);
-                    delete[] buffers[b].seq->seq;
-                    buffers[b].seq->seq = NULL;
-                    
-                    mask.append(*buffers[b].mask);
-                    delete[] buffers[b].mask->seq;
-                    buffers[b].mask->seq = NULL;
-                    
-                    freed += buffers[b].seq->size * sizeof(uint8_t) * 2;
-                }
-                std::ofstream bufFile(userInput.prefix + "/.buf." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
-                std::ofstream maskFile(userInput.prefix + "/.mask." + std::to_string(b) + ".bin", std::fstream::app | std::ios::out | std::ios::binary);
-                
-                bufFile.write(reinterpret_cast<const char *>(&buffer.pos), sizeof(uint64_t));
-                bufFile.write(reinterpret_cast<const char *>(buffer.seq), sizeof(uint8_t) * (buffer.pos/4 + (buffer.pos % 4 != 0)));
-                maskFile.write(reinterpret_cast<const char *>(&mask.pos), sizeof(uint64_t));
-                maskFile.write(reinterpret_cast<const char *>(mask.seq), sizeof(uint8_t) * (mask.pos/8 + (mask.pos % 8 != 0)));
-            }
-            for (SeqBuf *buffers : buffersVecCpy)
-                delete[] buffers;
-        }
-    }
-    return true;
-    
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -523,94 +429,59 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
     auto cleanUp = [&] (uint8_t m) {
         
-        {
-            std::lock_guard<std::mutex> lck(hashMtx);
-            mapReady = m + 1;
-            
-            for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // if threads signal they are done
-                if (mapDoneCounts[i] == threadPool.totalThreads())
-                    deleteTmp[i] = true; // mark buffer for deletion
-            }
-        }
-        hashMutexCondition.notify_all();
-        for(uint16_t i = 0; i<deleteTmp.size(); ++i) {
-            if (deleteTmp[i]) {
-                delete[] idxBuffers[i];
-                delete seqBuf[i].seq;
-                delete seqBuf[i].mask;
-                dumpTmpMap(userInput.prefix, i, mapsIdt[i]);
-                mapDoneCounts[i] = 0;
-                deleteTmp[i] = false;
-                --buffers;
-            }
-        }
     };
     
     for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
         //        std::cout<<"hello1"<<std::endl;
         uint64_t len = 0, pos;
         
-        std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
-        if (!fileExists(fl)) {
-            fprintf(stderr, "Buffer file %s does not exist. Terminating.\n", fl.c_str());
-            exit(EXIT_FAILURE);
-        }
-        std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
-        while(bufFile && !(bufFile.peek() == EOF)) {
-            bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-            Buf2bit<> tmpBuf(pos);
-            bufFile.read(reinterpret_cast<char *>(tmpBuf.seq), sizeof(uint8_t) * (pos/4 + (pos % 4 != 0)));
-            seqBuf[m].seq->append(tmpBuf);
-            len += pos;
-        }
-        bufFile.close();
-        
-        fl = userInput.prefix + "/.mask." + std::to_string(m) + ".bin";
-        if (!fileExists(fl)) {
-            fprintf(stderr, "Mask file %s does not exist. Terminating.\n", fl.c_str());
-            exit(EXIT_FAILURE);
-        }
-        std::ifstream maskFile(fl, std::ios::in | std::ios::binary);
-        while(maskFile && !(maskFile.peek() == EOF)) {
-            maskFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-            Buf1bit<> tmpMask(pos);
-            maskFile.read(reinterpret_cast<char *>(tmpMask.seq), sizeof(uint8_t) * (pos/8 + (pos % 8 != 0)));
-            seqBuf[m].mask->append(tmpMask);
-        }
-        maskFile.close();
-        remove((userInput.prefix + "/.mask." + std::to_string(m) + ".bin").c_str());
+//        std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
+//        if (!fileExists(fl)) {
+//            fprintf(stderr, "Buffer file %s does not exist. Terminating.\n", fl.c_str());
+//            exit(EXIT_FAILURE);
+//        }
+//        std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
+//        while(bufFile && !(bufFile.peek() == EOF)) {
+//            bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
+//            Buf2bit<> tmpBuf(pos);
+//            bufFile.read(reinterpret_cast<char *>(tmpBuf.seq), sizeof(uint8_t) * (pos/4 + (pos % 4 != 0)));
+//            seqBuf[m].seq->append(tmpBuf);
+//            len += pos;
+//        }
+//        bufFile.close();
+ 
         
 //                std::cout<<seqBuf[m].seq->toString()<<std::endl;
 //                std::cout<<seqBuf[m].mask->toString()<<std::endl;
         //        std::cout<<"hello2"<<std::endl;
-        uint64_t *idxBuf = new uint64_t[len];
-        idxBuffers[m] = idxBuf;
-        
-        mapsIdt[m] = new ParallelMapIdt(0, KeyHasherIdt(idxBuf), KeyEqualTo(seqBuf[m].seq, prefix, k));
-        mapsIdt[m]->reserve(pos/2); // total compressed kmers * load factor 40%;
-        //            alloc += mapSize(map);
-        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
-        //            std::cout<<"hello3"<<std::endl;
-        cleanUp(m);
-        status2(buffers);
+//        uint64_t *idxBuf = new uint64_t[len];
+//        idxBuffers[m] = idxBuf;
+//        
+//        mapsIdt[m] = new ParallelMapIdt(0, KeyHasherIdt(idxBuf), KeyEqualTo(seqBuf[m].seq, prefix, k));
+//        mapsIdt[m]->reserve(pos/2); // total compressed kmers * load factor 40%;
+//        //            alloc += mapSize(map);
+//        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
+//        //            std::cout<<"hello3"<<std::endl;
+//        cleanUp(m);
+//        status2(buffers);
     }
-    while (buffers) {
-        
-        {
-            std::unique_lock<std::mutex> lck(hashMtx);
-            hashMutexCondition.wait(lck, [&] {
-                
-                for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) {
-                    if (mapDoneCounts[i] == threadPool.totalThreads())
-                        return true;
-                }
-                
-                return false;
-            });
-        }
-        cleanUp(mapCount-1);
-        status2(buffers);
-    }
+//    while (buffers) {
+//        
+//        {
+//            std::unique_lock<std::mutex> lck(hashMtx);
+//            hashMutexCondition.wait(lck, [&] {
+//                
+//                for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) {
+//                    if (mapDoneCounts[i] == threadPool.totalThreads())
+//                        return true;
+//                }
+//                
+//                return false;
+//            });
+//        }
+//        cleanUp(mapCount-1);
+//        status2(buffers);
+//    }
     jobWait(threadPool);
 
 //    std::cout<<"hello6"<<std::endl;
@@ -622,136 +493,136 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
     
-    uint8_t m = 0;
-    
-    while (m < mapCount) {
-//        std::cout<<"hey0"<<std::endl;
-        {
-            std::unique_lock<std::mutex> lck(hashMtx);
-//            std::cout<<"hey0.1"<<std::endl;
-
-            hashMutexCondition.wait(lck, [this,m] {
-//                std::cout<<"hey0.2"<<std::endl;
-                return mapReady > m;
-            });
-//            std::cout<<"hey0.3"<<std::endl;
-        }
-//        std::cout<<"hey1"<<std::endl;
-        SeqBuf &buf = seqBuf[m];
-        uint64_t last = buf.seq->pos, start = 0, end = 0;
-        if (last) {
-            --last;
-            uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
-            for(uint16_t t = 0; t < threadPool.totalThreads(); ++t) {
-                
-                end = std::min(start + quota, last);
-                while (!seqBuf[m].mask->at(end))
-                    ++end;
-                
-//                std::cout<<+start<<" "<<+end<<std::endl;
-                
-                if (t == thread)
-                    break;
-                
-                start = end;
-            }
-            
-            if (end-start) {
-                
-//                std::cout<<"hey2"<<std::endl;
-                KeyHasher keyHasher(buf.seq, prefix, k, pows);
-//                std::cout<<"hey3"<<std::endl;
-                for (uint64_t c = start; c<end-k+2; ++c) {
-                    Key key(c);
-                    idxBuffers[m][c] = keyHasher(key); // precompute the hash
-                    if (buf.mask->at(c+k-1))
-                        c += k-1;
-                }
-            }
-//            std::cout<<"hey4"<<std::endl;
-            {
-                std::unique_lock<std::mutex> lck(hashMtx);
-                
-                ++hashBufferReady[m];
-                hashMutexCondition.wait(lck, [this,m] {
-                    return hashBufferReady[m] == threadPool.totalThreads();
-                });
-            }
-            hashMutexCondition.notify_all();
-//            std::cout<<"hey5"<<std::endl;
-            ParallelMapIdt &map = *mapsIdt[m];
-            ParallelMap32 &map32 = *maps32[m];
-            
-            uint64_t pos = buf.seq->pos;
-            uint8_t totThreads = threadPool.totalThreads();
-//            std::cout<<"hey6"<<std::endl;
-            for (uint64_t c = 0; c<pos-k+1; ++c) {
-                
-                if ((map.subidx(map.hash(c)) % totThreads) == thread) {
-                    
-                    Key key(c);
-                    TYPE1 &count = map[key];
-                    bool overflow = (count >= 254 ? true : false);
-                    
-                    if (!overflow)
-                        ++count; // increase kmer coverage
-                    else {
-                        
-                        TYPE2 &count32 = map32[key];
-                        
-                        if (count32 == 0) { // first time we add the kmer
-                            count32 = count;
-                            count = 255; // invalidates int8 kmer
-                        }
-                        if (count32 < LARGEST)
-                            ++count32; // increase kmer coverage
-                    }
-                }
-                if (buf.mask->at(c+k-1))
-                    c += k-1;
-            }
-//            std::cout<<"hey7"<<std::endl;
-            uint64_t unique = 0, distinct = 0; // stats on the fly
-            phmap::flat_hash_map<uint64_t, uint64_t> hist;
-            
-            for (auto pair : map) {
-                
-                if ((map.subidx(map.hash(pair.first.getKmer())) % totThreads) == thread) {
-                    if (pair.second == 255) // check the large table
-                        continue;
-                    
-                    if (pair.second == 1)
-                        ++unique;
-                    
-                    ++distinct;
-                    ++hist[pair.second];
-                }
-            }
-            for (auto pair : map32) {
-                if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
-                    ++distinct;
-                    ++hist[pair.second];
-                }
-            }
-//            std::cout<<"hey8"<<std::endl;
-            {
-                std::lock_guard<std::mutex> lck(hashMtx);
-                totUnique += unique;
-                totDistinct += distinct;
-                
-                for (auto pair : hist) {
-                    finalHistogram[pair.first] += pair.second;
-                    tot += pair.first * pair.second;
-                }
-                ++mapDoneCounts[m];
-            }
-        }else{
-            std::lock_guard<std::mutex> lck(hashMtx);
-            ++mapDoneCounts[m];
-        }
-        ++m;
-        hashMutexCondition.notify_all();
-    }
+//    uint8_t m = 0;
+//    
+//    while (m < mapCount) {
+////        std::cout<<"hey0"<<std::endl;
+//        {
+//            std::unique_lock<std::mutex> lck(hashMtx);
+////            std::cout<<"hey0.1"<<std::endl;
+//
+//            hashMutexCondition.wait(lck, [this,m] {
+////                std::cout<<"hey0.2"<<std::endl;
+//                return mapReady > m;
+//            });
+////            std::cout<<"hey0.3"<<std::endl;
+//        }
+////        std::cout<<"hey1"<<std::endl;
+//        SeqBuf &buf = NULL;
+//        uint64_t last = buf.seq->len, start = 0, end = 0;
+//        if (last) {
+//            --last;
+//            uint32_t quota = last / threadPool.totalThreads(); // number of positions for each thread
+//            for(uint16_t t = 0; t < threadPool.totalThreads(); ++t) {
+//                
+//                end = std::min(start + quota, last);
+//                while (!seqBuf[m].mask->at(end))
+//                    ++end;
+//                
+////                std::cout<<+start<<" "<<+end<<std::endl;
+//                
+//                if (t == thread)
+//                    break;
+//                
+//                start = end;
+//            }
+//            
+//            if (end-start) {
+//                
+////                std::cout<<"hey2"<<std::endl;
+//                KeyHasher keyHasher(buf.seq, prefix, k, pows);
+////                std::cout<<"hey3"<<std::endl;
+//                for (uint64_t c = start; c<end-k+2; ++c) {
+//                    Key key(c);
+//                    idxBuffers[m][c] = keyHasher(key); // precompute the hash
+//                    if (buf.mask->at(c+k-1))
+//                        c += k-1;
+//                }
+//            }
+////            std::cout<<"hey4"<<std::endl;
+//            {
+//                std::unique_lock<std::mutex> lck(hashMtx);
+//                
+//                ++hashBufferReady[m];
+//                hashMutexCondition.wait(lck, [this,m] {
+//                    return hashBufferReady[m] == threadPool.totalThreads();
+//                });
+//            }
+//            hashMutexCondition.notify_all();
+////            std::cout<<"hey5"<<std::endl;
+//            ParallelMapIdt &map = *mapsIdt[m];
+//            ParallelMap32 &map32 = *maps32[m];
+//            
+//            uint64_t pos = buf.seq->pos;
+//            uint8_t totThreads = threadPool.totalThreads();
+////            std::cout<<"hey6"<<std::endl;
+//            for (uint64_t c = 0; c<pos-k+1; ++c) {
+//                
+//                if ((map.subidx(map.hash(c)) % totThreads) == thread) {
+//                    
+//                    Key key(c);
+//                    TYPE1 &count = map[key];
+//                    bool overflow = (count >= 254 ? true : false);
+//                    
+//                    if (!overflow)
+//                        ++count; // increase kmer coverage
+//                    else {
+//                        
+//                        TYPE2 &count32 = map32[key];
+//                        
+//                        if (count32 == 0) { // first time we add the kmer
+//                            count32 = count;
+//                            count = 255; // invalidates int8 kmer
+//                        }
+//                        if (count32 < LARGEST)
+//                            ++count32; // increase kmer coverage
+//                    }
+//                }
+//                if (buf.mask->at(c+k-1))
+//                    c += k-1;
+//            }
+////            std::cout<<"hey7"<<std::endl;
+//            uint64_t unique = 0, distinct = 0; // stats on the fly
+//            phmap::flat_hash_map<uint64_t, uint64_t> hist;
+//            
+//            for (auto pair : map) {
+//                
+//                if ((map.subidx(map.hash(pair.first.getKmer())) % totThreads) == thread) {
+//                    if (pair.second == 255) // check the large table
+//                        continue;
+//                    
+//                    if (pair.second == 1)
+//                        ++unique;
+//                    
+//                    ++distinct;
+//                    ++hist[pair.second];
+//                }
+//            }
+//            for (auto pair : map32) {
+//                if (map32.subidx(map32.hash(pair.first)) % totThreads == thread) {
+//                    ++distinct;
+//                    ++hist[pair.second];
+//                }
+//            }
+////            std::cout<<"hey8"<<std::endl;
+//            {
+//                std::lock_guard<std::mutex> lck(hashMtx);
+//                totUnique += unique;
+//                totDistinct += distinct;
+//                
+//                for (auto pair : hist) {
+//                    finalHistogram[pair.first] += pair.second;
+//                    tot += pair.first * pair.second;
+//                }
+//                ++mapDoneCounts[m];
+//            }
+//        }else{
+//            std::lock_guard<std::mutex> lck(hashMtx);
+//            ++mapDoneCounts[m];
+//        }
+//        ++m;
+//        hashMutexCondition.notify_all();
+//    }
     return true;
 }
 
@@ -889,17 +760,17 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadHighCopyKmers() {
     bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
     Buf<HcKmer> buffer(pos);
     
-    for (uint16_t m = 0; m<mapCount; ++m) // initialize maps32
-        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
-    
-    for (uint64_t i = 0; i<pos; ++i){
-        HcKmer hcKmer = buffer.seq[i];
-        bufFile.read(reinterpret_cast<char *>(&hcKmer.key), sizeof(uint64_t));
-        bufFile.read(reinterpret_cast<char *>(&hcKmer.value), sizeof(uint32_t));
-        bufFile.read(reinterpret_cast<char *>(&hcKmer.map), sizeof(uint8_t));
-//        std::cout<<+hcKmer.key<<" "<<+hcKmer.value<<" "<<+hcKmer.map<<std::endl;
-        maps32[hcKmer.map]->emplace(std::make_pair(hcKmer.key,hcKmer.value));
-    }
+//    for (uint16_t m = 0; m<mapCount; ++m) // initialize maps32
+//        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
+//    
+//    for (uint64_t i = 0; i<pos; ++i){
+//        HcKmer hcKmer = buffer.seq[i];
+//        bufFile.read(reinterpret_cast<char *>(&hcKmer.key), sizeof(uint64_t));
+//        bufFile.read(reinterpret_cast<char *>(&hcKmer.value), sizeof(uint32_t));
+//        bufFile.read(reinterpret_cast<char *>(&hcKmer.map), sizeof(uint8_t));
+////        std::cout<<+hcKmer.key<<" "<<+hcKmer.value<<" "<<+hcKmer.map<<std::endl;
+//        maps32[hcKmer.map]->emplace(std::make_pair(hcKmer.key,hcKmer.value));
+//    }
     return true;
 }
 
@@ -909,7 +780,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
     std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
     
     if (elapsed.count() > 0.1) {
-        lg.verbose("Read batches: " + std::to_string(readBatches.size() + sequenceBatches.size()) + ". Buffers: " + std::to_string(buffersVec.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+        lg.verbose("Read batches: " + std::to_string(readBatches.size() + sequenceBatches.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
     
         past = std::chrono::high_resolution_clock::now();
     }
@@ -930,11 +801,11 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status2(uint8_t buffers) {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16_t m) { // loads a specific map
     
-    prefix.append("/.map." + std::to_string(m) + ".bin");
-    phmap::BinaryInputArchive ar_in(prefix.c_str());
-    maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, this->prefix, k, pows), KeyEqualTo(seqBuf[m].seq, this->prefix, k));
-    maps[m]->phmap_load(ar_in);
-    alloc += mapSize(*maps[m]);
+//    prefix.append("/.map." + std::to_string(m) + ".bin");
+//    phmap::BinaryInputArchive ar_in(prefix.c_str());
+//    maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].seq, this->prefix, k, pows), KeyEqualTo(seqBuf[m].seq, this->prefix, k));
+//    maps[m]->phmap_load(ar_in);
+//    alloc += mapSize(*maps[m]);
     
     return true;
 }
@@ -986,42 +857,42 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeMaps(uint16_t m) { // a single job merging maps with the same hashes
     
-    std::string prefix = userInput.kmerDB[0]; // loads the first map
-    prefix.append("/.map." + std::to_string(m) + ".bin");
-    
-    phmap::BinaryInputArchive ar_in(prefix.c_str());
-    maps[m]->phmap_load(ar_in);
-    
-    uint64_t pos;
-    std::ifstream bufFile = std::ifstream(userInput.kmerDB[0]+ "/.seq.bin", std::ios::in | std::ios::binary);
-    bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-    seqBuf[m].seq = new Buf2bit<>(pos);
-    seqBuf[m].seq->size = pos;
-    bufFile.read(reinterpret_cast<char *>(seqBuf[m].seq->seq), sizeof(uint8_t) * seqBuf[m].seq->size);
-
-    for (unsigned int i = 1; i < userInput.kmerDB.size(); ++i) { // for each kmerdb loads the map and merges it
-        
-        bufFile = std::ifstream(userInput.kmerDB[0] + "/.seq.bin", std::ios::in | std::ios::binary);
-        bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-        seqBuf2[m].seq = new Buf2bit<>(pos);
-        seqBuf2[m].seq->size = pos;
-        bufFile.read(reinterpret_cast<char *>(seqBuf2[m].seq->seq), sizeof(uint8_t) * seqBuf2[m].seq->size);
-        
-        std::string prefix = userInput.kmerDB[i]; // loads the next map
-        prefix.append("/.map." + std::to_string(m) + ".bin");
-        
-        ParallelMap* nextMap = new ParallelMap;
-        phmap::BinaryInputArchive ar_in(prefix.c_str());
-        nextMap->phmap_load(ar_in);
-        
-        unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
-        delete nextMap;
-    }
-    
-    dumpMap(userInput.prefix, m);
-    deleteMap(m);
-    
-    static_cast<DERIVED*>(this)->summary(m);
+//    std::string prefix = userInput.kmerDB[0]; // loads the first map
+//    prefix.append("/.map." + std::to_string(m) + ".bin");
+//    
+//    phmap::BinaryInputArchive ar_in(prefix.c_str());
+//    maps[m]->phmap_load(ar_in);
+//    
+//    uint64_t pos;
+//    std::ifstream bufFile = std::ifstream(userInput.kmerDB[0]+ "/.seq.bin", std::ios::in | std::ios::binary);
+//    bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
+//    seqBuf[m].seq = new Buf2bit<>(pos);
+//    seqBuf[m].seq->size = pos;
+//    bufFile.read(reinterpret_cast<char *>(seqBuf[m].seq->seq), sizeof(uint8_t) * seqBuf[m].seq->size);
+//
+//    for (unsigned int i = 1; i < userInput.kmerDB.size(); ++i) { // for each kmerdb loads the map and merges it
+//        
+//        bufFile = std::ifstream(userInput.kmerDB[0] + "/.seq.bin", std::ios::in | std::ios::binary);
+//        bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
+//        seqBuf2[m].seq = new Buf2bit<>(pos);
+//        seqBuf2[m].seq->size = pos;
+//        bufFile.read(reinterpret_cast<char *>(seqBuf2[m].seq->seq), sizeof(uint8_t) * seqBuf2[m].seq->size);
+//        
+//        std::string prefix = userInput.kmerDB[i]; // loads the next map
+//        prefix.append("/.map." + std::to_string(m) + ".bin");
+//        
+//        ParallelMap* nextMap = new ParallelMap;
+//        phmap::BinaryInputArchive ar_in(prefix.c_str());
+//        nextMap->phmap_load(ar_in);
+//        
+//        unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
+//        delete nextMap;
+//    }
+//    
+//    dumpMap(userInput.prefix, m);
+//    deleteMap(m);
+//    
+//    static_cast<DERIVED*>(this)->summary(m);
     
     return true;
 

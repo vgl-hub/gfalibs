@@ -277,7 +277,6 @@ inline void flushLogs() {
         it->print();
         logs.erase(it--);
     }
-    
 }
 
 template<class T>
@@ -304,7 +303,6 @@ void jobWait(ThreadPool<T>& threadPool, bool master = false) {
             threadPool.execJob(); // have the master thread contribute
         
     }
-    
 }
 
 template<class T>
