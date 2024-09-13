@@ -46,22 +46,23 @@ struct KeyHasher {
     uint8_t prefix;
     uint32_t k;
     uint64_t* pows = NULL;
-    Buf2bit<> *seqBuf;
+    uint64_t *seqBuf;
     
     KeyHasher() {}
     
-    KeyHasher(Buf2bit<> *seqBuf, uint8_t prefix, uint32_t k, uint64_t* pows) : prefix(prefix), k(k), pows(pows), seqBuf(seqBuf) {}
+    KeyHasher(uint64_t *seqBuf, uint8_t prefix, uint32_t k, uint64_t* pows) : prefix(prefix), k(k), pows(pows), seqBuf(seqBuf) {}
     std::size_t operator()(const Key& key) const {
 
-        uint64_t fw = 0, rv = 0, offset = key.getKmer(); // hashes for both forward and reverse complement sequence
+//        uint64_t fw = 0, rv = 0, offset = key.getKmer(); // hashes for both forward and reverse complement sequence
         
-        for(uint8_t c = 0; c<prefix; ++c) { // for each position up to prefix len
-            
-            fw += seqBuf->at(offset+c) * pows[c]; // base * 2^N
-            rv += (3-seqBuf->at(offset+k-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
-        }
-        // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
-        return fw < rv ? fw : rv;
+//        for(uint8_t c = 0; c<prefix; ++c) { // for each position up to prefix len
+//            
+//            fw += seqBuf->at(offset+c) * pows[c]; // base * 2^N
+//            rv += (3-seqBuf->at(offset+k-1-c)) * pows[c]; // we walk the kmer backward to compute the rvcp
+//        }
+//        // return fw < rv ? 0 : 0; // even if they end up in the same bucket it's fine!
+//        return fw < rv ? fw : rv;
+        return 0;
     }
 };
 
@@ -82,26 +83,26 @@ struct KeyEqualTo {
     
     uint8_t prefix;
     uint32_t k;
-    Buf2bit<> *seqBuf;
+    uint64_t *seqBuf;
     
     KeyEqualTo() {}
     
-    KeyEqualTo(Buf2bit<> *seqBuf, uint8_t prefix, uint32_t k) : prefix(prefix), k(k), seqBuf(seqBuf) {}
+    KeyEqualTo(uint64_t *seqBuf, uint8_t prefix, uint32_t k) : prefix(prefix), k(k), seqBuf(seqBuf) {}
     
     bool operator()(const Key& key1, const Key& key2) const {
         
-        uint64_t offset1 = key1.getKmer(), offset2 = key2.getKmer();
-        
-        for(uint32_t i = 0; i<k; ++i) { // check fw
-            if(seqBuf->at(offset1+i) ^ seqBuf->at(offset2+i))
-                break;
-            if (i == k-1)
-                return true;
-        }
-        for(uint32_t i = 0; i<k; ++i) { // if fw fails, check rv
-            if(seqBuf->at(offset1+i) ^ (3-seqBuf->at(offset2+k-i-1)))
-                return false;
-        }
+//        uint64_t offset1 = key1.getKmer(), offset2 = key2.getKmer();
+//        
+//        for(uint32_t i = 0; i<k; ++i) { // check fw
+//            if(seqBuf->at(offset1+i) ^ seqBuf->at(offset2+i))
+//                break;
+//            if (i == k-1)
+//                return true;
+//        }
+//        for(uint32_t i = 0; i<k; ++i) { // if fw fails, check rv
+//            if(seqBuf->at(offset1+i) ^ (3-seqBuf->at(offset2+k-i-1)))
+//                return false;
+//        }
         return true;
     }
 };
@@ -221,7 +222,7 @@ public:
             jobWait(threadPool);
             
             for(uint16_t m = 0; m<mapCount; ++m)
-                bufferFiles[m] = open((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str(), O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+                bufferFiles[m] = open((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str(), O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
             
             initBuffering(); // start parallel buffering
         }
@@ -261,8 +262,6 @@ public:
     bool reloadMap32(uint16_t m);
     
     void status();
-    
-    void status2(uint8_t buffers);
     
     void kunion();
     
@@ -365,15 +364,17 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
     std::string *readBatch;
     uint64_t len = 0;
 
-    Distribution_Bundle* bundle = Begin_Distribution(k, s, bufferFiles);
+    Distribution_Bundle* bundle = Begin_Distribution(bufferFiles);
     
     while (true) {
             
         {
             std::unique_lock<std::mutex> lck(readMtx);
             
-            if (readingDone && readBatches.size() == 0)
+            if (readingDone && readBatches.size() == 0) {
+                End_Distribution(bundle);
                 return true;
+            }
 
             if (readBatches.size() == 0)
                 continue;
@@ -381,25 +382,26 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
             readBatch = readBatches.front();
             readBatches.pop();
         }
-
+        
         Distribute_Sequence(const_cast<char*>(readBatch->data()), readBatch->size(), bundle);
         
         delete readBatch;
         freed += len * sizeof(char);
     }
-    End_Distribution(bundle);
     return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
     
+    Init_Genes_Package(k, s);
+    
     int16_t threadN = threadPool.totalThreads(); // substract the writing thread
     
     if (threadN == 0)
         threadN = 1;
     
-    for (uint8_t t = 0; t < threadN; t++) {
+    for (uint8_t t = 0; t < 1; t++) {
         std::packaged_task<bool()> task([this] { return static_cast<DERIVED*>(this)->generateBuffers(); });
         futures.push_back(task.get_future());
         threads.push_back(std::thread(std::move(task)));
@@ -424,80 +426,54 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
-    std::cout<<"buffers to maps"<<std::endl;
-    
     uint8_t buffers = mapCount; // keep track of the number of processed buffers
-    std::array<bool,mapCount> deleteTmp{};
+
     initHashing();
-    
-    auto cleanUp = [&] (uint8_t m) {
-        
-    };
     
     for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
         //        std::cout<<"hello1"<<std::endl;
         uint64_t len = 0, pos;
         
-//        std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
-//        if (!fileExists(fl)) {
-//            fprintf(stderr, "Buffer file %s does not exist. Terminating.\n", fl.c_str());
-//            exit(EXIT_FAILURE);
-//        }
-//        std::ifstream bufFile(fl, std::ios::in | std::ios::binary);
-//        while(bufFile && !(bufFile.peek() == EOF)) {
-//            bufFile.read(reinterpret_cast<char *>(&pos), sizeof(uint64_t));
-//            Buf2bit<> tmpBuf(pos);
-//            bufFile.read(reinterpret_cast<char *>(tmpBuf.seq), sizeof(uint8_t) * (pos/4 + (pos % 4 != 0)));
-//            seqBuf[m].seq->append(tmpBuf);
-//            len += pos;
-//        }
-//        bufFile.close();
- 
+        std::string fl = userInput.prefix + "/.buf." + std::to_string(m) + ".bin";
+        if (!fileExists(fl)) {
+            fprintf(stderr, "Buffer file %s does not exist. Terminating.\n", fl.c_str());
+            exit(EXIT_FAILURE);
+        }
+        std::ifstream bufFile(fl, std::ios::binary | std::ios::ate);
+        std::streamsize size = bufFile.tellg();
+        bufFile.seekg(0, std::ios::beg);
         
-//                std::cout<<seqBuf[m].seq->toString()<<std::endl;
-//                std::cout<<seqBuf[m].mask->toString()<<std::endl;
-        //        std::cout<<"hello2"<<std::endl;
-//        uint64_t *idxBuf = new uint64_t[len];
-//        idxBuffers[m] = idxBuf;
-//        
-//        mapsIdt[m] = new ParallelMapIdt(0, KeyHasherIdt(idxBuf), KeyEqualTo(seqBuf[m].seq, prefix, k));
-//        mapsIdt[m]->reserve(pos/2); // total compressed kmers * load factor 40%;
-//        //            alloc += mapSize(map);
-//        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].seq, prefix, k, pows), KeyEqualTo(seqBuf[m].seq, prefix, k));
-//        //            std::cout<<"hello3"<<std::endl;
-//        cleanUp(m);
-//        status2(buffers);
+        uint64 *buffer = new uint64[pos/8 + (pos % 8 != 0)];
+        if (bufFile.read(reinterpret_cast<char *>(buffer),  sizeof(uint8_t) * size)) {
+            for (uint64_t i = 0; i<size/8; ++i)
+                printf("%llu\n", buffer[i]);
+        }
+        bufFile.close();
+
+        uint64_t *idxBuf = new uint64_t[len];
+        idxBuffers[m] = idxBuf;
+        
+        mapsIdt[m] = new ParallelMapIdt(0, KeyHasherIdt(idxBuf), KeyEqualTo(buffer, prefix, k));
+        mapsIdt[m]->reserve(size/2); // total compressed kmers * load factor 40%;
+        //            alloc += mapSize(map);
+        maps32[m] = new ParallelMap32(0, KeyHasher(buffer, prefix, k, pows), KeyEqualTo(buffer, prefix, k));
+        
+        delete mapsIdt[m];
+        delete maps32[m];
+        delete idxBuffers[m];
     }
-//    while (buffers) {
-//        
-//        {
-//            std::unique_lock<std::mutex> lck(hashMtx);
-//            hashMutexCondition.wait(lck, [&] {
-//                
-//                for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) {
-//                    if (mapDoneCounts[i] == threadPool.totalThreads())
-//                        return true;
-//                }
-//                
-//                return false;
-//            });
-//        }
-//        cleanUp(mapCount-1);
-//        status2(buffers);
-//    }
     jobWait(threadPool);
 
-//    std::cout<<"hello6"<<std::endl;
     consolidateTmpMaps();
     dumpHighCopyKmers();
-//    std::cout<<"hello7"<<std::endl;
+
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
     
-//    uint8_t m = 0;
-//    
+    uint8_t m = 0;
+    
 //    while (m < mapCount) {
 ////        std::cout<<"hey0"<<std::endl;
 //        {
@@ -790,18 +766,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status2(uint8_t buffers) {
-    
-//    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
-    
-//    if (elapsed.count() > 0.1) {
-        lg.verbose("Buffers: " + std::to_string(buffers) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
-    
-//        past = std::chrono::high_resolution_clock::now();
-//    }
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16_t m) { // loads a specific map
     
 //    prefix.append("/.map." + std::to_string(m) + ".bin");
@@ -1076,7 +1040,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
         readingDone = true;
         joinThreads();
         
-        lg.verbose("Converting buffers to maps");
         static_cast<DERIVED*>(this)->buffersToMaps();
     }
 }
@@ -1285,7 +1248,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::cleanup() {
         
         for(uint16_t m = 0; m<mapCount; ++m) { // remove tmp files
             jobs.push_back([this, m] { return remove((userInput.prefix + "/.map." + std::to_string(m) + ".bin").c_str()); });
-            jobs.push_back([this, m] { return remove((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str()); });
+//            jobs.push_back([this, m] { return remove((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str()); });
         }
         
         threadPool.queueJobs(jobs);
