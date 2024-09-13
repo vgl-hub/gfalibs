@@ -1500,7 +1500,7 @@ bool InSequences::updateStats() {
     
 }
 
-bool InSequences::removeTerminalGaps() { // if two contigs are provided, remove all edges connecting them, if only one contig is provided remove all edges where it appears
+bool InSequences::removeTerminalGaps() {
     
     std::vector<InPath>::iterator pathIt = inPaths.begin(); // first, remove the gaps from the paths they occur in
     std::vector<PathComponent> pathComponents;
@@ -1519,7 +1519,7 @@ bool InSequences::removeTerminalGaps() { // if two contigs are provided, remove 
                 
                 auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a gap Uid, find it
                 
-                if (gId->getsId1() == gId->getsId2()) {
+                if (gId->getsId1() == gId->getsId2()) { // terminal gaps connect on themeselves
                     
                     gIdx = std::distance(pathComponents.begin(), componentIt); // gives us the gap index
                 
