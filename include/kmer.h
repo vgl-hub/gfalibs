@@ -76,7 +76,11 @@ struct KeyHasherIdt {
     KeyHasherIdt(uint64_t *hashBuf) : hashBuf(hashBuf) {}
     
     std::size_t operator()(const Key& key) const {
-        return hashBuf[key.getKmer()];
+        
+        uint64_t hash;
+        Get_Hash(&hash,hashBuf,key.getKmer());
+        
+        return hash;
     }
 };
 
@@ -491,63 +495,29 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
         }
         
         data = seqBuf[m].buf;
+        
+        mapsIdt[m] = new ParallelMapIdt(0, KeyHasherIdt(data), KeyEqualTo(data, prefix, k));
+        maps32[m] = new ParallelMap32(0, KeyHasher(data, prefix, k, pows), KeyEqualTo(data, prefix, k));
 
         Scan_Bundle *bundle = Begin_Supermer_Scan(data, seqBuf[m].len);
         uint64 *super = New_Supermer_Buffer();
         
-        std::vector<uint64_t> hashes;
+        uint64_t hash;
+        
+        ParallelMapIdt &map = *mapsIdt[m];
+        ParallelMap32 &map32 = *maps32[m];
         
         while ((count = Get_Kmer_Count(bundle))) {
             
             offset = Current_Offset(data,bundle);
             
-            std::cout<<+len<<" "<<+count<<std::endl;
-            
-            for (int c = 0; c<count; ++c) {
-                
-                uint64_t hash;
-                Get_Hash(&hash,data,offset);
-                hashes.push_back(hash); // precompute the hash
-                
-            }
-            totKmers += len-k+1;
-            offset += 2;
-            Skip_Kmers(count,bundle);
-        }
-        
-        free(super);
-        End_Supermer_Scan(bundle);
-        
-        {
-            std::unique_lock<std::mutex> lck(hashMtx);
-            
-            ++hashBufferReady[m];
-            hashMutexCondition.wait(lck, [this,m,totThreads] {
-                return hashBufferReady[m] == totThreads;
-            });
-        }
-        hashMutexCondition.notify_all();
-        
-        mapsIdt[m] = new ParallelMapIdt(0, KeyHasherIdt(hashes.data()), KeyEqualTo(data, prefix, k));
-        maps32[m] = new ParallelMap32(0, KeyHasher(hashes.data(), prefix, k, pows), KeyEqualTo(data, prefix, k));
-
-        Scan_Bundle *bundle2 = Begin_Supermer_Scan(data, seqBuf[m].len);
-        super = New_Supermer_Buffer();
-        
-        uint64_t i = 0; // absolute position in hash buffer
-        
-        ParallelMapIdt &map = *mapsIdt[m];
-        ParallelMap32 &map32 = *maps32[m];
-        
-        while ((count = Get_Kmer_Count(bundle2))) {
-            
-            offset = Current_Offset(data,bundle2);
-            
             for (uint32_t c = 0; c<count; ++c) {
+
+                Key key(offset);
+                Get_Hash(&hash,data,key.getKmer());
                 
-                if ((map.subidx(hashes[i++]) % totThreads) == thread) {
+                if ((map.subidx(hash) % totThreads) == thread) {
                     
-                    Key key(offset);
                     TYPE1 &count = map[key];
                     bool overflow = (count >= 254 ? true : false);
                     
@@ -567,11 +537,11 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
                 }
                 offset += 2;
             }
-            Skip_Kmers(count,bundle2);
+            Skip_Kmers(count,bundle);
         }
         
         free(super);
-        End_Supermer_Scan(bundle2);
+        End_Supermer_Scan(bundle);
 
         uint64_t unique = 0, distinct = 0; // stats on the fly
         phmap::flat_hash_map<uint64_t, uint64_t> hist;
