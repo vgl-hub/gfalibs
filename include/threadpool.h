@@ -110,7 +110,7 @@ template<class T>
 void ThreadPool<T>::init(int maxThreads) {
     
     if(maxThreads == 0) maxThreads = std::thread::hardware_concurrency();
-    if(maxThreads == 0 || maxThreads == 1) maxThreads = 2;
+    if(maxThreads == 0) maxThreads = 1;
     threads.resize(maxThreads);
     threadStates.resize(maxThreads);
     

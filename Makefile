@@ -16,7 +16,7 @@ all: $(SOURCES)
 	@
 
 %.o: $(SOURCE)/%.cpp $(INCLUDE)/%.h
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@
+	$(CXX) $(CXXFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@
     
 clean:
 	$(RM) *.o
