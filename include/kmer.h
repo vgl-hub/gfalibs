@@ -21,17 +21,17 @@ inline void freeContainer(T& p_container) // this is a C++ trick to empty a cont
 }
 
 class Key {
-    uint64_t kmer;
+    uint64 offset;
 public:
     
     Key(){}
-    Key(uint64_t kmer) : kmer(kmer){}
+    Key(uint64 offset) : offset(offset){}
     
-    void assignKey(uint64_t kmer) {
-        this->kmer = kmer;
+    void assignOffset(uint64 offset) {
+        this->offset = offset;
     }
-    uint64_t getKmer() const {
-        return kmer;
+    uint64 getOffset() const {
+        return offset;
     }
 };
 
@@ -43,16 +43,16 @@ struct HcKmer {
 
 struct KeyHasher {
 
-    uint64_t *hashBuf;
+    uint64 *data;
     
     KeyHasher() {}
     
-    KeyHasher(uint64_t *hashBuf) : hashBuf(hashBuf) {}
+    KeyHasher(uint64 *data) : data(data) {}
     
     std::size_t operator()(const Key& key) const {
-        
-        uint64_t hash;
-        Get_Hash(&hash,hashBuf,key.getKmer());
+
+        uint64 hash;
+        Get_Hash(&hash, data, key.getOffset());
         
         return hash;
     }
@@ -60,49 +60,52 @@ struct KeyHasher {
 
 struct KeyEqualTo {
     
-    uint8_t prefix;
     uint32_t k;
-    uint64_t *data;
-    uint64 *kmer1, *kmer2;
+    uint64 *data;
     
     KeyEqualTo() {}
     
-    KeyEqualTo(uint64_t *data, uint8_t prefix, uint32_t k) : prefix(prefix), k(k), data(data) {
-        
-        kmer1 = New_Supermer_Buffer();
-        kmer2 = New_Supermer_Buffer();
-        
-    }
+    KeyEqualTo(uint64 *data, uint32_t k) : k(k), data(data) {}
     
     bool operator()(const Key& key1, const Key& key2) const {
         
         uint64_t hash1, hash2;
-        int dir1 = Get_Hash(&hash1, data, key1.getKmer());
-        int dir2 = Get_Hash(&hash2, data, key2.getKmer());
+        int dir1 = Get_Hash(&hash1, data, key1.getOffset());
+        int dir2 = Get_Hash(&hash2, data, key2.getOffset());
         
-        Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getKmer());
-        Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getKmer());
+        if (k <= 32)
+            return hash1 == hash2;
+        else if (hash1 != hash2)
+            return false;
+        
+        uint64 *kmer1 = New_Supermer_Buffer(), *kmer2 = New_Supermer_Buffer();
+        
+        Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getOffset());
+        Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getOffset());
         
         int w = 0;
         int x = 62;
-        for (uint32_t i = 0; i < k; i++) {
+        for (uint32_t i = 33; i < k; i++) {
             
-            if (((kmer1[w]>>x)&0x3llu) != ((kmer2[w]>>x)&0x3llu))
+        if (((kmer1[w]>>x)&0x3llu) != ((kmer2[w]>>x)&0x3llu))
                 return false;
             
             if (x == 0)
-              { w += 1;
-                x = 64;
+                { w += 1;
+                  x = 64;
               }
             x -= 2;
-          }
+        }
+        
+        delete kmer1;
+        delete kmer2;
         
         return true;
     }
 };
 
 struct SeqBuf {
-    uint64 *buf;
+    uint64 *data;
     uint64_t len;
 };
 
@@ -114,19 +117,15 @@ protected: // they are protected, so that they can be further specialized by inh
     UserInput &userInput;
     InSequences inSequences; // when we read a reference we can store it here
     
-    uint8_t prefix, s; // prefix length, smer length
+    uint8_t sLen; // smer length
     uint32_t k; // kmer length
     uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
     std::atomic<bool> readingDone{false};
-    std::vector<std::thread> threads;
-    std::vector<std::future<bool>> futures;
     std::string DBextension;
     
     const static uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
     
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
-    
-    uint64_t* pows = new uint64_t[prefix]; // storing precomputed values of each power significantly speeds up hashing
     
     using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
                                               KeyHasher,
@@ -175,22 +174,20 @@ protected: // they are protected, so that they can be further specialized by inh
     std::queue<Sequences*> sequenceBatches;
     
     uint8_t mapReady = 0, toDelete = 0, deleted = 0;
-    std::array<uint16_t,mapCount> hashBufferReady{}, mapDoneCounts{};
+    std::array<uint16_t,mapCount> hashBufferDone{}, mapDoneCounts{};
     
     std::mutex readMtx, hashMtx;
-    std::condition_variable hashMutexCondition;
+    std::condition_variable readMutexCondition, hashMutexCondition;
+    uint16_t bufferDone = 0;
     
     int bufferFiles[mapCount];
     SeqBuf seqBuf[mapCount];
     
 public:
     
-    Kmap(UserInput& userInput) : userInput(userInput), prefix(userInput.kPrefixLen), s{userInput.sLen}, k{userInput.kLen} {
+    Kmap(UserInput& userInput) : userInput(userInput), sLen{userInput.sLen}, k{userInput.kLen} {
         
         DBextension = "kc";
-        
-        for(uint8_t p = 0; p<prefix; ++p) // precomputes the powers of k
-            pows[p] = (uint64_t) pow(4,p);
         
         maps.reserve(mapCount);
         maps32.reserve(mapCount);
@@ -218,14 +215,8 @@ public:
         }
     };
     
-    ~Kmap(){ // always need to call the destructor and delete for any object called with new to avoid memory leaks
-        delete[] pows;
-//        delete seqBuf;
-    }
-    
     uint64_t mapSize(ParallelMap& m);
-    
-    void joinThreads();
+
     
     bool memoryOk();
     
@@ -252,6 +243,8 @@ public:
     bool reloadMap32(uint16_t m);
     
     void status();
+    
+    void status2(uint8_t buffers);
     
     void kunion();
     
@@ -327,30 +320,6 @@ uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapSize(ParallelMap& m) {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::joinThreads() {
-    
-    uint8_t threadsDone = 0;
-    bool done = false;
-    
-    while (!done) {
-        for (uint8_t i = 0; i < futures.size(); ++i) {
-            if (futures[i].wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
-                if (threads[i].joinable()) {
-                    threads[i].join();
-                    ++threadsDone;
-                }
-            }else{
-                status();
-            }
-        }
-        if (threadsDone == futures.size())
-            done = true;
-    }
-    futures.clear();
-    threads.clear();
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
     //   Log threadLog;
     std::string *readBatch;
@@ -365,6 +334,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
             
             if (readingDone && readBatches.size() == 0) {
                 End_Distribution(bundle);
+                ++bufferDone;
+                readMutexCondition.notify_all();
                 return true;
             }
 
@@ -386,22 +357,22 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
     
-    Init_Genes_Package(k, s);
+    Init_Genes_Package(k, sLen);
     
-    for (uint8_t t = 0; t < threadPool.totalThreads(); t++) {
-        std::packaged_task<bool()> task([this] { return static_cast<DERIVED*>(this)->generateBuffers(); });
-        futures.push_back(task.get_future());
-        threads.push_back(std::thread(std::move(task)));
-    }
+    std::vector<std::function<bool()>> jobs;
+    for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
+        jobs.push_back([this] { return static_cast<DERIVED*>(this)->generateBuffers(); });
+    
+    threadPool.queueJobs(jobs);
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
     
     std::vector<std::function<bool()>> jobs;
-    for (uint8_t t = 0; t < threadPool.totalThreads(); t++) {
+    for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
         jobs.push_back([this, t] { return static_cast<DERIVED*>(this)->hashBuffers(t); });
-    }
+
     threadPool.queueJobs(jobs);
 }
 
@@ -409,8 +380,32 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
     uint8_t buffers = mapCount; // keep track of the number of processed buffers
-
+    std::array<bool,mapCount> deleteTmp{};
     initHashing();
+    
+    auto cleanUp = [&] (uint8_t m) {
+        
+        {
+            std::lock_guard<std::mutex> lck(hashMtx);
+            mapReady = m + 1;
+            
+            for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // if threads signal they are done
+                if (mapDoneCounts[i] == threadPool.totalThreads())
+                    deleteTmp[i] = true; // mark buffer for deletion
+            }
+        }
+        hashMutexCondition.notify_all();
+        for(uint16_t i = 0; i<deleteTmp.size(); ++i) {
+            if (deleteTmp[i]) {
+                delete seqBuf[i].data;
+                dumpTmpMap(userInput.prefix, i, maps[i]);
+                mapDoneCounts[i] = 0;
+                deleteTmp[i] = false;
+                --buffers;
+            }
+        }
+        status2(buffers);
+    };
     
     for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
 
@@ -433,17 +428,30 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         }
         bufFile.close();
         
-        seqBuf[m].buf = data;
+        seqBuf[m].data = data;
         seqBuf[m].len = pos;
         
-        maps[m] = new ParallelMap(0, KeyHasher(data), KeyEqualTo(data, prefix, k));
-        maps32[m] = new ParallelMap32(0, KeyHasher(data), KeyEqualTo(data, prefix, k));
+        maps[m] = new ParallelMap(0, KeyHasher(data), KeyEqualTo(data, k));
+        maps[m]->reserve(pos);
+        maps32[m] = new ParallelMap32(0, KeyHasher(data), KeyEqualTo(data, k));
+        cleanUp(m);
         
-        mapReady += 1;
-        hashMutexCondition.notify_all();
+    }
+    while (buffers) {
         
-//        delete maps[m];
-//        delete maps32[m];
+        {
+            std::unique_lock<std::mutex> lck(hashMtx);
+            hashMutexCondition.wait(lck, [&] {
+                
+                for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) {
+                    if (mapDoneCounts[i] == threadPool.totalThreads())
+                        return true;
+                }
+                
+                return false;
+            });
+        }
+        cleanUp(mapCount-1);
     }
     jobWait(threadPool);
 
@@ -455,14 +463,13 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
     
-    uint8_t m = 0;
     uint16_t totThreads = threadPool.totalThreads();
     
     int         count;
     uint64      *data;
     uint64      offset;
     
-    while (m < mapCount) {
+    for (uint8_t m = 0; m < mapCount; ++m) {
 
         {
             std::unique_lock<std::mutex> lck(hashMtx);
@@ -472,29 +479,25 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
             });
         }
         
-        data = seqBuf[m].buf;
+        data = seqBuf[m].data;
 
         Scan_Bundle *bundle = Begin_Supermer_Scan(data, seqBuf[m].len);
         uint64 *super = New_Supermer_Buffer();
-        
-        uint64_t hash;
         
         ParallelMap &map = *maps[m];
         ParallelMap32 &map32 = *maps32[m];
         
         while ((count = Get_Kmer_Count(bundle))) {
             
-            offset = Current_Offset(data,bundle);
+            offset = Current_Offset(data, bundle);
             
             for (int c = 0; c<count; ++c) {
 
-                Get_Hash(&hash, data, offset);
-                
-                if ((map.subidx(hash) % totThreads) == thread) {
-                
+                if ((map.subidx(map.hash(offset)) % totThreads) == thread) {
+                    
                     Key key(offset);
-                
                     TYPE1 &count = map[key];
+                    
                     bool overflow = (count >= 254 ? true : false);
                     
                     if (!overflow)
@@ -513,7 +516,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
                 }
                 offset += 2;
             }
-            Skip_Kmers(count,bundle);
+            Skip_Kmers(count, bundle);
         }
         
         free(super);
@@ -522,11 +525,19 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
         uint64_t unique = 0, distinct = 0; // stats on the fly
         phmap::flat_hash_map<uint64_t, uint64_t> hist;
         
-        for (auto pair : map) {
+        {
+            std::unique_lock<std::mutex> lck(hashMtx);
             
-            Get_Hash(&hash, data, pair.first.getKmer());
+            ++hashBufferDone[m];
+            hashMutexCondition.wait(lck, [this,m] {
+                return hashBufferDone[m] == threadPool.totalThreads();
+            });
+        }
+        hashMutexCondition.notify_all();
+        
+        for (const auto pair : map) {
             
-            if ((map.subidx(hash) % totThreads) == thread) {
+            if ((map.subidx(map.hash(pair.first.getOffset())) % totThreads) == thread) {
                 if (pair.second == 255) // check the large table
                     continue;
                 
@@ -540,9 +551,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
         }
         for (auto pair : map32) {
             
-            Get_Hash(&hash, data, pair.first.getKmer());
-            
-            if (map32.subidx(hash) % totThreads == thread) {
+            if (map32.subidx(map.hash(pair.first.getOffset())) % totThreads == thread) {
                 ++distinct;
                 ++hist[pair.second];
             }
@@ -559,7 +568,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
             }
             ++mapDoneCounts[m];
         }
-        ++m;
         hashMutexCondition.notify_all();
     }
     return true;
@@ -679,7 +687,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpHighCopyKmers() {
         
         for (auto pair : *maps32[m]) {
             HcKmer hcKmer;
-            hcKmer.key = pair.first.getKmer();
+            hcKmer.key = pair.first.getOffset();
             hcKmer.value = pair.second;
             hcKmer.map = m;
             bufFile.write(reinterpret_cast<const char *>(&hcKmer.key), sizeof(uint64_t));
@@ -726,6 +734,18 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status2(uint8_t buffers) {
+    
+//    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
+    
+//    if (elapsed.count() > 0.1) {
+        lg.verbose("Buffers: " + std::to_string(buffers) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+    
+//        past = std::chrono::high_resolution_clock::now();
+//    }
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16_t m) { // loads a specific map
     
 //    prefix.append("/.map." + std::to_string(m) + ".bin");
@@ -763,7 +783,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::kunion(){ // concurrent merging of
     }
     
 //    for (auto pair : map32Total) {
-//        uint64_t pos = pair.first.getKmer();
+//        uint64_t pos = pair.first.getOffset();
 //        uint64_t i = hash(seqBuf, pos) % mapCount;
 //        maps32[i]->emplace(pair);
 //    }
@@ -955,57 +975,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenc
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(Buf2bit<> *kmerPtr, uint64_t p, bool *isFw) { // hashing function for kmers
-    
-    uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
-    
-    for(uint8_t c = 0; c<prefix; ++c) { // for each position up to prefix len
-        fw += kmerPtr->at(p+c) * pows[c]; // base * 2^N
-        rv += (3-(kmerPtr->at(p+k-1-c))) * pows[c]; // we walk the kmer backward to compute the rvcp
-    }
-    
-    if (isFw != NULL)
-        *isFw = fw < rv ? true : false; // we preserve the actual orientation for DBG applications
-    
-    return fw < rv ? fw : rv;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint64 *kmerPtr, uint32_t p, bool *isFw) { // hashing function for kmers
-    
-    uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
-    
-    for(uint8_t c = 0; c<prefix; ++c) { // for each position up to prefix len
-        fw += kmerPtr[p+c] * pows[c]; // base * 2^N
-        rv += (3-(kmerPtr[p+k-1-c])) * pows[c]; // we walk the kmer backward to compute the rvcp
-    }
-    
-    if (isFw != NULL)
-        *isFw = fw < rv ? true : false; // we preserve the actual orientation for DBG applications
-    
-    return fw < rv ? fw : rv;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-inline std::string Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reverseHash(uint64_t hash) { // hashing function for kmers
-    
-    std::string seq(prefix, 'A');
-    
-    for(uint32_t c = prefix; c > 0; --c) { // for each position up to klen
-        uint32_t i = c-1; // to prevent overflow
-        seq[i] = itoc[hash / pows[i]]; // base * 2^N
-        hash = hash % pows[i]; // we walk the kmer backward to compute the rvcp
-    }
-    
-//    if (hash != 0) {
-//        std::cout<<"reashing error!"<<std::endl;
-//        exit(EXIT_FAILURE);
-//    }
-    
-    return seq;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
     status();
 }
@@ -1014,7 +983,13 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
     if (userInput.kmerDB.size() == 0) {
         readingDone = true;
-        joinThreads();
+        {
+            std::unique_lock<std::mutex> lck(readMtx);
+            readMutexCondition.wait(lck, [&] {
+                status();
+                return bufferDone == threadPool.totalThreads();
+            });
+        }
         
         static_cast<DERIVED*>(this)->buffersToMaps();
     }
