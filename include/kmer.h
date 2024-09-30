@@ -739,7 +739,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16
     
     std::ifstream bufFile = std::ifstream(userInput.prefix + "/.hc.bin", std::ios::in | std::ios::binary);
     
-    uint64_t offset = 0, counts;
+    uint64_t offset = 0, counts = 0;
     for(uint16_t i = 0; i<mapCount; ++i) { // find position for this map
         uint64_t count;
         bufFile.read(reinterpret_cast<char *>(&count), sizeof(uint64_t));
