@@ -240,8 +240,6 @@ public:
     
     bool mergeTmpMaps(uint16_t m);
     
-    bool reloadMap32(uint16_t m);
-    
     void status();
     
     void status2(uint8_t buffers);
@@ -579,20 +577,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reloadMap32(uint16_t m) {
-    
-    ParallelMap& map = *maps[m]; // the map associated to this buffer
-    ParallelMap32& map32 = *maps32[m];
-    
-    for (auto pair : map32) {
-        TYPE1 count = 255;
-        map.insert(std::make_pair(pair.first, count));
-    }
-    return true;
-    
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single job merging maps with the same hashes
     
     std::string prefix = userInput.prefix; // loads the first map
@@ -752,8 +736,8 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16
     bufFile.seekg(mapCount*sizeof(uint64_t) + offset*(sizeof(uint64_t)+sizeof(uint32_t)+sizeof(uint8_t)));
     
     maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-
-    for (uint64_t i = 0; i<counts; ++i){ // load respective hc kmers
+    
+    for (uint64_t i = 0; i<counts; ++i) { // load respective hc kmers
         HcKmer hcKmer;
         bufFile.read(reinterpret_cast<char *>(&hcKmer.key), sizeof(uint64_t));
         bufFile.read(reinterpret_cast<char *>(&hcKmer.value), sizeof(uint32_t));
@@ -1006,6 +990,8 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeStats() {
     
     lg.verbose("Computing summary statistics");
+    
+    Init_Genes_Package(k, sLen);
     
     std::vector<std::function<bool()>> jobs;
     std::array<uint16_t, 2> mapRange = {0,0};
