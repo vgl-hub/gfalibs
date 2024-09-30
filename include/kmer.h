@@ -420,6 +420,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
         hashMutexCondition.notify_all();
         for(uint16_t i = 0; i<deleteTmp.size(); ++i) {
             if (deleteTmp[i]) {
+                summary(i);
                 delete seqBuf[i].data;
                 dumpTmpMap(userInput.prefix, i, maps[i]);
                 mapDoneCounts[i] = 0;
@@ -524,51 +525,9 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
         
         free(super);
         End_Supermer_Scan(bundle);
-
-        uint64_t unique = 0, distinct = 0; // stats on the fly
-        phmap::flat_hash_map<uint64_t, uint64_t> hist;
-        
-        {
-            std::unique_lock<std::mutex> lck(hashMtx);
-            
-            ++hashBufferDone[m];
-            hashMutexCondition.wait(lck, [this,m] {
-                return hashBufferDone[m] == threadPool.totalThreads();
-            });
-        }
-        hashMutexCondition.notify_all();
-        
-        for (const auto pair : map) {
-            
-            if ((map.subidx(map.hash(pair.first.getOffset())) % totThreads) == thread) {
-                if (pair.second == 255) // check the large table
-                    continue;
-                
-                ++distinct;
-                
-                if (pair.second == 1)
-                    ++unique;
-                
-                ++hist[pair.second];
-            }
-        }
-        for (auto pair : map32) {
-            
-            if (map32.subidx(map.hash(pair.first.getOffset())) % totThreads == thread) {
-                ++distinct;
-                ++hist[pair.second];
-            }
-        }
         
         {
             std::lock_guard<std::mutex> lck(hashMtx);
-            totUnique += unique;
-            totDistinct += distinct;
-            
-            for (auto pair : hist) {
-                finalHistogram[pair.first] += pair.second;
-                tot += pair.first * pair.second;
-            }
             ++mapDoneCounts[m];
         }
         hashMutexCondition.notify_all();
@@ -683,7 +642,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpHighCopyKmers() {
             bufFile.write(reinterpret_cast<const char *>(&hcKmer.map), sizeof(uint8_t));
         }
         delete maps32[m];
-        maps32[m] = new ParallelMap32;
     }
 }
 
