@@ -69,7 +69,7 @@ struct KeyEqualTo {
     
     bool operator()(const Key& key1, const Key& key2) const {
         
-        uint64_t hash1, hash2;
+        uint64 hash1, hash2;
         int dir1 = Get_Hash(&hash1, data, key1.getOffset());
         int dir2 = Get_Hash(&hash2, data, key2.getOffset());
         
