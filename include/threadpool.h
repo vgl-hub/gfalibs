@@ -302,6 +302,7 @@ void jobWait(ThreadPool<T>& threadPool, bool master = false) {
         if (master)
             threadPool.execJob(); // have the master thread contribute
         
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
 }
 
@@ -353,6 +354,8 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, boo
         
         if (master)
             threadPool.execJob(); // have the master thread contribute
+        
+        std::this_thread::sleep_for(std::chrono::seconds(5));
         
         threadPool.notify_all();
     }
