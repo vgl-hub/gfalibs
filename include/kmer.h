@@ -402,61 +402,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadBuffer(uint8_t m){
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
     
-    uint8_t buffers = mapCount; // keep track of the number of processed buffers
-    std::array<bool,mapCount> deleteTmp{};
     initHashing();
-    
-    auto cleanUp = [&] (uint8_t m) {
-        
-        {
-            std::lock_guard<std::mutex> lck(hashMtx);
-            mapReady = m + 1;
-            
-            for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) { // if threads signal they are done
-                if (mapDoneCounts[i] == threadPool.totalThreads())
-                    deleteTmp[i] = true; // mark buffer for deletion
-            }
-        }
-        hashMutexCondition.notify_all();
-        for(uint16_t i = 0; i<deleteTmp.size(); ++i) {
-            if (deleteTmp[i]) {
-                summary(i);
-                delete seqBuf[i].data;
-                dumpTmpMap(userInput.prefix, i, maps[i]);
-                mapDoneCounts[i] = 0;
-                deleteTmp[i] = false;
-                --buffers;
-            }
-        }
-        status2(buffers);
-    };
-    
-    for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
-
-        loadBuffer(m);
-        
-        maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-        maps[m]->reserve(seqBuf[m].len);
-        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-        cleanUp(m);
-        
-    }
-    while (buffers) {
-        
-        {
-            std::unique_lock<std::mutex> lck(hashMtx);
-            hashMutexCondition.wait(lck, [&] {
-                
-                for(uint16_t i = 0; i<mapDoneCounts.size(); ++i) {
-                    if (mapDoneCounts[i] == threadPool.totalThreads())
-                        return true;
-                }
-                
-                return false;
-            });
-        }
-        cleanUp(mapCount-1);
-    }
     jobWait(threadPool);
 
     consolidateTmpMaps();
@@ -467,26 +413,24 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
     
-    uint16_t totThreads = threadPool.totalThreads();
-    
     int         count;
     uint64      *data;
     uint64      offset;
     
-    for (uint8_t m = 0; m < mapCount; ++m) {
+    int quo = mapCount/threadPool.totalThreads();
+    
+    for (uint8_t m = quo*thread; m < quo*thread+quo; ++m) {
 
-        {
-            std::unique_lock<std::mutex> lck(hashMtx);
-            
-            hashMutexCondition.wait(lck, [this,m] {
-                return mapReady > m;
-            });
-        }
+        loadBuffer(m);
         
         data = seqBuf[m].data;
 
         Scan_Bundle *bundle = Begin_Supermer_Scan(data, seqBuf[m].len);
         uint64 *super = New_Supermer_Buffer();
+        
+        maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+        maps[m]->reserve(seqBuf[m].len);
+        maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
         
         ParallelMap &map = *maps[m];
         ParallelMap32 &map32 = *maps32[m];
@@ -496,41 +440,34 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffers(uint16_t thread) {
             offset = Current_Offset(data, bundle);
             
             for (int c = 0; c<count; ++c) {
-
-                if ((map.subidx(map.hash(offset)) % totThreads) == thread) {
                     
-                    Key key(offset);
-                    TYPE1 &count = map[key];
+                Key key(offset);
+                TYPE1 &count = map[key];
+                
+                bool overflow = (count >= 254 ? true : false);
+                
+                if (!overflow)
+                    ++count; // increase kmer coverage
+                else {
                     
-                    bool overflow = (count >= 254 ? true : false);
+                    TYPE2 &count32 = map32[key];
                     
-                    if (!overflow)
-                        ++count; // increase kmer coverage
-                    else {
-                        
-                        TYPE2 &count32 = map32[key];
-                        
-                        if (count32 == 0) { // first time we add the kmer
-                            count32 = count;
-                            count = 255; // invalidates int8 kmer
-                        }
-                        if (count32 < LARGEST)
-                            ++count32; // increase kmer coverage
+                    if (count32 == 0) { // first time we add the kmer
+                        count32 = count;
+                        count = 255; // invalidates int8 kmer
                     }
+                    if (count32 < LARGEST)
+                        ++count32; // increase kmer coverage
                 }
                 offset += 2;
             }
             Skip_Kmers(count, bundle);
         }
-        
         free(super);
         End_Supermer_Scan(bundle);
-        
-        {
-            std::lock_guard<std::mutex> lck(hashMtx);
-            ++mapDoneCounts[m];
-        }
-        hashMutexCondition.notify_all();
+        summary(m);
+        delete seqBuf[m].data;
+        dumpTmpMap(userInput.prefix, m, maps[m]);
     }
     return true;
 }
@@ -987,6 +924,14 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::summary(uint16_t m) {
     
     uint64_t unique = 0, distinct = 0;
     phmap::parallel_flat_hash_map<uint64_t, uint64_t> hist;
+    
+//    std::cout<<+m<<std::endl<<std::endl<<std::endl<<std::endl; // check division by thread
+//
+//    for (int i = 0; i < 256; ++i) {
+//        auto& inner = maps[m]->get_inner(i);
+//        auto& submap1 = inner.set_;
+//        std::cout<<+submap1.size()<<std::endl;
+//    }
     
     for (auto pair : *maps[m]) {
         
