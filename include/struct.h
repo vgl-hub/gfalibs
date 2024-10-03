@@ -33,6 +33,9 @@ struct UserInput { // a container for user input
     
     uint64_t gSize = 0; // expected genome size, with 0 statistics are not computed
     
+    std::vector<std::string> outFiles; // output files
+    uint32_t splitLength = 0;
+    
 };
 
 struct Sequence { // a generic sequence container

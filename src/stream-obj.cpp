@@ -231,8 +231,6 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 void StreamObj::closeStream() {
 
     if (gzip) {
-
-
     }
         
     ifs.close();

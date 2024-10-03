@@ -16,12 +16,87 @@
 #include "gfa-lines.h"
 #include "gfa.h"
 
-#include "zlib.h"
-#include <zstream/zstream_common.hpp>
-#include <zstream/ozstream.hpp>
-#include <zstream/ozstream_impl.hpp>
-
 #include "output.h"
+
+OutputStream::OutputStream(std::string file) : file(file), ofs(file), zfout(ofs), zout(std::cout) {
+    
+    if (file == "")
+        return;
+    
+    std::cout << std::fixed; // disables scientific notation
+    std::cout << std::setprecision(2); // 2 decimal poinst
+    
+    // unordered map to handle out correspondence in following switch statement
+    const static phmap::flat_hash_map<std::string,int> string_to_case{
+        {"fasta",1},
+        {"fa",1},
+        {"fasta.gz",1},
+        {"fa.gz",1},
+        {"fastq",2},
+        {"fq",2},
+        {"fastq.gz",2},
+        {"fq.gz",2},
+        {"gfa",3},
+        {"gfa.gz",3},
+        {"gfa2",4},
+        {"gfa2.gz",4},
+        {"vcf",5},
+        {"vcf.gz",5}
+    };
+    
+    std::string path = rmFileExt(file), ext = getFileExt("." + file); // variable to handle output path and extension
+    
+    if(getFileExt(ext) == ".gz") // depending on use input get output format
+        gzip = true;
+    
+    // if the input is not in the unordered map, it means we need to write a new file with the path provided by the user otherwise the output is in the format specified by the user
+    if (string_to_case.find(path) == string_to_case.end()) {
+        
+        outFile = true;
+        
+    }else{
+        ext = file;
+        
+        lg.verbose("Writing ouput: " + ext);
+        
+        if (gzip && outFile) { // if the requested output is gzip compressed and should be outputted to a file
+            
+            stream = std::make_unique<std::ostream>(zfout.rdbuf()); // then we use the stream for gzip compressed file outputs
+            zfout.addHeader();
+            
+        }else if (!gzip && outFile){ // else if no compression is requested
+            
+            stream = std::make_unique<std::ostream>(ofs.rdbuf());  // we use the stream regular file outputs
+            
+        }else{ // else the output is not written to a file
+            
+            // we close and delete the file
+            ofs.close();
+            remove(file.c_str());
+            
+            if (gzip) { // if the output to stdout needs to be compressed we use the appropriate stream
+                
+                stream = std::make_unique<std::ostream>(zout.rdbuf());
+                zout.addHeader();
+                
+            }else{ // else we use a regular cout stream
+                
+                std::cout.flush();
+                stream = std::make_unique<std::ostream>(std::cout.rdbuf());
+            }
+        }
+    }
+}
+
+OutputStream::~OutputStream() {
+    if(this->gzip && this->outFile) // if we wrote to file as gzip, we add the footer and close
+        zfout.close();
+    else if(gzip && !outFile) // if we streamed as gzip, we add the footer and close
+        zout.close();
+
+    if(outFile) // if we wrote to file, we close it
+        ofs.close();
+}
 
 bool Report::segmentReport(InSequences &inSequences, int &outSequence_flag) { // method to output the summary statistics for each segment
     std::cout << std::fixed; // disables scientific notation
@@ -86,11 +161,8 @@ bool Report::pathReport(InSequences &inSequences) { // method to output the summ
     return true;
 }
 
-bool Report::outFile(InSequences &inSequences, std::string file, UserInput &userInput, int splitLength) { // method to output new sequence opposed to sequence report
-    std::cout << std::fixed; // disables scientific notation
-    std::cout << std::setprecision(2); // 2 decimal poinst
-
-    // unordered map to handle out correspondence in following switch statement
+void Report::writeToStream(OutputStream outputStream, InSequences &inSequences, UserInput &userInput) {
+    
     const static phmap::flat_hash_map<std::string,int> string_to_case{
         {"fasta",1},
         {"fa",1},
@@ -108,77 +180,10 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
         {"vcf.gz",5}
     };
     
-    // variables to handle output type
-    bool gzip = false;
-    bool outFile = false;
+    userInput.stats_flag = true; // since we write to file, let's output the stats
+    std::string ext = getFileExt(outputStream.file); // variable to handle output path and extension
     
-    // variable to handle output path and extension
-    std::string path = rmFileExt(file);
-    std::string ext = getFileExt("." + file);
-    
-    // depending on use input get output format
-    if(getFileExt(ext) == ".gz") {
-        
-        gzip = true;
-        
-    }
-    
-    // if the input is not in the unordered map, it means we need to write a new file with the path provided by the user otherwise the output is in the format specified by the user
-    if (string_to_case.find(path) == string_to_case.end()) {
-        
-        outFile = true;
-        userInput.stats_flag = true; // since we write to file, let's output the stats
-        
-    }else{
-        
-        ext = file;
-        
-    }
-    
-    lg.verbose("Writing ouput: " + ext);
-    
-    // here we create a smart pointer to handle any kind of output stream
-    std::unique_ptr<std::ostream> stream;
-    
-    // this stream outputs to file
-    std::ofstream ofs(file);
-
-    // this stream outputs gzip compressed to file
-    zstream::ogzstream zfout(ofs);
-    
-    // this stream outputs gzip compressed to stdout
-    zstream::ogzstream zout(std::cout);
-
-    if (gzip && outFile) { // if the requested output is gzip compressed and should be outputted to a file
-        
-        stream = std::make_unique<std::ostream>(zfout.rdbuf()); // then we use the stream for gzip compressed file outputs
-        
-        zfout.addHeader();
-                    
-    }else if (!gzip && outFile){ // else if no compression is requested
-        
-        stream = std::make_unique<std::ostream>(ofs.rdbuf());  // we use the stream regular file outputs
-        
-    }else{ // else the output is not written to a file
-        
-        // we close and delete the file
-        ofs.close();
-        remove(file.c_str());
-        
-        if (gzip) { // if the output to stdout needs to be compressed we use the appropriate stream
-            
-            stream = std::make_unique<std::ostream>(zout.rdbuf());
-            
-            zout.addHeader();
-        
-        }else{ // else we use a regular cout stream
-            
-            std::cout.flush();
-            
-            stream = std::make_unique<std::ostream>(std::cout.rdbuf());
-            
-        }
-    }
+    std::unique_ptr<std::ostream> &stream = outputStream.stream;
     
     switch (string_to_case.count(ext) ? string_to_case.at(ext) : 0) { // this switch allows us to generate the output according to the input request and the unordered map. If the requested output format is not in the map we fall back to the undefined case (0)
             
@@ -193,27 +198,21 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             std::vector<PathComponent> pathComponents;
             
             unsigned int uId = 0;
-                
+            
             for (InPath& inPath : inSequences.getInPaths()) {
                 
-                if (inPath.getHeader() == "") {
-                    
+                if (inPath.getHeader() == "")
                     pHeader = inPath.getpUId();
-                    
-                }else{
-                    
+                else
                     pHeader = inPath.getHeader();
-                    
-                }
                 
                 *stream <<">"
-                        <<pHeader;
+                <<pHeader;
                 
                 if (inPath.getComment() != "") {
-                
-                *stream <<" "
-                        <<inPath.getComment();
                     
+                    *stream <<" "
+                    <<inPath.getComment();
                 }
                 
                 *stream << std::endl;
@@ -225,20 +224,14 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     uId = component->id;
                     
                     if (component->componentType == SEGMENT) {
-                    
-                        auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
+                        auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         if (sId == inSegments->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
                         
-                        if (component->orientation == '+') {
-                        
+                        if (component->orientation == '+')
                             inSeq += (*sId)->getInSequence(component->start, component->end);
-                            
-                        }else{
-                            
+                        else
                             inSeq += revCom((*sId)->getInSequence(component->start, component->end));
-                            
-                        }
                         
                     }else if(component->componentType == EDGE){ // this is just a prototype, need to handle cigar
                         
@@ -249,35 +242,20 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     }else{
                         
                         auto gap = find_if(inGaps->begin(), inGaps->end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
-                        
                         if (gap == inGaps->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
-                        
                         inSeq += std::string(gap->getDist(component->start, component->end), 'N');
-                        
                     }
-                    
                 }
-                
-                if (splitLength != 0) {
-                    
-                    textWrap(inSeq, *stream, splitLength); // wrapping text at user-specified line length
-                    
-                }else{
-                    
+                if (userInput.splitLength != 0)
+                    textWrap(inSeq, *stream, userInput.splitLength); // wrapping text at user-specified line length
+                else{
                     *stream<<inSeq<<std::endl;
-                    
+                    inSeq = "";
+                    (*stream).flush();
                 }
-                
-                inSeq = "";
-                    
-                (*stream).flush();
-                
+                break;
             }
-            
-            break;
-            
         }
-            
         case 2: { // fastq[.gz]
             
             std::string pHeader;
@@ -288,28 +266,19 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             std::vector<PathComponent> pathComponents;
             
             unsigned int uId = 0, sIdx = 0, gIdx = 0;
-                
+            
             for (InPath inPath : inSequences.getInPaths()) {
                 
-                if (inPath.getHeader() == "") {
-                    
+                if (inPath.getHeader() == "")
                     pHeader = inPath.getpUId();
-                    
-                }else{
-                    
+                else
                     pHeader = inPath.getHeader();
-                    
-                }
                 
                 *stream <<"@"
-                        <<pHeader;
+                <<pHeader;
                 
-                if (inPath.getComment() != "") {
-                
-                *stream <<" "
-                        <<inPath.getComment();
-                    
-                }
+                if (inPath.getComment() != "")
+                    *stream <<" " << inPath.getComment();
                 
                 *stream <<"\n";
                 
@@ -320,13 +289,13 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     uId = component->id;
                     
                     if (component->componentType == SEGMENT) {
-                    
+                        
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         
                         if (sId != inSegments->end()) {sIdx = std::distance(inSegments->begin(), sId);} // gives us the segment index
                         
                         if (component->orientation == '+') {
-                        
+                            
                             inSeq += (*inSegments)[sIdx]->getInSequence(component->start, component->end);
                             
                         }else{
@@ -336,7 +305,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                         }
                         
                         if ((*inSegments)[sIdx]->getInSequenceQuality() != "") {
-                        
+                            
                             inSeqQual += (*inSegments)[sIdx]->getInSequenceQuality(component->start, component->end);
                             
                         }else{
@@ -353,23 +322,15 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                         
                         inSeq += std::string((*inGaps)[gIdx].getDist(), 'N');
                         inSeqQual += std::string((*inGaps)[gIdx].getDist(), '!');
-                        
                     }
-                    
-                    
                 }
-                
                 *stream<<inSeq<<"\n+\n"<<inSeqQual<<"\n";
                 
                 inSeq = "";
                 inSeqQual = "";
-                
             }
-            
             break;
-            
         }
-            
         case 3: { // gfa[.gz] GFA1.2
             
             std::string seqHeader, gHeader, pHeader;
@@ -385,58 +346,41 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                 seqHeader = inSegment->getSeqHeader();
                 
                 *stream <<"S\t" // line type
-                        <<seqHeader<<"\t"; // header
+                <<seqHeader<<"\t"; // header
                 
-                if (userInput.noSequence) {
-                
+                if (userInput.noSequence)
                     *stream <<'*'; // sequence
-                    
-                }else{
-                    
+                else
                     *stream <<inSegment->getInSequence(); // sequence
-                    
-                }
                 
-                if (userInput.noSequence) {
-                    
+                if (userInput.noSequence)
                     *stream <<"\tLN:i:"<<inSegment->getSegmentLen(); // tags
-                    
-                }
                 
                 std::vector<Tag> tags = inSegment->getTags();
                 
-                for (Tag &tag : tags) {
-                
+                for (Tag &tag : tags)
                     *stream <<"\t"<<tag.label<<":"<<tag.type<<":"<<tag.content; // tags
-                    
-                }
                 
-                if (inSegment->getInSequenceQuality() != "") {
-                    
+                if (inSegment->getInSequenceQuality() != "")
                     *stream <<"\tQL:Z:"<<inSegment->getInSequenceQuality(); // optional quality
-                    
-                }
                 
                 *stream<<"\n";
                 
             }
-
+            
             for (InEdge inEdge : *(inSequences.getEdges())) {
                 
                 *stream <<"L\t" // line type
-                        <<idsToHeaders[inEdge.getsId1()]<<"\t"<<inEdge.getsId1Or()<<"\t"
-                        <<idsToHeaders[inEdge.getsId2()]<<"\t"<<inEdge.getsId2Or()<<"\t";
+                <<idsToHeaders[inEdge.getsId1()]<<"\t"<<inEdge.getsId1Or()<<"\t"
+                <<idsToHeaders[inEdge.getsId2()]<<"\t"<<inEdge.getsId2Or()<<"\t";
                 
                 *stream <<inEdge.getCigar(); // CIGAR
                 
                 std::vector<Tag> tags = inEdge.getTags();
                 
-                for (Tag &tag : tags) {
-                
+                for (Tag &tag : tags)
                     *stream <<"\t"<<tag.label<<":"<<tag.type<<":"<<tag.content; // tags
-                    
-                }
-                    
+   
                 *stream <<"\n";
                 
             }
@@ -444,95 +388,62 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             for (InGap inGap : inSequences.getGaps()) {
                 
                 *stream <<"J\t" // line type
-                        <<idsToHeaders[inGap.getsId1()]<<"\t"<<inGap.getsId1Or()<<"\t"
-                        <<idsToHeaders[inGap.getsId2()]<<"\t"<<inGap.getsId2Or()<<"\t";
+                <<idsToHeaders[inGap.getsId1()]<<"\t"<<inGap.getsId1Or()<<"\t"
+                <<idsToHeaders[inGap.getsId2()]<<"\t"<<inGap.getsId2Or()<<"\t";
                 
-                if (inGap.getDist() != 0) {
-                    
+                if (inGap.getDist() != 0)
                     *stream <<inGap.getDist(); // gap size
-                    
-                }else{
-                    
+                else
                     *stream <<"*"; // gap size
-                    
-                }
-                
+
                 std::vector<Tag> tags = inGap.getTags();
                 
-                for (Tag &tag : tags) {
-                
+                for (Tag &tag : tags)
                     *stream <<"\t"<<tag.label<<":"<<tag.type<<":"<<tag.content; // tags
-                    
-                }
-                    
-                *stream <<"\n";
                 
+                *stream <<"\n";
             }
-            
             std::vector<PathComponent> pathComponents;
             
             for (InPath inPath : inSequences.getInPaths()) {
                 
-                if (inPath.getHeader() == "") {
-                    
+                if (inPath.getHeader() == "")
                     pHeader = inPath.getpUId();
-                    
-                }else{
-                    
+                else
                     pHeader = inPath.getHeader();
-                    
-                }
-                
+    
                 *stream <<"P\t" // line type
-                        <<pHeader<<"\t"; // id
-                
+                <<pHeader<<"\t"; // id
                 
                 pathComponents = inPath.getComponents();
                 
                 for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
                     
                     if(component->orientation != '0') {
-                    
+                        
                         *stream << idsToHeaders[component->id];
-                    
-                    if(component->start != 0 || component->end != 0) {
-
-                        *stream << "(" << std::to_string(component->start) << ":" << std::to_string(component->end) << ")";
-
-                    }
-
+                        
+                        if(component->start != 0 || component->end != 0)
+                            *stream << "(" << std::to_string(component->start) << ":" << std::to_string(component->end) << ")";
+                        
                         *stream << component->orientation;
                         
-                    }else{
-                        
+                    }else
                         *stream <<(component->componentType == EDGE ? ',' : ';');
-                        
-                    }
-                    
                 }
                 
                 *stream << "\t*"; // cigar
                 
-                if (inPath.getComment() != "") {
-                
-                *stream <<"\tCM:Z:"<<inPath.getComment();
-                    
-                }
-                
+                if (inPath.getComment() != "")
+                    *stream <<"\tCM:Z:"<<inPath.getComment();
                 *stream <<"\n";
-                
             }
-            
             break;
-            
         }
-            
         case 4: { // gfa2[.gz] GFA2
             
             std::string seqHeader, gHeader, pHeader;
-            
             phmap::flat_hash_map<unsigned int, std::string> idsToHeaders = *inSequences.getHash2();
-            
             std::vector<InSegment*>* inSegments = inSequences.getInSegments();
             
             *stream<<"H\tVN:Z:2.0\n";
@@ -542,138 +453,95 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                 seqHeader = inSegment->getSeqHeader();
                 
                 *stream <<"S\t" // line type
-                        <<seqHeader<<"\t" // header
-                        <<inSegment->getSegmentLen()<<"\t" // seq length
-                        <<inSegment->getInSequence(); // sequence
+                <<seqHeader<<"\t" // header
+                <<inSegment->getSegmentLen()<<"\t" // seq length
+                <<inSegment->getInSequence(); // sequence
                 
                 std::vector<Tag> tags = inSegment->getTags();
                 
-                for (Tag &tag : tags) {
-                
+                for (Tag &tag : tags)
                     *stream <<"\t"<<tag.label<<":"<<tag.type<<":"<<tag.content; // tags
-                    
-                }
                 
-                if (inSegment->getInSequenceQuality() != "") {
-                    
+                if (inSegment->getInSequenceQuality() != "")
                     *stream <<"\tQL:Z:"<<inSegment->getInSequenceQuality(); // optional quality
-                    
-                }
                 
                 *stream<<"\n";
-                
             }
             
             for (InEdge inEdge : *(inSequences.getEdges())) {
                 
                 *stream <<"E\t" // line type
-                        <<inEdge.geteHeader()<<"\t"
-                        <<idsToHeaders[inEdge.getsId1()]<<"\t"<<inEdge.getsId1Or()<<"\t" // sUid1:sid1:ref
-                        <<idsToHeaders[inEdge.getsId2()]<<"\t"<<inEdge.getsId2Or()<<"\t"; // sUid2:sid2:ref
+                <<inEdge.geteHeader()<<"\t"
+                <<idsToHeaders[inEdge.getsId1()]<<"\t"<<inEdge.getsId1Or()<<"\t" // sUid1:sid1:ref
+                <<idsToHeaders[inEdge.getsId2()]<<"\t"<<inEdge.getsId2Or()<<"\t"; // sUid2:sid2:ref
                 
                 *stream <<inEdge.getCigar(); // CIGAR
                 
                 std::vector<Tag> tags = inEdge.getTags();
                 
-                for (Tag &tag : tags) {
-                
+                for (Tag &tag : tags)
                     *stream <<"\t"<<tag.label<<":"<<tag.type<<":"<<tag.content; // tags
-                    
-                }
-                    
-                *stream <<"\n";
                 
+                *stream <<"\n";
             }
             
             for (InGap inGap : inSequences.getGaps()) {
                 
-                if (inGap.getgHeader() == "") {
-                    
+                if (inGap.getgHeader() == "")
                     gHeader = inGap.getuId();
-                    
-                }else{
-                    
+                else
                     gHeader = inGap.getgHeader();
-                    
-                }
                 
                 *stream <<"G\t" // line type
-                        <<gHeader<<"\t" // id
-                        <<idsToHeaders[inGap.getsId1()]<<inGap.getsId1Or()<<"\t" // sUid1:sid1:ref
-                        <<idsToHeaders[inGap.getsId2()]<<inGap.getsId2Or()<<"\t" // sUid2:sid2:ref
-                        <<inGap.getDist(); // size
+                <<gHeader<<"\t" // id
+                <<idsToHeaders[inGap.getsId1()]<<inGap.getsId1Or()<<"\t" // sUid1:sid1:ref
+                <<idsToHeaders[inGap.getsId2()]<<inGap.getsId2Or()<<"\t" // sUid2:sid2:ref
+                <<inGap.getDist(); // size
                 
                 std::vector<Tag> tags = inGap.getTags();
                 
-                for (Tag &tag : tags) {
-                
+                for (Tag &tag : tags)
                     *stream <<"\t"<<tag.label<<":"<<tag.type<<":"<<tag.content; // tags
-                    
-                }
-                    
-                *stream <<"\n";
                 
+                *stream <<"\n";
             }
-            
             std::vector<PathComponent> pathComponents;
             
             for (InPath inPath : inSequences.getInPaths()) {
                 
-                if (inPath.getHeader() == "") {
-                    
+                if (inPath.getHeader() == "")
                     pHeader = inPath.getpUId();
-                    
-                }else{
-                    
+                else
                     pHeader = inPath.getHeader();
                     
-                }
-                
                 *stream <<"O\t" // line type
-                        <<pHeader<<"\t"; // id
-                
+                <<pHeader<<"\t"; // id
                 
                 pathComponents = inPath.getComponents();
                 
                 for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
-                        
+                    
                     *stream << idsToHeaders[component->id];
                     
-                    if(component->start != 0 || component->end != 0) {
-                        
+                    if(component->start != 0 || component->end != 0)
                         *stream << "(" << std::to_string(component->start) << ":" << std::to_string(component->end) << ")";
-                        
-                    }
                     
-                    if(component->orientation != '0') {
-                    
+                    if(component->orientation != '0')
                         *stream << component->orientation;
-                        
-                    }
                     
-                    if (component != std::prev(pathComponents.end())) {
-                        
+                    if (component != std::prev(pathComponents.end()))
                         *stream <<" "; // space
-                        
-                    }
-                    
                 }
                 
                 if (inPath.getComment() != "") {
-                
-                *stream <<"\tCM:Z:"
-                        <<inPath.getComment();
                     
+                    *stream <<"\tCM:Z:"
+                    <<inPath.getComment();
                 }
-                
                 *stream <<"\n";
-                
             }
-            
             break;
-            
         }
-        
         case 5: { // .vcf[.gz]
             
             std::string pHeader;
@@ -685,8 +553,8 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             *stream<<"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">\n";
             *stream<<"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE\n";
             
-//            for (InPath& inPath : inSequences.getInPaths())
-//                *stream<<"contigs\n";
+            //            for (InPath& inPath : inSequences.getInPaths())
+            //                *stream<<"contigs\n";
             
             for (InPath& inPath : inSequences.getInPaths()) {
                 
@@ -694,7 +562,7 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     pHeader = inPath.getpUId();
                 else
                     pHeader = inPath.getHeader();
-
+                
                 unsigned int cUId = 0, gapLen = 0;
                 std::vector<PathComponent> pathComponents = inPath.getComponents();
                 uint64_t absPos = 1; // vcf is 1-based
@@ -706,7 +574,6 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                     if (component->componentType == SEGMENT) {
                         
                         auto inSegment = find_if(inSegments->begin(), inSegments->end(), [cUId](InSegment* obj) {return obj->getuId() == cUId;}); // given a node Uid, find it
-                        
                         std::string* ref = (*inSegment)->getInSequencePtr();
                         
                         if (component->orientation == '+') {
@@ -733,26 +600,26 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
                                     *stream<<pHeader<<"\t"<<absPos+pos-1<<"\t.\t"<<refSeq<<(*ref)[pos+DBGpaths[0].refLen-1]<<"\t";
                                 else
                                     *stream<<pHeader<<"\t"<<absPos+pos<<"\t.\t"<<refSeq<<"\t";
-
+                                
                                 double qual = 0;
                                 bool first = true;
                                 for (const DBGpath& variant : DBGpaths) {
+                                    
+                                    if (first) {first = false;} else {*stream<<",";}
+                                    
+                                    if(variant.type == SNV || variant.type == COM) {
+                                        if (indel)
+                                            *stream<<(*ref)[pos-1]<<variant.sequence;
+                                        else
+                                            *stream<<variant.sequence;
                                         
-                                        if (first) {first = false;} else {*stream<<",";}
-                                        
-                                        if(variant.type == SNV || variant.type == COM) {
-                                            if (indel)
-                                                *stream<<(*ref)[pos-1]<<variant.sequence;
-                                            else
-                                                *stream<<variant.sequence;
-                                            
-                                        }else if(variant.type == DEL) {
-                                            *stream<<(*ref)[pos-1]<<variant.sequence<<(*ref)[pos];
-                                        }else if(variant.type == INS) {
-                                            *stream<<(*ref)[pos-1];
-                                        }
-                                        
-                                        qual += variant.score;
+                                    }else if(variant.type == DEL) {
+                                        *stream<<(*ref)[pos-1]<<variant.sequence<<(*ref)[pos];
+                                    }else if(variant.type == INS) {
+                                        *stream<<(*ref)[pos-1];
+                                    }
+                                    
+                                    qual += variant.score;
                                     
                                 }
                                 *stream<<"\t"<<round(qual/DBGpaths.size())<<"\tPASS\t.\tGT:GQ\t1/1:"
@@ -773,35 +640,11 @@ bool Report::outFile(InSequences &inSequences, std::string file, UserInput &user
             }
             break;
         }
-            
         case 0: { // undefined case
-            
-            std::cout<<"Unrecognized output format: "<<file;
-            
+            std::cout<<"Unrecognized output format: "<<outputStream.file;
             break;
-            
         }
-            
     }
-    
-    if(gzip && outFile) { // if we wrote to file as gzip, we add the footer and close
-        
-        zfout.close();
-        
-    }else if(gzip && !outFile) { // if we streamed as gzip, we add the footer and close
-        
-        zout.close();
-        
-    }
-    
-    if(outFile) { // if we wrote to file, we close it
-        
-        ofs.close();
-        
-    }
-    
-    return true;
-    
 }
 
 bool Report::outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly) { // method to output the coordinates of each feature

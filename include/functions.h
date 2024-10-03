@@ -272,11 +272,11 @@ static inline bool ifFileExists(const char * optarg) { // check if file exists
     
 }
 
-static inline void textWrap(std::string input, std::ostream& output, int width) { // generic text wrapper (useful for fasta output)
+static inline void textWrap(std::string input, std::ostream& output, uint32_t width) { // generic text wrapper (useful for fasta output)
     
     std::string tmp;
     char cur = '\0';
-    int i = 0;
+    uint32_t i = 0;
     
     std::stringstream ss(input);
     
