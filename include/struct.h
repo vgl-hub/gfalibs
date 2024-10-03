@@ -43,6 +43,8 @@ struct Sequence { // a generic sequence container
     
     ~Sequence();
     
+    void deleteSequence();
+    
 };
 
 struct Sequences { // a collection of sequences

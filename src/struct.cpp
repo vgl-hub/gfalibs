@@ -43,8 +43,21 @@ Sequences::~Sequences() {
 }
 
 Sequence::~Sequence() {
-    delete sequence;
-    delete sequenceQuality;
+    if (sequence != NULL)
+        delete sequence;
+    if (sequenceQuality != NULL)
+        delete sequenceQuality;
+}
+
+void Sequence::deleteSequence() {
+    if (sequence != NULL) {
+        delete sequence;
+        sequence = NULL;
+    }
+    if (sequenceQuality != NULL) {
+        delete sequenceQuality;
+        sequenceQuality = NULL;
+    }
 }
 
 bool Edge::operator==(const Edge& e) const {
