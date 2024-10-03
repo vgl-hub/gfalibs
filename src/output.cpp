@@ -50,42 +50,39 @@ OutputStream::OutputStream(std::string file) : file(file), ofs(file), zfout(ofs)
         gzip = true;
     
     // if the input is not in the unordered map, it means we need to write a new file with the path provided by the user otherwise the output is in the format specified by the user
-    if (string_to_case.find(path) == string_to_case.end()) {
-        
+    if (string_to_case.find(path) == string_to_case.end())
         outFile = true;
-        
-    }else{
+    else
         ext = file;
         
-        lg.verbose("Writing ouput: " + ext);
+    lg.verbose("Writing ouput: " + ext);
+    
+    if (gzip && outFile) { // if the requested output is gzip compressed and should be outputted to a file
         
-        if (gzip && outFile) { // if the requested output is gzip compressed and should be outputted to a file
+        stream = std::make_unique<std::ostream>(zfout.rdbuf()); // then we use the stream for gzip compressed file outputs
+        zfout.addHeader();
+        
+    }else if (!gzip && outFile){ // else if no compression is requested
+        
+        stream = std::make_unique<std::ostream>(ofs.rdbuf());  // we use the stream regular file outputs
+        
+    }else{ // else the output is not written to a file
+        
+        // we close and delete the file
+        ofs.close();
+        remove(file.c_str());
+        
+        if (gzip) { // if the output to stdout needs to be compressed we use the appropriate stream
             
-            stream = std::make_unique<std::ostream>(zfout.rdbuf()); // then we use the stream for gzip compressed file outputs
-            zfout.addHeader();
+            stream = std::make_unique<std::ostream>(zout.rdbuf());
+            zout.addHeader();
             
-        }else if (!gzip && outFile){ // else if no compression is requested
+        }else{ // else we use a regular cout stream
             
-            stream = std::make_unique<std::ostream>(ofs.rdbuf());  // we use the stream regular file outputs
-            
-        }else{ // else the output is not written to a file
-            
-            // we close and delete the file
-            ofs.close();
-            remove(file.c_str());
-            
-            if (gzip) { // if the output to stdout needs to be compressed we use the appropriate stream
-                
-                stream = std::make_unique<std::ostream>(zout.rdbuf());
-                zout.addHeader();
-                
-            }else{ // else we use a regular cout stream
-                
-                std::cout.flush();
-                stream = std::make_unique<std::ostream>(std::cout.rdbuf());
-            }
+            std::cout.flush();
+            stream = std::make_unique<std::ostream>(std::cout.rdbuf());
         }
-    }
+    }    
 }
 
 OutputStream::~OutputStream() {

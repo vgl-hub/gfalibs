@@ -53,7 +53,7 @@ struct Sequence { // a generic sequence container
 struct Sequences { // a collection of sequences
     
     std::vector<Sequence*> sequences;
-    unsigned int batchN;
+    uint32_t batchN;
     
     ~Sequences();
     

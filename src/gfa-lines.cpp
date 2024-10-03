@@ -90,11 +90,11 @@ void InSegment::setSeqComment(std::string c) {
 }
 
 void InSegment::setInSequence(std::string* s) {
-    inSequence = s;
+    inSequence = std::move(s);
 }
 
 void InSegment::setInSequenceQuality(std::string* q) {
-    inSequenceQuality = q;
+    inSequenceQuality = std::move(q);
 }
 
 void InSegment::setSeqTags(std::vector<Tag>* t) {
