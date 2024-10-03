@@ -18,8 +18,7 @@
 InSequences::~InSequences() {
     
     for (InSegment* p : inSegments)
-        delete p;
-    
+        delete p;    
 }
 
 InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t &dist, char sign, unsigned int uId1, unsigned int uId2) {

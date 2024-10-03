@@ -14,7 +14,7 @@ std::string UserInput::file(char type, uint16_t num) {
             filename = inSequence;
             break;
         case 'r':
-            filename = inReads[num];
+            filename = inFiles[num];
             break;
         case 'i':
             filename = inBedInclude;

@@ -11,7 +11,7 @@ struct UserInput { // a container for user input
     std::string inAgp; // input agp
     std::string inBedInclude; // input bed file of coordinates to include
     std::string inBedExclude; // input bed file of coordinates to exclude
-    std::vector<std::string> inReads; // input reads to evaluate
+    std::vector<std::string> inFiles; // input reads to evaluate
     std::string inAlign;
     // coordinates
     BedCoordinates bedIncludeList;
@@ -30,6 +30,8 @@ struct UserInput { // a container for user input
     std::vector<std::string> kmerDB; // a database of kmers (or DBG)
     std::string prefix = ".", outFile = "";
     uint8_t kmerLen = 21;
+    
+    uint64_t gSize = 0; // expected genome size, with 0 statistics are not computed
     
 };
 
