@@ -42,7 +42,7 @@ public:
     
     bool pathReport(InSequences &inSequences);
     
-    void writeToStream(OutputStream outputStream, InSequences &inSequences, UserInput &userInput);
+    void writeToStream(InSequences &inSequences, std::string file, UserInput &userInput);
     
     bool outCoord(InSequences &inSequences, char bedOutType, bool sizeOnly = false);
     

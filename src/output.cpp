@@ -158,7 +158,9 @@ bool Report::pathReport(InSequences &inSequences) { // method to output the summ
     return true;
 }
 
-void Report::writeToStream(OutputStream outputStream, InSequences &inSequences, UserInput &userInput) {
+void Report::writeToStream(InSequences &inSequences, std::string file, UserInput &userInput) {
+    
+    OutputStream outputStream(file);
     
     const static phmap::flat_hash_map<std::string,int> string_to_case{
         {"fasta",1},
@@ -177,8 +179,8 @@ void Report::writeToStream(OutputStream outputStream, InSequences &inSequences, 
         {"vcf.gz",5}
     };
     
-    userInput.stats_flag = true; // since we write to file, let's output the stats
-    std::string ext = getFileExt(outputStream.file); // variable to handle output path and extension
+    userInput.stats_flag = outputStream.outFile ? true : false; // since we write to file, let's output the stats
+    std::string ext = outputStream.outFile ? getFileExt(outputStream.file) : file; // variable to handle output path and extension
     
     std::unique_ptr<std::ostream> &stream = outputStream.stream;
     
@@ -250,8 +252,8 @@ void Report::writeToStream(OutputStream outputStream, InSequences &inSequences, 
                     inSeq = "";
                     (*stream).flush();
                 }
-                break;
             }
+            break;
         }
         case 2: { // fastq[.gz]
             
