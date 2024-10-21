@@ -23,11 +23,11 @@
 
 #include "MinScan.h"
 
-#undef   DEBUG_SETUP
-#undef   DEBUG_SCAN
-#undef   DEBUG_TRANSMIT
-#undef   DEBUG_RECIEVE
-#undef   DEBUG_COMPRESSION
+#undef    DEBUG_SETUP
+#undef    DEBUG_SCAN
+#undef    DEBUG_TRANSMIT
+#undef    DEBUG_RECIEVE
+#undef    DEBUG_COMPRESSION
 
 typedef unsigned char      uint8;
 typedef unsigned long long uint64;
@@ -177,7 +177,7 @@ typedef struct
   } D_Bundle;
 
   //  Allocate distribution buffers and minimizer queue.
-  //  Initialize the buffers.
+  //    Initialize the buffers.
     
 Distribution_Bundle *Begin_Distribution(int *fids)
 { D_Bundle *bundle;
@@ -232,7 +232,7 @@ void End_Distribution(Distribution_Bundle *_bundle)
       { packs[i].buf[0] = ((packs[i].ptr-packs[i].buf)<<6)+(64-packs[i].rem);
 
 #ifdef DEBUG_TRANSMIT
-        if (i == 10)
+        if (i == 1)
           { printf("\n   Writing Packet of %lld bits",packs[i].buf[0]);
             if (packs[i].rem == 64)
               printf(" in %ld uint64 words\n\n",packs[i].ptr-packs[i].buf);
@@ -253,7 +253,7 @@ void End_Distribution(Distribution_Bundle *_bundle)
   free(bundle);
 }
 
-//  Stuff overhang length in SBits and advance ptr,pos
+  //  Stuff overhang length in SBits and advance ptr,pos
 
 static uint64 *stuff_int(uint64 ohang, int *pos, uint64 *ptr)
 { int rem;
@@ -297,7 +297,7 @@ static uint64 *stuff_seq(uint8 *seq, int len, int *pos, uint64 *ptr)
         }
       else
         { *ptr++ |= (v >> 1);
-          rem  = 64;
+          rem  = 63;
           *ptr = (v << rem);
         }
     }
@@ -320,7 +320,7 @@ static void transmit(int buck, Packet *pack, uint8 *seq, int ohang)
   rem   = pack->rem;
   
 #ifdef DEBUG_TRANSMIT
-  if (buck == 10)
+  if (buck == 1)
     { printf("   Transmit %d %d to bucket %d\n       ",ohang+Kmer,ohang,buck);
       for (int i = 0; i < ohang+Kmer; i++)
         printf("%1d",seq[i]);
@@ -346,7 +346,7 @@ static void transmit(int buck, Packet *pack, uint8 *seq, int ohang)
     { pack->buf[0] = ((ptr-pack->buf)<<6)+(64-rem);
 
 #ifdef DEBUG_TRANSMIT
-      if (buck == 10)
+      if (buck == 1)
         { printf("\n   Writing Packet of %lld bits",pack->buf[0]);
           if (rem == 64)
             printf(" in %ld uint64 words\n\n",ptr-pack->buf);
@@ -409,7 +409,7 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
       r = s-kmer1;
 
       last = kmer1;
-      mb = NMask;
+      mb = mi = NMask;
       c = n = 0;
       for (i = 0; i < Mmer-1; i++)
         { x = s[i];
@@ -427,7 +427,7 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
             mz = n;
           else
             mz = c;
-          mzr[i] = mz;
+          mzr[i] = mz; 
           if (mz <= mb)
             { mi = i;
               mb = mz;
@@ -469,7 +469,7 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
               transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
               last = i;
               mi = i;
-              mb = mz;
+              mb = mz; 
 #ifdef DEBUG_SCAN
               printf("%*s:: %4d %0*llx  New Min\n",4*Mmer+11,"",mi,2*Mmer,mb);
 #endif
@@ -504,8 +504,6 @@ typedef struct
   //  Setup to scan/process a section (or all) of a data array starting
   //    at data of length size uint64 words.
 
-static uint64 *DATA;
-
 Scan_Bundle *Begin_Supermer_Scan(uint64 *data, uint64 size)
 { S_Bundle *bundle;
   uint64    totbits;
@@ -520,8 +518,6 @@ Scan_Bundle *Begin_Supermer_Scan(uint64 *data, uint64 size)
   bundle->rem  = 64;
   bundle->ptr  = data+1;
   bundle->dend = data+size;
-
-DATA = bundle->ptr;
 
 #ifdef DEBUG_RECIEVE
   printf("\n   Scanning Packet of %lld bits",totbits);
@@ -655,7 +651,7 @@ int Next_Supermer(uint64 *super, Scan_Bundle *_bundle)
 #ifdef DEBUG_RECIEVE
   { int i, w, x;
 
-    printf("   Transmit %d %d to bucket 10\n       ",len,ohang);
+    printf("   Transmit %d %d to bucket 1\n       ",len,ohang);
     x = 62;
     w = 0;
     for (i = 0; i < len; i++)
@@ -738,7 +734,7 @@ int Get_Kmer_Count(Scan_Bundle *_bundle)
   bundle->ptr = unstuff_int(&ohang,&bundle->rem,bundle->ptr);
 
 #ifdef DEBUG_RECIEVE
-  printf("   Transmit %d %d to bucket 10\n       ",ohang+Kmer,ohang);
+  printf("   Transmit %d %d to bucket 1\n       ",ohang+Kmer,ohang);
   fflush(stdout);
 #endif
 
@@ -818,7 +814,7 @@ static inline uint64 get_norm64(int rem, uint64 *ptr)
   return (x);
 }
 
-  //  Get the hash (1st 32bp or k-mer + zero-padding if k < 32) of the canonical k-mer at the
+  //  Get the hash (1st 32bp or k-mer + zero-padding if k < 32) of the cannonical k-mer at the
   //    given offset from finger.  Return +1 if the hash is from the forward direction,
   //    -1 if from the complement direction, and 0 if the two are equal.
 

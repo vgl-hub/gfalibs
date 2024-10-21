@@ -10,9 +10,6 @@ typedef unsigned long long uint64;
 typedef void               Distribution_Bundle;
 typedef void               Scan_Bundle;
 
-#define TEST_KMER 50  // For test drivers
-#define TEST_MMER 10
-
   //  Before entering threaded code, initialize the package with this call
   //    giving the kmer and mmer size for the run.  Assumes mmer < kmer and
   //    mmer in [8,32].
@@ -33,7 +30,7 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *bundle);
 void End_Distribution(Distribution_Bundle *bundle);
 
   //  Begin scanning a data segment (that must be some number of complete packets)
-  //    starting at data and covering size *bytes*.  Each call to Next_Supermer delivers
+  //    starting at data and covering size *uint64's*.  Each call to Next_Supermer delivers
   //    the next supermer in the data segement in the use-supplied array super, returning
   //    the length of the supermer.  0 is returned if there are no more supermers to process.
   //    A uint64 array of the appropriate size to hold any supermer is returned by
@@ -65,7 +62,7 @@ int    Get_Kmer_Count(Scan_Bundle *bundle);
   //  Assumes the bundle points at the start of a 2-bit supermer containing count k-mer.
   //  Advance the bundle position over the supermer to the start of the next supermer record.
 
-void   Skip_Kmers(int count, Scan_Bundle *bundle);
+void   Skip_Kmers(int count, Scan_Bundle *bundle); 
 
   //  Return an integer offset represent the precise bit position of the current bundle relative
   //    to a pointer finger into the data array.  You can get an offset before processing a supermer

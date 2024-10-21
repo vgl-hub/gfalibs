@@ -1,12 +1,9 @@
 #ifndef KMER_H
 #define KMER_H
 
-#include <future>
-#include <set>
 #include "parallel-hashmap/phmap.h"
 #include "parallel-hashmap/phmap_dump.h"
 
-#include <bit-packing.h>
 #include <fastx.h>
 #include <fcntl.h>
 #include <MinScan.h>
@@ -342,9 +339,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
             
             readBatch = readBatches.front();
             readBatches.pop();
+            len = readBatch->size();
         }
         
-        Distribute_Sequence(const_cast<char*>(readBatch->data()), readBatch->size(), bundle);
+        Distribute_Sequence(const_cast<char*>(readBatch->data()), len, bundle);
         
         delete readBatch;
         freed += len * sizeof(char);
