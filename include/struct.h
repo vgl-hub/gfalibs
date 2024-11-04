@@ -24,8 +24,8 @@ struct UserInput { // a container for user input
         stats_flag = 0;
     
     std::string file(char type, uint16_t fileNum = 0);
-    uint8_t mode = 0,
-            hc_cutoff = -1;
+    uint8_t mode = 0;
+    int8_t hc_cutoff = -1;
 
     std::vector<std::string> kmerDB; // a database of kmers (or DBG)
     std::string prefix = ".", outFile = "";
