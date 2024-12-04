@@ -36,6 +36,7 @@ OutputStream::OutputStream(std::string file) : file(file), ofs(file), zfout(ofs)
         {"fq",2},
         {"fastq.gz",2},
         {"fq.gz",2},
+        {"bam",2},
         {"gfa",3},
         {"gfa.gz",3},
         {"gfa2",4},
