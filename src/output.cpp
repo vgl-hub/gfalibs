@@ -24,7 +24,7 @@ OutputStream::OutputStream(std::string file) : file(file), ofs(file), zfout(ofs)
         return;
     
     std::cout << std::fixed; // disables scientific notation
-    std::cout << std::setprecision(2); // 2 decimal poinst
+    std::cout << std::setprecision(2); // 2 decimal points
     
     // unordered map to handle out correspondence in following switch statement
     const static phmap::flat_hash_map<std::string,int> string_to_case{

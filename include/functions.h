@@ -582,7 +582,7 @@ static inline void homopolymerBedCoords(std::string *sequence, std::vector<std::
     }
 }
 
-static inline void computeNstars(std::vector<uint64_t>& lens, // compute N/L* statistics, vector of all lengths
+static inline void computeNstars(std::vector<uint64_t>& lens, // compute N/L* statistics, vector of all lengths, returns sorted vector of lengths
                    std::vector<uint64_t>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
                    std::vector<uint64_t>* NGstars = NULL, std::vector<unsigned int>* LGstars = NULL, uint64_t gSize = 0) { // optional arguments are passed by pointer
     
