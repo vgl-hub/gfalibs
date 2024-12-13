@@ -15,7 +15,7 @@ SOURCES = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log st
 all: $(SOURCES)
 
 %.o: $(SOURCE)/%.cpp $(INCLUDE)/%.h
-	$(CXX) $(CXXFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@ $(LIBS)
+	$(CXX) $(CXXFLAGS) -L/opt/homebrew/Cellar/openssl@3/3.4.0/lib -lcrypto -c $(SOURCE)/$(basename $@).cpp -o $@
     
 clean:
 	$(RM) *.o
