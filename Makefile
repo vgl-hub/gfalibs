@@ -8,14 +8,14 @@ TARGET = gfalibs
 BUILD = build/bin
 SOURCE = src
 INCLUDE = include
-LIBS = -lz -lcrypto
+LIBS = -lz
 
 SOURCES = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log stream-obj uid-generator struct output memory)
 
 all: $(SOURCES)
 
 %.o: $(SOURCE)/%.cpp $(INCLUDE)/%.h
-	$(CXX) $(CXXFLAGS) -L/opt/homebrew/Cellar/openssl@3/3.4.0/lib -lcrypto -c $(SOURCE)/$(basename $@).cpp -o $@
+	$(CXX) $(CXXFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@
     
 clean:
 	$(RM) *.o
