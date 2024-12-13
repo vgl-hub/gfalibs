@@ -22,6 +22,7 @@
 #include <fstream>
 #include <numeric>
 #include <tuple>
+#include <openssl/evp.h>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -314,8 +315,8 @@ static inline std::string rmFileExt(const std::string path) { // utility to stri
     return path;
 }
 
-static inline std::string getFileExt(std::string fileName) // utility to get file extension
-{
+static inline std::string getFileExt(std::string fileName) { // utility to get file extension
+
     if(fileName.find_last_of(".") != std::string::npos) {
         
         if(fileName.substr(fileName.find_last_of(".")+1) == "gz") {
@@ -329,6 +330,10 @@ static inline std::string getFileExt(std::string fileName) // utility to get fil
         return fileName.substr(fileName.find_last_of(".")+1);
     }
     return "";
+}
+
+static inline std::string getFileName(std::string path) { // utility to get file extension
+    return path.substr(path.find_last_of("/\\") + 1);
 }
 
 static inline std::string revCom(std::string seq) { // reverse complement
@@ -727,6 +732,37 @@ static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::s
     return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
 
+static inline bool computeMd5(const std::string file, std::string *md5) {
+    unsigned char md_value[EVP_MAX_MD_SIZE];
+    unsigned int  md_len;
 
+    EVP_MD_CTX*   context = EVP_MD_CTX_new();
+    const EVP_MD* md = EVP_md5();
+
+    EVP_DigestInit_ex2(context, md, NULL);
+
+    const int bufSize = 1024;
+    char buffer[bufSize];
+
+    std::ifstream fin(file);
+
+    while(!fin.eof()) {
+        fin.read(buffer, bufSize);
+        std::streamsize s=fin.gcount();
+        EVP_DigestUpdate(context, buffer, s);
+    }
+
+    EVP_DigestFinal_ex(context, md_value, &md_len);
+    EVP_MD_CTX_free(context);
+
+    char *md_value_buf = new char[md_len*2+1]; // two characters per digit + null termination
+
+    for (unsigned int i = 0 ; i < md_len ; ++i)
+        snprintf(md_value_buf+i*2, 3, "%02x", md_value[i]);
+
+    *md5 = std::string(md_value_buf);
+    delete[] md_value_buf;
+    return true;
+}
 
 #endif /* FUNCTIONS_H */
