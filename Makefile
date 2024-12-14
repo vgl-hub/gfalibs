@@ -1,5 +1,5 @@
 CXX ?= g++
-override INCLUDE_DIR += -I./include
+INCLUDE_DIR = -I./include
 WARNINGS = -Wall -Wextra
 
 CXXFLAGS = -g -std=gnu++14 -O3 $(INCLUDE_DIR) $(WARNINGS) $(CFLAGS)
@@ -15,7 +15,7 @@ SOURCES = $(addsuffix .o, input-filters input-gfa input-agp gfa gfa-lines log st
 all: $(SOURCES)
 
 %.o: $(SOURCE)/%.cpp $(INCLUDE)/%.h
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@
+	$(CXX) $(CXXFLAGS) -c $(SOURCE)/$(basename $@).cpp -o $@
     
 clean:
 	$(RM) *.o
