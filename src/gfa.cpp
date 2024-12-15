@@ -154,7 +154,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
     
     for (char &base : *sequence->sequence) {
 
-        count = 1;
+        count = 1; // GF, this functionality added by AB is conceptually wrong and should be fixed: it will return the original counts for ACGTN but everything else won't be affected (eg total length will be in hom-compressed space). The hashtable could be further used to output all homopolymer locations
         if(hc_cutoff != -1 && hc_index < bedCoords.size() && pos == bedCoords[hc_index].first) {
             count = bedCoords[hc_index].second - bedCoords[hc_index].first;
             ++hc_index;
