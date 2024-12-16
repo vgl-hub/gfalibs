@@ -592,7 +592,6 @@ static inline void computeNstars(std::vector<uint64_t>& lens, // compute N/L* st
                    std::vector<uint64_t>* NGstars = NULL, std::vector<unsigned int>* LGstars = NULL, uint64_t gSize = 0) { // optional arguments are passed by pointer
     
     sort(lens.begin(), lens.end(), std::greater<uint64_t>()); // sort lengths Z-A
-    
     uint64_t sum = 0, totLen = 0;
     
     for(std::vector<uint64_t>::iterator it = lens.begin(); it != lens.end(); ++it) // find total length
@@ -603,27 +602,19 @@ static inline void computeNstars(std::vector<uint64_t>& lens, // compute N/L* st
     for(unsigned int i = 0; i < lens.size(); i++) { // for each length
         
         sum += lens[i]; // increase sum
-        
         while (sum >= ((double) totLen / 10 * N) && N<= 10) { // conditionally add length.at or pos to each N/L* bin
             
             Nstars[N-1] = lens[i];
             Lstars[N-1] = i + 1;
-            
             N = N + 1;
-            
         }
-        
         while (gSize > 0 && (sum >= ((double) gSize / 10 * NG)) && NG<= 10) { // if not computing gap statistics repeat also for NG/LG* statistics
             
             (*NGstars)[NG-1] = lens[i];
             (*LGstars)[NG-1] = i + 1;
-            
             NG = NG + 1;
-            
         }
-        
     }
-    
 }
 
 static inline void rmChrFromStr(std::string &str, const char* charsToRemove) {
