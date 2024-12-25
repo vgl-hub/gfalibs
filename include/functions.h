@@ -723,7 +723,7 @@ static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::s
     return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
 
-static inline bool computeMd5(const std::string file, std::string *md5) {
+static inline bool computeMd5(const std::string file, std::string &md5) {
     unsigned char md_value[EVP_MAX_MD_SIZE];
     unsigned int  md_len;
 
@@ -751,7 +751,7 @@ static inline bool computeMd5(const std::string file, std::string *md5) {
     for (unsigned int i = 0 ; i < md_len ; ++i)
         snprintf(md_value_buf+i*2, 3, "%02x", md_value[i]);
 
-    *md5 = std::string(md_value_buf);
+    md5 = std::string(md_value_buf);
     delete[] md_value_buf;
     return true;
 }
