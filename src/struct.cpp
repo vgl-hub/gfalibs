@@ -37,29 +37,6 @@ std::string UserInput::file(char type, uint16_t num) {
     
 }
 
-Sequences::~Sequences() {
-    for (Sequence* sequence : sequences)
-        delete sequence;
-}
-
-Sequence::~Sequence() {
-    if (sequence != NULL)
-        delete sequence;
-    if (sequenceQuality != NULL)
-        delete sequenceQuality;
-}
-
-void Sequence::deleteSequence() {
-    if (sequence != NULL) {
-        delete sequence;
-        sequence = NULL;
-    }
-    if (sequenceQuality != NULL) {
-        delete sequenceQuality;
-        sequenceQuality = NULL;
-    }
-}
-
 bool Edge::operator==(const Edge& e) const {
     return orientation0 == e.orientation0 && orientation1 == e.orientation1 && id == e.id;
 }

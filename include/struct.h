@@ -39,24 +39,14 @@ struct UserInput { // a container for user input
 };
 
 struct Sequence { // a generic sequence container
-    
     std::string header, comment;
-    std::string* sequence = NULL, *sequenceQuality = NULL;
+    std::string sequence, sequenceQuality;
     unsigned int seqPos = 0;
-    
-    ~Sequence();
-    
-    void deleteSequence();
-    
 };
 
 struct Sequences { // a collection of sequences
-    
-    std::vector<Sequence*> sequences;
+    std::vector<Sequence> sequences;
     uint32_t batchN;
-    
-    ~Sequences();
-    
 };
 
 struct Tag {

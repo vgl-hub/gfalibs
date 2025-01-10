@@ -111,23 +111,13 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
                 if (got1 == coordinates.end() && got2 == coordinates.end()) {
                     outSeq = true;
                 }
-                
-                
-                
     }
-    
     if (outSeq && inSequence->size()>0) {
-    
-        return new Sequence {seqHeader, seqComment, inSequence, inSequenceQuality};
-    
+        return new Sequence{seqHeader, seqComment, *inSequence, *inSequenceQuality};
     }else {
-        
         lg.verbose("Sequence entirely removed as a result of BED filter: " + seqHeader);
-        
         return NULL;
-        
     }
-    
 }
 
 Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, std::string* seqComment, std::string* inSequence, BedCoordinates bedIncludeList, BedCoordinates* bedExcludeList, std::string* inSequenceQuality) {
@@ -255,7 +245,7 @@ Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, st
     }
     
     if (outSeq && inSequence->size()>0) {
-        return new Sequence {*seqHeader, seqComment != NULL ? *seqComment : "", inSequence};
+        return new Sequence {*seqHeader, seqComment != NULL ? *seqComment : "", *inSequence, std::string()};
     }else {
         lg.verbose("Sequence entirely removed as a result of BED filter: " + *seqHeader);
         return NULL;

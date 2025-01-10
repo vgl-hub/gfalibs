@@ -13,12 +13,6 @@
 
 #include "gfa-lines.h"
 
-InSegment::~InSegment()
-{
-    delete inSequence;
-    delete inSequenceQuality;
-}
-
 void InSegment::set(Log* threadLog, unsigned int uId, unsigned int iId, std::string seqHeader, std::string* seqComment, std::string* sequence, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount, unsigned int seqPos, std::string* sequenceQuality, std::vector<Tag>* inSequenceTags, uint64_t* N) {
     
     threadLog->add("Processing segment: " + seqHeader + " (uId: " + std::to_string(uId) + ", iId: " + std::to_string(iId) + ")");

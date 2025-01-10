@@ -94,7 +94,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
 
     std::vector<std::pair<uint64_t, uint64_t>> bedCoords;
     if(hc_cutoff != -1)
-        homopolymerCompress(sequence->sequence, bedCoords, hc_cutoff);
+        homopolymerCompress(&sequence->sequence, bedCoords, hc_cutoff);
     
     std::vector<InSegment*> newSegments;
     std::vector<InGap> newGaps;
@@ -112,7 +112,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
     char sign = '+';
     bool wasN = false;
     
-    sequence->sequence->erase(std::remove(sequence->sequence->begin(), sequence->sequence->end(), '\n'), sequence->sequence->end());
+    sequence->sequence.erase(std::remove(sequence->sequence.begin(), sequence->sequence.end(), '\n'), sequence->sequence.end());
     
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
     
@@ -150,9 +150,9 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
 
     }
 
-    uint64_t seqLen = sequence->sequence->size()-1;
+    uint64_t seqLen = sequence->sequence.size()-1;
     
-    for (char &base : *sequence->sequence) {
+    for (char base : sequence->sequence) {
 
         count = 1; // GF, this functionality added by AB is conceptually wrong and should be fixed: it will return the original counts for ACGTN but everything else won't be affected (eg total length will be in hom-compressed space). The hashtable could be further used to output all homopolymer locations
         if(hc_cutoff != -1 && hc_index < bedCoords.size() && pos == bedCoords[hc_index].first) {
@@ -178,7 +178,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                 if (!wasN && pos>0) { // gap start and gap not at the start of the sequence
 
                     sEnd = pos - 1;
-                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
+                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, &sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, &sequence->sequenceQuality));
                     
                     lck.lock();
                     
@@ -258,7 +258,7 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                 if (pos == seqLen) {
 
                     sEnd = pos;
-                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
+                    newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, &sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, &sequence->sequenceQuality));
                     
                     lck.lock();
                     
@@ -318,7 +318,7 @@ InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> i
     uint64_t A = 0, C = 0, G = 0, T = 0, lowerCount = 0;
     unsigned int sUId = 0;
     
-    for (char &base : *sequence->sequence) {
+    for (char base : sequence->sequence) {
         
         if (islower(base)) {
             
@@ -389,7 +389,7 @@ InSegment* InSequences::traverseInSegment(Sequence* sequence, std::vector<Tag> i
     
     InSegment* inSegment = new InSegment;
     
-    inSegment->set(&threadLog, sUId, sId, sequence->header, &sequence->comment, sequence->sequence, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sequence->sequenceQuality, &inSequenceTags);
+    inSegment->set(&threadLog, sUId, sId, sequence->header, &sequence->comment, &sequence->sequence, &A, &C, &G, &T, &lowerCount, sequence->seqPos, &sequence->sequenceQuality, &inSequenceTags);
             
     inSegments.push_back(inSegment);
     

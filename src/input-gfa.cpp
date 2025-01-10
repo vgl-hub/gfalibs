@@ -62,7 +62,7 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                     
                     lg.verbose("Individual fasta sequence read");
                     
-                    Sequence* sequence = new Sequence {seqHeader, seqComment, inSequence};
+                    Sequence* sequence = new Sequence {seqHeader, seqComment, *inSequence, std::string()};
                     
                     if (sequence != NULL) {
                         
@@ -103,7 +103,7 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                     std::string* inSequenceQuality = new std::string;
                     getline(*stream, *inSequenceQuality);
                     
-                    Sequence* sequence = new Sequence {seqHeader, seqComment, inSequence, inSequenceQuality};
+                    Sequence* sequence = new Sequence {seqHeader, seqComment, *inSequence, *inSequenceQuality};
                     
                     if (sequence != NULL) {
                         
