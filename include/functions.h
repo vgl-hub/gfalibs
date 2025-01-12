@@ -22,7 +22,10 @@
 #include <fstream>
 #include <numeric>
 #include <tuple>
+
+#ifdef EVP
 #include <openssl/evp.h>
+#endif
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -240,7 +243,6 @@ static inline std::vector<unsigned int> intervalSizes(std::vector<unsigned int> 
 static inline std::string output(std::string output){ // use tab delimiter if tabular flag is true
     
     if (tabular_flag) {
-        
         output = output + "\t";
         
     }else{
@@ -723,6 +725,7 @@ static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::s
     return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
 
+#ifdef EVP
 static inline bool computeMd5(const std::string file, std::string &md5) {
     unsigned char md_value[EVP_MAX_MD_SIZE];
     unsigned int  md_len;
@@ -755,5 +758,6 @@ static inline bool computeMd5(const std::string file, std::string &md5) {
     delete[] md_value_buf;
     return true;
 }
+#endif
 
 #endif /* FUNCTIONS_H */
