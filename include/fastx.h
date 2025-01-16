@@ -7,7 +7,6 @@ template<typename OBJECT>
 bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t fileNum) { // load from FASTA/FASTQ to templated object
     
     // stream read variables
-    char* c;
     std::string firstLine, newLine, seqHeader, seqComment, line, bedHeader;
     uint32_t seqPos = 0; // to keep track of the original sequence order
     uint32_t batchSize = 10000; // number of sequences processed by a thread
