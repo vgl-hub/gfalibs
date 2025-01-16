@@ -48,13 +48,10 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                 
                 while (getline(*stream, newLine)) {
                     
-                    h = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
-                    c = strtok(NULL,""); //read comment
-                    
-                    seqHeader = h;
-                    
-                    if (c != NULL)
-                        seqComment = std::string(c);
+                    size_t spacePos = newLine.find(" ");
+                    seqHeader = newLine.substr(0, spacePos);
+                    if (spacePos != std::string::npos)
+                        seqComment = newLine.substr(spacePos + 1);
                     
                     std::string* inSequence = new std::string;
                     
@@ -83,17 +80,10 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                 while (getline(*stream, newLine)) { // file input
                     
                     newLine.erase(0, 1);
-                    
-                    h = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
-                    c = strtok(NULL,""); //read comment
-                    
-                    seqHeader = h;
-                    
-                    if (c != NULL) {
-                        
-                        seqComment = std::string(c);
-                        
-                    }
+                    size_t spacePos = newLine.find(" ");
+                    seqHeader = newLine.substr(0, spacePos);
+                    if (spacePos != std::string::npos)
+                        seqComment = newLine.substr(spacePos + 1);
                     
                     std::string* inSequence = new std::string;
                     getline(*stream, *inSequence);

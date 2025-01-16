@@ -416,25 +416,16 @@ static inline std::string rev(std::string seq) { // reverse string
 static inline std::vector<std::string> readDelimited(std::string line, std::string delimiter, std::string skipLine = "") { // read line delimited by specific character, optionally skip lines starting with specific string
 
     std::vector<std::string> arguments;
-
     size_t pos = 0;
     
-    if (skipLine != "" && line.substr(0, skipLine.size()) == skipLine) {
-        
+    if (skipLine != "" && line.substr(0, skipLine.size()) == skipLine)
         return arguments;
-        
-    }
 
     while ((pos = line.find(delimiter)) != std::string::npos) {
-        
         arguments.push_back(line.substr(0, pos));
-        
         line.erase(0, pos + delimiter.length());
-            
     }
-    
     arguments.push_back(line); // last column
-        
     return arguments;
     
 }

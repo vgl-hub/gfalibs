@@ -27,11 +27,10 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 
                 while (getline(*stream, newLine)) {
                     
-                    seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
-                    c = strtok(NULL,""); //read comment
-                    
-                    if (c != NULL)
-                        seqComment = std::string(c);
+                    size_t spacePos = newLine.find(" ");
+                    seqHeader = newLine.substr(0, spacePos);
+                    if (spacePos != std::string::npos)
+                        seqComment = newLine.substr(spacePos + 1);
                     
                     std::string* inSequence = new std::string;
                     getline(*stream, *inSequence, '>');
@@ -49,11 +48,10 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 while (getline(*stream, newLine)) { // file input
                     
                     newLine.erase(0, 1);
-                    seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); // process header line
-                    c = strtok(NULL,""); // read comment
-                    
-                    if (c != NULL)
-                        seqComment = std::string(c);
+                    size_t spacePos = newLine.find(" ");
+                    seqHeader = newLine.substr(0, spacePos);
+                    if (spacePos != std::string::npos)
+                        seqComment = newLine.substr(spacePos + 1);
 
                     std::string* inSequence = new std::string;
                     getline(*stream, *inSequence);
