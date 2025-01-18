@@ -360,6 +360,10 @@ public:
     std::pair<InSegment*,InSegment*> cleaveSegment(uint32_t sUId, uint64_t start, std::string sHeader2, std::string sHeader3, std::string eHeader1);
     
     InSegment& findSegmentBySUId(uint32_t sUId);
+   
+    void renamePath(std::string path, std::string newPath);
+    
+    void updateComment(std::string path, std::string comment);
     
 };
 
