@@ -1100,25 +1100,16 @@ void InSequences::buildEdgeGraph(std::vector<InEdge> const& edges) { // graph co
     for (auto &edge: edges) { // add edges to the graph
         
         lg.verbose("Adding edge: " + idsToHeaders[edge.sId1] + "(" + std::to_string(edge.sId1) + ") " + edge.sId1Or + " " + idsToHeaders[edge.sId2] + "(" + std::to_string(edge.sId2) + ") " + edge.sId2Or);
-        
-        std::cout<<adjEdgeList.size()<<std::endl;
+
         adjEdgeList.at(edge.sId1).push_back({edge.sId1Or, edge.sId2, edge.sId2Or}); // insert at edge start gap destination and orientations
-        
-        std::cout<<"hello1"<<std::endl;
         
         Edge rvEdge {edge.sId2Or == '+' ? '-' : '+', edge.sId1, edge.sId1Or == '+' ? '-' : '+'};
         
         if (find(adjEdgeList.at(edge.sId2).begin(), adjEdgeList.at(edge.sId2).end(), rvEdge) == adjEdgeList.at(edge.sId2).end()) // add backward edge only if is not already present
             adjEdgeList.at(edge.sId2).push_back(rvEdge); // assembly are bidirected by definition
-        
     }
-    
     lg.verbose("Graph built");
-    
     visited.clear();
-    
-//        assignIds(); // this is not used at present, and seems outdated (segfault on some templates)
-    
 }
 
 void InSequences::dfsEdges(unsigned int v, unsigned int* componentLength) { // Depth First Search to explore graph connectivity
