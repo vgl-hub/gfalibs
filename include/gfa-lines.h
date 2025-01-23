@@ -23,7 +23,8 @@ public:
     InSegment(InSegment &inSegment) {
         seqHeader = inSegment.seqHeader;
         seqComment = inSegment.seqComment;
-        inSequence = new std::string(*inSegment.inSequence);
+        if (inSegment.inSequence != NULL)
+            inSequence = new std::string(*inSegment.inSequence);
         if (inSegment.inSequenceQuality != NULL)
             inSequenceQuality = new std::string(*inSegment.inSequenceQuality);
         A = inSegment.A, C = inSegment.C, G = inSegment.G, T = inSegment.T, N = inSegment.N, lowerCount = inSegment.lowerCount;

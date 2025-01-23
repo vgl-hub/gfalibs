@@ -1014,16 +1014,12 @@ bool Report::reportStats(InSequences &inSequences, uint64_t gSize, int outBubble
             if (!inSequences.getVisited(inSegment->getuId()) && !inSequences.getDeleted(inSegment->getuId())) { // check if the node was already visited
                 
                 inSequences.dfsEdges(inSegment->getuId(), &componentLength); // if not, visit all connected components recursively
-                connectedComponents++;
+                ++connectedComponents;
                 componentLengths.push_back(componentLength);
                 componentLength = 0;
-
             }
-            
         }
-
         sort(componentLengths.begin(), componentLengths.end(), std::greater<unsigned int>());
-
         std::cout<<output("# connected components")<<connectedComponents-inSequences.getDisconnectedComponents()<<"\n";
         std::cout<<output("Largest connected component length")<<componentLengths[0]<<"\n";
         std::cout<<output("# dead ends")<<inSequences.getDeadEnds()<<"\n";

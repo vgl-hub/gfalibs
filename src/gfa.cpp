@@ -949,11 +949,8 @@ bool InSequences::appendEdge(InEdge edge) {
         edge.seteUId(uId.next());
     
     inEdges.push_back(edge);
-
     lg.verbose("Edge added to edge vector");
-    
     return true;
-    
 }
 
 //sorting methods
@@ -1183,17 +1180,17 @@ void InSequences::buildGraph(std::vector<InGap> const& gaps) { // graph construc
 void InSequences::buildEdgeGraph(std::vector<InEdge> const& edges) { // graph constructor
     
     lg.verbose("Started edge graph construction");
-    
     adjEdgeList.clear();
-    
     adjEdgeList.resize(uId.get()); // resize the adjaciency list to hold all nodes
     
-    for (auto &edge: edges) // add edges to the graph
-    {
+    for (auto &edge: edges) { // add edges to the graph
         
         lg.verbose("Adding edge: " + idsToHeaders[edge.sId1] + "(" + std::to_string(edge.sId1) + ") " + edge.sId1Or + " " + idsToHeaders[edge.sId2] + "(" + std::to_string(edge.sId2) + ") " + edge.sId2Or);
         
+        std::cout<<adjEdgeList.size()<<std::endl;
         adjEdgeList.at(edge.sId1).push_back({edge.sId1Or, edge.sId2, edge.sId2Or}); // insert at edge start gap destination and orientations
+        
+        std::cout<<"hello1"<<std::endl;
         
         Edge rvEdge {edge.sId2Or == '+' ? '-' : '+', edge.sId1, edge.sId1Or == '+' ? '-' : '+'};
         
@@ -2788,9 +2785,7 @@ void InSequences::findBubbles() {
 }
 
 std::vector<Bubble>* InSequences::getBubbles() {
-    
     return &bubbles;
-    
 }
 
 std::vector<uint32_t> InSequences::getCircularSegments() {
@@ -2799,18 +2794,13 @@ std::vector<uint32_t> InSequences::getCircularSegments() {
     std::vector<uint32_t>::iterator it;
     
     for (InEdge& inEdge : inEdges) {
-        
         if (inEdge.sId1 == inEdge.sId2)
             segments.push_back(inEdge.sId1);
-        
     }
-    
     sort(segments.begin(), segments.end());
     it = std::unique(segments.begin(), segments.end());
     segments.resize(std::distance(segments.begin(),it));
-    
     return segments;
-    
 }
 
 std::vector<uint32_t> InSequences::getCircularPaths() {
@@ -2972,7 +2962,6 @@ std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint6
     uId.next();
     lg.verbose("Segment1 size after trimming: " + std::to_string(inSegment1->getSegmentLen()));
 
-    
     lg.verbose("Segment2 size before trimming: " + std::to_string(inSegment2->getSegmentLen()));
     inSegment2->trimSegment(0, start);
     inSegment2->setSeqHeader(sHeader3);
@@ -2984,12 +2973,43 @@ std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint6
     lg.verbose("Segment2 size after trimming: " + std::to_string(inSegment2->getSegmentLen()));
     
     if (eHeader1 != "") {
-        
         edge.newEdge(this->uId.next(), inSegment1->getuId(), inSegment2->getuId(), '+', '+', "0M", eHeader1);
         this->appendEdge(edge);
-        
     }
-    
     return std::make_pair(inSegment1, inSegment2);
+}
+
+void InSequences::pushBackSegment(InSegment *inSegment) {
+    InSegment* inSegmentCpy = new InSegment(*inSegment);
+    inSegmentCpy->setuId(uId.next());
+    inSegments.push_back(inSegmentCpy);
+    insertHash(inSegmentCpy->seqHeader, inSegmentCpy->getuId());
+}
+
+InSequences* InSequences::subgraph(std::vector<std::string> nodeList) {
     
+    phmap::flat_hash_set<std::string> nodes(nodeList.begin(), nodeList.end());
+    
+    InSequences *subgraph = new InSequences;
+    
+    for (InSegment *inSegment : inSegments) {
+        if (nodes.find(inSegment->seqHeader) != nodes.end()) {
+            subgraph->pushBackSegment(inSegment);
+            subgraph->insertHash(inSegment->seqHeader, subgraph->uId.next());
+        }
+    }
+    for (const InEdge &inEdge : inEdges) {
+        
+        std::string sHeader1 = idsToHeaders.find(inEdge.sId1)->second, sHeader2 = idsToHeaders.find(inEdge.sId2)->second;
+        if (nodes.find(sHeader1) != nodes.end() && nodes.find(sHeader2) != nodes.end()) {
+            InEdge inEdgeCpy(inEdge);
+            inEdgeCpy.seteUId(subgraph->uId.next());
+            inEdgeCpy.setsId1(subgraph->headersToIds.find(sHeader1)->second);
+            inEdgeCpy.setsId2(subgraph->headersToIds.find(sHeader2)->second);
+            std::cout<<inEdgeCpy.sId1<<" "<<inEdgeCpy.sId2<<std::endl;
+            subgraph->insertHash(inEdgeCpy.eHeader, inEdgeCpy.geteUId());
+            subgraph->appendEdge(inEdgeCpy);
+        }
+    }
+    return subgraph;
 }

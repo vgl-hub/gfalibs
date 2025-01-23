@@ -361,6 +361,10 @@ public:
     
     InSegment& findSegmentBySUId(uint32_t sUId);
     
+    InSequences* subgraph(std::vector<std::string> nodeList);
+    
+    void pushBackSegment(InSegment *inSegment);
+    
 };
 
 #endif /* GFA_H */
