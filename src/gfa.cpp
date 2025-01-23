@@ -937,41 +937,24 @@ void InSequences::sortPathsByNameDescending(){
 void InSequences::sortPathsByList(std::vector<std::string> headerList){
     
     int index1 = 0, index2 = 0;
-    
     auto comp = [&](InPath& one, InPath& two)-> bool { // lambda function for custom sorting
-    
     auto it = find(headerList.begin(), headerList.end(), one.getHeader());
-  
     if (it != headerList.end()) { // if element one was found
-
         index1 = it - headerList.begin(); // calculating the index
-
     }else {
-
         std::cout<<"Error: sequence missing from sort list (" << one.getHeader() << ")\n";
         exit(1);
-
     }
-        
     it = find(headerList.begin(), headerList.end(), two.getHeader());
-  
     if (it != headerList.end()) { // if element two was found
-
         index2 = it - headerList.begin(); // calculating the index
-
     }else {
-
         std::cout<<"Error: sequence missing from sort list ("<<two.getHeader()<<")\n";
         exit(1);
-
     }
-
         return index1<index2;
-        
     };
-    
     sort(inPaths.begin(), inPaths.end(), comp);
-    
 }
 
 void InSequences::sortPathsBySize(bool largest){
@@ -2911,7 +2894,6 @@ InSequences* InSequences::subgraph(std::vector<std::string> nodeList) {
             inEdgeCpy.seteUId(subgraph->uId.next());
             inEdgeCpy.setsId1(subgraph->headersToIds.find(sHeader1)->second);
             inEdgeCpy.setsId2(subgraph->headersToIds.find(sHeader2)->second);
-            std::cout<<inEdgeCpy.sId1<<" "<<inEdgeCpy.sId2<<std::endl;
             subgraph->insertHash(inEdgeCpy.eHeader, inEdgeCpy.geteUId());
             subgraph->appendEdge(inEdgeCpy);
         }
