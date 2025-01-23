@@ -89,9 +89,7 @@ InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InP
 bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // traverse the sequence to split at gaps and measure sequence properties
     
     Log threadLog;
-    
     threadLog.setId(sequence->seqPos);
-
     std::vector<std::pair<uint64_t, uint64_t>> bedCoords;
     if(hc_cutoff != -1)
         homopolymerCompress(sequence->sequence, bedCoords, hc_cutoff);
@@ -113,42 +111,28 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
     bool wasN = false;
     
     sequence->sequence->erase(std::remove(sequence->sequence->begin(), sequence->sequence->end(), '\n'), sequence->sequence->end());
-    
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
-    
     lck.lock();
-
     InPath path;
     
     phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find (sequence->header); // get the headers to uIds table to look for the header
 
-    if (got == headersToIds.end()) { // this is the first time we see this path name
-
+    if (got == headersToIds.end()) // this is the first time we see this path name
         insertHash(sequence->header, uId.get());
-
-    }else{
-
-        fprintf(stderr, "Error: path name already exists (%s). Terminating.\n", sequence->header.c_str()); exit(1);
-
+    else {
+        fprintf(stderr, "Error: path name already exists (%s). Terminating.\n", sequence->header.c_str());
+        exit(1);
     }
     
     path.newPath(uId.get(), sequence->header, "", sequence->seqPos);
-    
     threadLog.add("Processed sequence: " + sequence->header + " (uId: " + std::to_string(uId.get()) + ")");
-
     uId.next();
-    
     currId = uId.get();
-    
     uId.next();
-    
     lck.unlock();
     
-    if (sequence->comment != "") {
-
+    if (sequence->comment != "")
         path.setComment(sequence->comment);
-
-    }
 
     uint64_t seqLen = sequence->sequence->size()-1;
     
@@ -160,11 +144,8 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
             ++hc_index;
         }
 
-        if (islower(base)) {
-
+        if (islower(base))
             lowerCount+=count;
-
-        }
 
         switch (base) {
 
@@ -181,23 +162,15 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                     newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
                     
                     lck.lock();
-                    
                     uId.next();
-                    
                     lck.unlock();
-
                 }
-
                 if(pos == seqLen) { // end of scaffold, terminal gap
 
                     sign = '-';
-                    
                     newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, dist, sign, currId, currId));
-
                 }
-
                 wasN = true;
-
                 break;
             }
             default: {
@@ -205,101 +178,65 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                 switch (base) {
                     case 'A':
                     case 'a':{
-
                         A+=count;
                         break;
-
                     }
                     case 'C':
                     case 'c':{
-
                         C+=count;
                         break;
-
                     }
                     case 'G':
                     case 'g': {
-
                         G+=count;
                         break;
-
                     }
                     case 'T':
                     case 't': {
-
                         T+=count;
                         break;
-
                     }
-
                 }
-
                 if (wasN) { // internal gap end
                     
                     lck.lock();
-                    
                     uId.next();
-                    
                     nextId = uId.get();
-                    
                     uId.next();
-                    
                     lck.unlock();
                     
-                    if (newSegments.size() == 0) currId = nextId;
+                    if (newSegments.size() == 0)
+                        currId = nextId;
 
                     sStart = pos;
                     newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, dist, sign, currId, nextId));
-                    
                     currId = nextId;
-
                 }
 
                 if (pos == seqLen) {
 
                     sEnd = pos;
                     newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
-                    
                     lck.lock();
-                    
                     uId.next();
-                    
                     lck.unlock();
-
                 }
-
                 wasN = false;
-
             }
-
         }
-
         pos++;
-
     }
-    
     delete sequence;
-    
     lck.lock();
-
     inGaps.insert(std::end(inGaps), std::begin(newGaps), std::end(newGaps));
-    
     threadLog.add("Segments added to segment vector");
-    
     inSegments.insert(std::end(inSegments), std::begin(newSegments), std::end(newSegments));
-    
     threadLog.add("Gaps added to segment vector");
-    
     inPaths.push_back(path);
-
     threadLog.add("Added fasta sequence as path");
-    
     logs.push_back(threadLog);
-    
     lck.unlock();
-    
     return true;
-
 }
 
 bool InSequences::traverseInSegmentWrapper(Sequence* sequence, std::vector<Tag> inSequenceTags) {
@@ -1078,36 +1015,19 @@ void InSequences::sortPathsBySize(bool largest){
             uId = component->id;
             
             if (component->componentType == SEGMENT) {
-            
                 auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
-                
                 if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
-                
                 size2 += inSegments[sIdx]->getInSequence().size();
-                
             }else{
-                
                 auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
-                
                 if (gId != inGaps.end()) {gIdx = std::distance(inGaps.begin(), gId);} // gives us the segment index
-                
                 size2 += inGaps[gIdx].getDist();
-                
             }
-        
-        
         }
-            
-        if(largest) {
-        
+        if(largest)
             return size1<size2;
-            
-        }else{
-            
+        else
             return size1>size2;
-            
-        }
-            
     };
         
     sort(inPaths.begin(), inPaths.end(), comp);
@@ -1131,21 +1051,15 @@ void InSequences::eraseHash(const std::string &segHeader, unsigned int i) {
 }
 
 unsigned int InSequences::getuId() {
-
     return uId.get();
-
 }
 
 phmap::flat_hash_map<std::string, unsigned int>* InSequences::getHash1() {
-
     return &headersToIds;
-
 }
 
 phmap::flat_hash_map<unsigned int, std::string>* InSequences::getHash2() {
-
     return &idsToHeaders;
-
 }
 
 void InSequences::buildGraph(std::vector<InGap> const& gaps) { // graph constructor
@@ -3012,4 +2926,35 @@ InSequences* InSequences::subgraph(std::vector<std::string> nodeList) {
         }
     }
     return subgraph;
+}
+
+void InSequences::renamePath(std::string pHeader, std::string newHeader) {
+    
+    unsigned int pUId = 0;
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
+    
+    if (got == headersToIds.end()) { // this is the first time we see this path
+        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str()); exit(1);
+    }else{
+        pUId = got->second;
+    }
+    
+    auto pathIt = find_if(inPaths.begin(), inPaths.end(), [pUId](InPath& obj) {return obj.getpUId() == pUId;});
+    pathIt->setHeader(newHeader);
+    eraseHash(pHeader, pUId);
+    insertHash(newHeader, pUId);
+}
+
+void InSequences::updateComment(std::string pHeader, std::string comment) {
+    
+    unsigned int pUId = 0;
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
+    
+    if (got == headersToIds.end()) { // this is the first time we see this path
+        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str()); exit(1);
+    }else{
+        pUId = got->second;
+    }
+    auto pathIt = find_if(inPaths.begin(), inPaths.end(), [pUId](InPath& obj) {return obj.getpUId() == pUId;});
+    pathIt->setComment(comment);
 }
