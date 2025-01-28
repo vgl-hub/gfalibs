@@ -48,6 +48,8 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                     seqHeader = newLine.substr(0, spacePos);
                     if (spacePos != std::string::npos)
                         seqComment = newLine.substr(spacePos + 1);
+                    else
+                        seqComment.clear();
                     
                     std::string* inSequence = new std::string;
                     
@@ -80,6 +82,8 @@ void loadGenome(UserInput userInput, InSequences &inSequences) {
                     seqHeader = newLine.substr(0, spacePos);
                     if (spacePos != std::string::npos)
                         seqComment = newLine.substr(spacePos + 1);
+                    else
+                        seqComment.clear();
                     
                     std::string* inSequence = new std::string;
                     getline(*stream, *inSequence);
