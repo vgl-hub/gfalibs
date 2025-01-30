@@ -1001,7 +1001,7 @@ bool Report::reportStats(InSequences &inSequences, uint64_t gSize, int outBubble
         std::cout<<output("# edges")<<edgeN<<"\n";
         std::cout<<output("Average degree")<<(double)inSequences.getEdgeN()/inSequences.getSegmentN()<<"\n";
     
-        inSequences.buildEdgeGraph(*(inSequences.getEdges()));
+        inSequences.buildEdgeGraph();
 
         lg.verbose("Graph DFS");
         

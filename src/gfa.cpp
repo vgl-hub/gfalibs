@@ -16,7 +16,6 @@
 #include "gfa.h"
 
 InSequences::~InSequences() {
-    
     for (InSegment* p : inSegments)
         delete p;    
 }
@@ -1074,13 +1073,13 @@ void InSequences::buildGraph(std::vector<InGap> const& gaps) { // graph construc
     
 }
 
-void InSequences::buildEdgeGraph(std::vector<InEdge> const& edges) { // graph constructor
+void InSequences::buildEdgeGraph() { // graph constructor
     
     lg.verbose("Started edge graph construction");
     adjEdgeList.clear();
     adjEdgeList.resize(uId.get()); // resize the adjaciency list to hold all nodes
     
-    for (auto &edge: edges) { // add edges to the graph
+    for (auto &edge: inEdges) { // add edges to the graph
         
         lg.verbose("Adding edge: " + idsToHeaders[edge.sId1] + "(" + std::to_string(edge.sId1) + ") " + edge.sId1Or + " " + idsToHeaders[edge.sId2] + "(" + std::to_string(edge.sId2) + ") " + edge.sId2Or);
 
@@ -1095,20 +1094,20 @@ void InSequences::buildEdgeGraph(std::vector<InEdge> const& edges) { // graph co
     visited.clear();
 }
 
+std::vector<std::vector<Edge>>& InSequences::getAdjEdgeList() {
+    return adjEdgeList;
+}
+
 void InSequences::dfsEdges(unsigned int v, unsigned int* componentLength) { // Depth First Search to explore graph connectivity
 
    visited[v] = true; // mark the current node as visited
-
    unsigned int sIdx = 0;
-
    auto sId = find_if(inSegments.begin(), inSegments.end(), [v](InSegment* obj) {return obj->getuId() == v;}); // given a node Uid, find it
-    
    if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
 
    if (adjEdgeList.at(v).size() > 1) { // if the vertex has more than one edge
 
         *componentLength += inSegments[sIdx]->getSegmentLen();
-
         char sign = adjEdgeList.at(v).at(0).orientation0;
         unsigned int i = 0;
 
@@ -1119,45 +1118,28 @@ void InSequences::dfsEdges(unsigned int v, unsigned int* componentLength) { // D
             if(edge.orientation0 != sign){
 
                 lg.verbose("node: " + idsToHeaders[v] + " --> case a: internal node, multiple edges");
-
                 break;
 
             }else if (i == adjEdgeList.at(v).size()) {
 
                 lg.verbose("node: " + idsToHeaders[v] + " --> case b: single dead end, multiple edges");
-
                 deadEnds += 1;
             }
-
         sign = edge.orientation0;
-
         }
-
     }else if (adjEdgeList.at(v).size() == 1){ // this is a single dead end
-
         deadEnds += 1;
         *componentLength += inSegments[sIdx]->getSegmentLen();
-
         lg.verbose("node: " + idsToHeaders[v] + " --> case c: single dead end, single edge");
-
     }else if(adjEdgeList.at(v).size() == 0){ // disconnected component (double dead end)
-
         deadEnds += 2;
-
         disconnectedComponents++;
         lengthDisconnectedComponents += inSegments[sIdx]->getSegmentLen();
-
         lg.verbose("node: " + idsToHeaders[v] + " --> case d: disconnected component");
-
     }
-
     for (auto i: adjEdgeList[v]) { // recur for all forward vertices adjacent to this vertex
-
-       if (!visited[i.id] && !deleted[i.id]) {
-
+       if (!visited[i.id] && !deleted[i.id])
            dfsEdges(i.id, componentLength); // recurse
-
-       }
     }
 }
 
@@ -1751,7 +1733,7 @@ void InSequences::joinPaths(std::string pHeader, unsigned int pUId1, unsigned in
     
     InPath path;
     
-    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find (pHeader); // get the headers to uIds table to look for the header
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
     
     if (got == headersToIds.end()) { // this is the first time we see this path
         
@@ -2599,7 +2581,7 @@ void InSequences::findBubbles() {
     
     visited.clear();
     
-    buildEdgeGraph(inEdges);
+    buildEdgeGraph();
     
     for (InSegment* segment : inSegments) {
         

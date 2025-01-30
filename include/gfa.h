@@ -263,7 +263,9 @@ public:
     
     void buildGraph(std::vector<InGap> const& gaps);
 
-    void buildEdgeGraph(std::vector<InEdge> const& edges);
+    void buildEdgeGraph();
+    
+    std::vector<std::vector<Edge>>& getAdjEdgeList();
 
     void dfsEdges(unsigned int v, unsigned int* componentLength);
     
