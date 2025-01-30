@@ -2889,7 +2889,8 @@ void InSequences::renamePath(std::string pHeader, std::string newHeader) {
     phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
     
     if (got == headersToIds.end()) { // this is the first time we see this path
-        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str()); exit(1);
+        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str());
+        exit(1);
     }else{
         pUId = got->second;
     }
@@ -2906,7 +2907,8 @@ void InSequences::updateComment(std::string pHeader, std::string comment) {
     phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
     
     if (got == headersToIds.end()) { // this is the first time we see this path
-        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str()); exit(1);
+        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str());
+        exit(1);
     }else{
         pUId = got->second;
     }
