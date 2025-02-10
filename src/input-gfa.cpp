@@ -499,26 +499,18 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                 case 'S': {
                     
                     arguments = readDelimited(newLine, "\t");
-                    
                     seqHeader = arguments[1];
-                    
                     std::string* inSequence = new std::string;
-                    
                     *inSequence = arguments[2];
-                    
                     inTags.clear();
                     
                     for (unsigned int i = 3; i < arguments.size(); i++) {
-                        
                         tagValues = readDelimited(arguments[i], ":");
-                        
                         tag.label[0] = tagValues[0][0];
                         tag.label[1] = tagValues[0][1];
                         tag.type = tagValues[1][0];
                         tag.content = tagValues[2];
-                    
                         inTags.push_back(tag);
-                    
                     }
                     
                     Sequence* sequence = includeExcludeSeg(&inSequences, &seqHeader, &seqComment, inSequence, userInput.bedIncludeList, bedExcludeList, NULL);
@@ -537,84 +529,52 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     if(verbose_flag) {std::cerr<<"\n\n";};
                     
                     arguments = readDelimited(newLine, "\t");
-                    
                     gHeader = "gap" + std::to_string(gapN);
-                    
                     gapN++;
-                    
                     uId = inSequences.getuId();
-                    
                     inSequences.insertHash(gHeader, uId);
-                    
                     guId = uId; // since I am still reading segments I need to keep this fixed
-                    
                     inSequences.uId.next(); // we have touched a feature need to increase the unique feature counter
-                    
                     seqHeader = std::string(arguments[1]); // first component
-                    
                     sId1Or = arguments[2][0]; // get orientation in the gap
-                    
                     hash = inSequences.getHash1();
-                    
                     got = hash->find(seqHeader); // get the headers to uIds table (remove sequence orientation in the gap first)
                     
                     if (got == hash->end()) { // this is the first time we see this segment
-                        
                         sId1 = inSequences.uId.next();
                         inSequences.insertHash(seqHeader, sId1);
-                        
                     }else{
-                        
                         sId1 = got->second;
-                        
                     }
-                    
                     seqHeader = arguments[3]; // second component
-                    
                     sId2Or = arguments[4][0]; // get orientation in the gap
-                    
                     hash = inSequences.getHash1();
-                    
                     got = hash->find(seqHeader); // get the headers to uIds table (remove sequence orientation in the gap first)
                     
                     if (got == hash->end()) { // this is the first time we see this segment
                         
                         sId2 = inSequences.uId.next();
                         inSequences.insertHash(seqHeader, sId2);
-                        
                     }else{
-                        
                         sId2 = got->second;
-                        
                     }
-                    
                     dist = stoi(arguments[5]);
-                    
                     lg.verbose("Processing gap " + gHeader + " (uId: " + std::to_string(uId) + ")");
-                    
                     inTags.clear();
                         
                     for (unsigned int i = 6; i < arguments.size(); i++) { // this is WEAK, will easily stall
                         
                         tagValues = readDelimited(arguments[i], ":");
-                        
                         tag.label[0] = tagValues[0][0];
                         tag.label[1] = tagValues[0][1];
                         tag.type = tagValues[1][0];
                         tag.content = tagValues[2];
-                        
                         inTags.push_back(tag);
-                        
                     }
-                    
                     gap.newGap(guId, sId1, sId2, sId1Or, sId2Or, dist, gHeader, inTags);
-                    
                     inSequences.addGap(gap);
-                    
                     lck.unlock();
-                                 
                     break;
-                    
                 }
 
                 case 'L': {
@@ -904,31 +864,17 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     }
                     
                     for (unsigned int i = 2; i < arguments.size(); i++) {
-                        
                         if (arguments[i].substr(0,3) == "C:Z") {
-                            
                             seqComment = arguments[i];
-                            
                             seqComment.erase(0,4);
-                            
                             path.setComment(seqComment);
-                            
                         }
-                        
                     }
-                    
                     inSequences.addPath(path);
-                    
                     lck.unlock();
-                    
                     break;
-                    
                 }
-                    
             }
-            
         }
-        
     }
-
 }
