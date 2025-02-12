@@ -1080,15 +1080,17 @@ void InSequences::buildEdgeGraph() { // graph constructor
     adjEdgeList.resize(uId.get()); // resize the adjaciency list to hold all nodes
     
     for (auto &edge: inEdges) { // add edges to the graph
+		
+		Edge fwEdge = {edge.sId1Or, edge.sId2, edge.sId2Or};
+		
+		if (find(adjEdgeList.at(edge.sId1).begin(), adjEdgeList.at(edge.sId1).end(), fwEdge) != adjEdgeList.at(edge.sId1).end()) // add edge only if is not already present
+			continue;
         
         lg.verbose("Adding edge: " + idsToHeaders[edge.sId1] + "(" + std::to_string(edge.sId1) + ") " + edge.sId1Or + " " + idsToHeaders[edge.sId2] + "(" + std::to_string(edge.sId2) + ") " + edge.sId2Or);
 
-        adjEdgeList.at(edge.sId1).push_back({edge.sId1Or, edge.sId2, edge.sId2Or}); // insert at edge start gap destination and orientations
-        
+        adjEdgeList.at(edge.sId1).push_back(fwEdge); // insert at edge start gap destination and orientations
         Edge rvEdge {edge.sId2Or == '+' ? '-' : '+', edge.sId1, edge.sId1Or == '+' ? '-' : '+'};
-        
-        if (find(adjEdgeList.at(edge.sId2).begin(), adjEdgeList.at(edge.sId2).end(), rvEdge) == adjEdgeList.at(edge.sId2).end()) // add backward edge only if is not already present
-            adjEdgeList.at(edge.sId2).push_back(rvEdge); // assembly are bidirected by definition
+		adjEdgeList.at(edge.sId2).push_back(rvEdge); // assembly are bidirected by definition
     }
     lg.verbose("Graph built");
     visited.clear();
