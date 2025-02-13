@@ -242,12 +242,14 @@ void Report::writeToStream(InSequences &inSequences, std::string file, UserInput
                         if (edge == inEdges->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(0);} // gives us the edge index
                         
 						ovlLen = parseCigar(edge->getCigar());
-                    }else{
+                    }else if(component->componentType == GAP) {
                         
                         auto gap = find_if(inGaps->begin(), inGaps->end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
                         if (gap == inGaps->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(1);} // gives us the gap index
                         inSeq += std::string(gap->getDist(component->start, component->end), 'N');
-                    }
+					}else{
+						std::cout<<"Error: Unrecognized component type. Terminating."<<std::endl; exit(1);
+					}
                 }
                 if (userInput.splitLength != 0)
                     textWrap(inSeq, *stream, userInput.splitLength); // wrapping text at user-specified line length
