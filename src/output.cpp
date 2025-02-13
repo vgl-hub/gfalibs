@@ -229,7 +229,7 @@ void Report::writeToStream(InSequences &inSequences, std::string file, UserInput
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
                         if (sId == inSegments->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(1);} // gives us the segment index
                         
-                        if ((*sId)->getInSequencePtr() == NULL) {std::cout<<"Error: Fasta output not possible without segment sequence. Terminating."<<std::endl; exit(1);}
+                        if ((*sId)->getInSequencePtr() == NULL) {std::cout<<"Error: Fasta output not possible without segment sequence. Terminating."<<std::endl; exit(0);}
 						else if (component->orientation == '+' && (component->end-component->start >= ovlLen || component->end-component->start == 0))
 							inSeq += (*sId)->getInSequence(component->start, component->end).substr(ovlLen);
                         else if (component->end-component->start >= ovlLen || component->end-component->start == 0)
@@ -239,7 +239,7 @@ void Report::writeToStream(InSequences &inSequences, std::string file, UserInput
                     }else if(component->componentType == EDGE){ // this is just a prototype, need to handle cigar
                         
                         auto edge = find_if(inEdges->begin(), inEdges->end(), [uId](InEdge& obj) {return obj.geteUId() == uId;}); // given a node Uid, find it
-                        if (edge == inEdges->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(1);} // gives us the edge index
+                        if (edge == inEdges->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(0);} // gives us the edge index
                         
 						ovlLen = parseCigar(edge->getCigar());
                     }else{
