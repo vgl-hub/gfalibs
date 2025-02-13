@@ -716,6 +716,11 @@ static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::s
     return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
 
+static inline uint64_t parseCigar(std::string cigar) { // only works with M (identity)
+	uint64_t pos = cigar.find_first_of('M');
+	return stoi(cigar.substr(0, pos));
+}
+
 #ifdef EVP
 static inline bool computeMd5(const std::string file, std::string &md5) {
     unsigned char md_value[EVP_MAX_MD_SIZE];
