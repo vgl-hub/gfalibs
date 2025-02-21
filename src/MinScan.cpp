@@ -33,7 +33,7 @@ typedef unsigned char      uint8;
 typedef unsigned long long uint64;
 
 #define BUFFER_LEN  262144  // Size of individual output buffers in uint64's (128 of these)
-                            //   => 256MB altogether
+							//   => 256MB altogether
 
 
 /*******************************************************************************************
@@ -44,21 +44,21 @@ typedef unsigned long long uint64;
 
 static char Tran[128] =
   { 4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 0, 4, 1, 4, 4, 4, 2,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 3, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 0, 4, 1, 4, 4, 4, 2,
-    4, 4, 4, 4, 4, 4, 4, 4,
-    4, 4, 4, 4, 3, 4, 4, 4,
-    4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 0, 4, 1, 4, 4, 4, 2,
+	4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 4, 3, 4, 4, 4,
+	4, 4, 4, 4, 4, 4, 4, 4,
   };
 
 static uint64  Comp[256];   //  DNA complement of packed byte
@@ -91,15 +91,15 @@ void Init_Genes_Package(int kmer, int mmer)
   CHigh[2] = 0x1llu<<(2*(mmer-1));
   CHigh[3] = 0;
   if (mmer == 32)
-    NMask = 0xffffffffffffffffllu;
+	NMask = 0xffffffffffffffffllu;
   else
-    NMask = (0x1ll<<(2*mmer))-1;
+	NMask = (0x1ll<<(2*mmer))-1;
 
   PShift = (mmer-7)/2;
 
   ModMask = 1;
   while (ModMask < kmer)
-    ModMask <<= 1;
+	ModMask <<= 1;
   ModMask -= 1;
 
   MaxSuper = kmer-mmer;
@@ -109,27 +109,27 @@ void Init_Genes_Package(int kmer, int mmer)
   KWords = (Kmer-1)/32 + 1;
   KMask = 0xffffffffffffffffllu;
   if ((KBits & 0x3f) > 0)
-    KMask -= (0x1llu << (64 - (KBits&0x3f))) - 1;
+	KMask -= (0x1llu << (64 - (KBits&0x3f))) - 1;
 
   SBits = 0;
   x = 1;
   while (x <= MaxSuper)
-    { x <<= 1;
-      SBits += 1;
-    }
+	{ x <<= 1;
+	  SBits += 1;
+	}
   SMask = (0x1llu << SBits)-1;
 
   for (i = 0; i < 128; i++)
-    pthread_mutex_init(BMutex+i,NULL);
+	pthread_mutex_init(BMutex+i,NULL);
 
   { int l0, l1, l2, l3;   //  Compute byte complement table
 
-    i = 0;
-    for (l0 = 3; l0 >= 0; l0 -= 1)
-     for (l1 = 12; l1 >= 0; l1 -= 4)
-      for (l2 = 48; l2 >= 0; l2 -= 16)
-       for (l3 = 192; l3 >= 0; l3 -= 64)
-         Comp[i++] = (l3 | l2 | l1 | l0);
+	i = 0;
+	for (l0 = 3; l0 >= 0; l0 -= 1)
+	 for (l1 = 12; l1 >= 0; l1 -= 4)
+	  for (l2 = 48; l2 >= 0; l2 -= 16)
+	   for (l3 = 192; l3 >= 0; l3 -= 64)
+		 Comp[i++] = (l3 | l2 | l1 | l0);
   }
 
 #ifdef DEBUG_SETUP
@@ -165,20 +165,20 @@ void Init_Genes_Package(int kmer, int mmer)
 
 typedef struct
   { int     fid;  //  file descriptor
-    uint64 *ptr;  //  current word ptr
-    int     rem;  //  current bit offset in current word
-    uint64 *end;  //  end of buffer ptr (< end => room for a supermer)
-    uint64 *buf;  //  buffer
+	uint64 *ptr;  //  current word ptr
+	int     rem;  //  current bit offset in current word
+	uint64 *end;  //  end of buffer ptr (< end => room for a supermer)
+	uint64 *buf;  //  buffer
   } Packet;
 
 typedef struct
   { Packet  packs[128];  //  distribution buffers
-    uint64 *mzr;         //  minimizer queue of size ModMask+1
+	uint64 *mzr;         //  minimizer queue of size ModMask+1
   } D_Bundle;
 
   //  Allocate distribution buffers and minimizer queue.
   //    Initialize the buffers.
-    
+	
 Distribution_Bundle *Begin_Distribution(int *fids)
 { D_Bundle *bundle;
   Packet   *packs;
@@ -187,30 +187,30 @@ Distribution_Bundle *Begin_Distribution(int *fids)
 
   bundle = (D_Bundle *) malloc(sizeof(D_Bundle));
   if (bundle == NULL)
-    return (NULL);
+	return (NULL);
 
   packs = bundle->packs;
   packs[0].buf = (uint64 *) malloc(128*BUFFER_LEN*sizeof(uint64));
   if (packs[0].buf == NULL)
-    { free(bundle);
-      return (NULL);
-    }
+	{ free(bundle);
+	  return (NULL);
+	}
   maxentry = ((Kmer+MaxSuper)*2+SBits-1)/64 + 1;
   for (i = 0; i < 128; i++)
-    { packs[i].buf = packs[0].buf+i*BUFFER_LEN;
-      packs[i].ptr = packs[i].buf+1;
-      *packs[i].ptr = 0;
-      packs[i].rem = 64;
-      packs[i].end = packs[i].buf + (BUFFER_LEN-maxentry);
-      packs[i].fid = fids[i];
-    }
+	{ packs[i].buf = packs[0].buf+i*BUFFER_LEN;
+	  packs[i].ptr = packs[i].buf+1;
+	  *packs[i].ptr = 0;
+	  packs[i].rem = 64;
+	  packs[i].end = packs[i].buf + (BUFFER_LEN-maxentry);
+	  packs[i].fid = fids[i];
+	}
 
   bundle->mzr = (uint64 *) malloc((ModMask+1)*sizeof(uint64));
   if (bundle->mzr == NULL)
-    { free(packs[0].buf);
-      free(bundle);
-      return (NULL);
-    }
+	{ free(packs[0].buf);
+	  free(bundle);
+	  return (NULL);
+	}
 
 #ifdef DEBUG_SETUP
   printf("maxentry = %d\n",maxentry);
@@ -228,25 +228,25 @@ void End_Distribution(Distribution_Bundle *_bundle)
 
   packs = bundle->packs;
   for (i = 0; i < 128; i++)
-    if (packs[i].ptr > packs[i].buf+1 || packs[i].rem < 64)
-      { packs[i].buf[0] = ((packs[i].ptr-packs[i].buf)<<6)+(64-packs[i].rem);
+	if (packs[i].ptr > packs[i].buf+1 || packs[i].rem < 64)
+	  { packs[i].buf[0] = ((packs[i].ptr-packs[i].buf)<<6)+(64-packs[i].rem);
 
 #ifdef DEBUG_TRANSMIT
-        if (i == 1)
-          { printf("\n   Writing Packet of %lld bits",packs[i].buf[0]);
-            if (packs[i].rem == 64)
-              printf(" in %ld uint64 words\n\n",packs[i].ptr-packs[i].buf);
-            else
-              printf(" in %ld uint64 words\n\n",(packs[i].ptr-packs[i].buf)+1);
-          }
+		if (i == 1)
+		  { printf("\n   Writing Packet of %lld bits",packs[i].buf[0]);
+			if (packs[i].rem == 64)
+			  printf(" in %ld uint64 words\n\n",packs[i].ptr-packs[i].buf);
+			else
+			  printf(" in %ld uint64 words\n\n",(packs[i].ptr-packs[i].buf)+1);
+		  }
 #endif
-        pthread_mutex_lock(BMutex+i);
-          if (packs[i].rem == 64)
-            write(packs[i].fid,packs[i].buf,sizeof(uint64)*(packs[i].ptr-packs[i].buf));
-          else
-            write(packs[i].fid,packs[i].buf,sizeof(uint64)*((packs[i].ptr-packs[i].buf)+1));
-        pthread_mutex_unlock(BMutex+i);
-      }
+		pthread_mutex_lock(BMutex+i);
+		  if (packs[i].rem == 64)
+			write(packs[i].fid,packs[i].buf,sizeof(uint64)*(packs[i].ptr-packs[i].buf));
+		  else
+			write(packs[i].fid,packs[i].buf,sizeof(uint64)*((packs[i].ptr-packs[i].buf)+1));
+		pthread_mutex_unlock(BMutex+i);
+	  }
 
   free(bundle->mzr);
   free(bundle->packs[0].buf);
@@ -260,19 +260,19 @@ static uint64 *stuff_int(uint64 ohang, int *pos, uint64 *ptr)
 
   rem = *pos;
   if (rem > SBits)
-    { rem -= SBits;
-      *ptr |= (ohang << rem);
-    }
+	{ rem -= SBits;
+	  *ptr |= (ohang << rem);
+	}
   else if (rem == SBits)
-    { *ptr++ |= ohang;
-      rem = 64;
-      *ptr = 0;
-    }
+	{ *ptr++ |= ohang;
+	  rem = 64;
+	  *ptr = 0;
+	}
   else
-    { *ptr++ |= (ohang >> (SBits-rem));
-      rem += 64 - SBits;
-      *ptr = (ohang << rem);
-    }
+	{ *ptr++ |= (ohang >> (SBits-rem));
+	  rem += 64 - SBits;
+	  *ptr = (ohang << rem);
+	}
   *pos = rem;
   return (ptr);
 }
@@ -285,22 +285,22 @@ static uint64 *stuff_seq(uint8 *seq, int len, int *pos, uint64 *ptr)
 
   rem = *pos;
   for (i = 0; i < len; i++)
-    { v = (uint64) seq[i];
-      if (rem > 2)
-        { rem -= 2;
-          *ptr |= (v << rem);
-        }
-      else if (rem == 2)
-        { *ptr++ |= v;
-          rem  = 64;
-          *ptr = 0;
-        }
-      else
-        { *ptr++ |= (v >> 1);
-          rem  = 63;
-          *ptr = (v << rem);
-        }
-    }
+	{ v = (uint64) seq[i];
+	  if (rem > 2)
+		{ rem -= 2;
+		  *ptr |= (v << rem);
+		}
+	  else if (rem == 2)
+		{ *ptr++ |= v;
+		  rem  = 64;
+		  *ptr = 0;
+		}
+	  else
+		{ *ptr++ |= (v >> 1);
+		  rem  = 63;
+		  *ptr = (v << rem);
+		}
+	}
   *pos = rem;
   return (ptr);
 }
@@ -321,11 +321,11 @@ static void transmit(int buck, Packet *pack, uint8 *seq, int ohang)
   
 #ifdef DEBUG_TRANSMIT
   if (buck == 1)
-    { printf("   Transmit %d %d to bucket %d\n       ",ohang+Kmer,ohang,buck);
-      for (int i = 0; i < ohang+Kmer; i++)
-        printf("%1d",seq[i]);
-      printf("\n");
-    }
+	{ printf("   Transmit %d %d to bucket %d\n       ",ohang+Kmer,ohang,buck);
+	  for (int i = 0; i < ohang+Kmer; i++)
+		printf("%1d",seq[i]);
+	  printf("\n");
+	}
 #endif
 #ifdef DEBUG_COMPRESSION
   printf("      %ld:%d\n",ptr-pack->buf,rem);
@@ -338,33 +338,33 @@ static void transmit(int buck, Packet *pack, uint8 *seq, int ohang)
 #ifdef DEBUG_COMPRESSION
   printf("      ");
   while (dptr <= ptr)
-    printf(" %016llx",*dptr++);
+	printf(" %016llx",*dptr++);
   printf("\n      %ld:%d\n",ptr-pack->buf,rem);
 #endif
 
   if (ptr >= pack->end)
-    { pack->buf[0] = ((ptr-pack->buf)<<6)+(64-rem);
+	{ pack->buf[0] = ((ptr-pack->buf)<<6)+(64-rem);
 
 #ifdef DEBUG_TRANSMIT
-      if (buck == 1)
-        { printf("\n   Writing Packet of %lld bits",pack->buf[0]);
-          if (rem == 64)
-            printf(" in %ld uint64 words\n\n",ptr-pack->buf);
-          else
-            printf(" in %ld uint64 words\n\n",(ptr-pack->buf)+1);
-        }
+	  if (buck == 1)
+		{ printf("\n   Writing Packet of %lld bits",pack->buf[0]);
+		  if (rem == 64)
+			printf(" in %ld uint64 words\n\n",ptr-pack->buf);
+		  else
+			printf(" in %ld uint64 words\n\n",(ptr-pack->buf)+1);
+		}
 #endif
-      pthread_mutex_lock(BMutex+buck);
-        if (rem == 64)
-          write(pack->fid,pack->buf,sizeof(uint64)*(ptr-pack->buf));
-        else
-          write(pack->fid,pack->buf,sizeof(uint64)*((ptr-pack->buf)+1));
-      pthread_mutex_unlock(BMutex+buck);
+	  pthread_mutex_lock(BMutex+buck);
+		if (rem == 64)
+		  write(pack->fid,pack->buf,sizeof(uint64)*(ptr-pack->buf));
+		else
+		  write(pack->fid,pack->buf,sizeof(uint64)*((ptr-pack->buf)+1));
+	  pthread_mutex_unlock(BMutex+buck);
 
-      ptr = pack->buf+1;
-      *ptr = 0;
-      rem = 64;
-    }
+	  ptr = pack->buf+1;
+	  *ptr = 0;
+	  rem = 64;
+	}
 
   pack->ptr = ptr;
   pack->rem = rem;
@@ -391,95 +391,95 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
 
   seq = (uint8 *) reads;
   if (Tran[seq[rlen-1]] != 4)
-    { fprintf(stderr,"String does not end with an N\n");
-      exit (1);
-    }
+	{ fprintf(stderr,"String does not end with an N\n");
+	  exit (1);
+	}
   beg = 0;
   for (end = 0; end < rlen; end++)
-    { x = seq[end] = Tran[seq[end]];
-      if (x < 4)
-        continue;
-      len = end-beg;
-      if (len < Kmer)
-        { beg = end+1;
-          continue;
-        }
+	{ x = seq[end] = Tran[seq[end]];
+	  if (x < 4)
+		continue;
+	  len = end-beg;
+	  if (len < Kmer)
+		{ beg = end+1;
+		  continue;
+		}
 
-      s = seq+beg;
-      r = s-kmer1;
+	  s = seq+beg;
+	  r = s-kmer1;
 
-      last = kmer1;
-      mb = mi = NMask;
-      c = n = 0;
-      for (i = 0; i < Mmer-1; i++)
-        { x = s[i];
-          n = (n<<2) | x;
-          c = (c>>2) | CHigh[x];
+	  last = kmer1;
+	  mb = mi = NMask;
+	  c = n = 0;
+	  for (i = 0; i < Mmer-1; i++)
+		{ x = s[i];
+		  n = (n<<2) | x;
+		  c = (c>>2) | CHigh[x];
 #ifdef DEBUG_SCAN
-          printf(" %4d: %1lld %0*llx %0*llx\n",i,x,2*Mmer,n,2*Mmer,c);
+		  printf(" %4d: %1lld %0*llx %0*llx\n",i,x,2*Mmer,n,2*Mmer,c);
 #endif
-        }
-      for (i = Mmer-1; i < Kmer; i++)
-        { x = s[i];
-          n = ((n<<2) & NMask) | x;
-          c = (c>>2) | CHigh[x];
-          if (n < c)
-            mz = n;
-          else
-            mz = c;
-          mzr[i] = mz; 
-          if (mz <= mb)
-            { mi = i;
-              mb = mz;
-            }
+		}
+	  for (i = Mmer-1; i < Kmer; i++)
+		{ x = s[i];
+		  n = ((n<<2) & NMask) | x;
+		  c = (c>>2) | CHigh[x];
+		  if (n < c)
+			mz = n;
+		  else
+			mz = c;
+		  mzr[i] = mz;
+		  if (mz <= mb)
+			{ mi = i;
+			  mb = mz;
+			}
 #ifdef DEBUG_SCAN
-          printf(" %4d: %1lld %0*llx %0*llx :: %4d %0*llx\n",i,x,2*Mmer,n,2*Mmer,c,mi,2*Mmer,mb);
+		  printf(" %4d: %1lld %0*llx %0*llx :: %4d %0*llx\n",i,x,2*Mmer,n,2*Mmer,c,mi,2*Mmer,mb);
 #endif
-        }
-      for (i = Kmer; i < len; i++)
-        { x = s[i];
-          n = ((n<<2) & NMask) | x;
-          c = (c>>2) | CHigh[x];
-          if (n < c)
-            mz = n;
-          else
-            mz = c;
-          mzr[i&ModMask] = mz;
+		}
+	  for (i = Kmer; i < len; i++)
+		{ x = s[i];
+		  n = ((n<<2) & NMask) | x;
+		  c = (c>>2) | CHigh[x];
+		  if (n < c)
+			mz = n;
+		  else
+			mz = c;
+		  mzr[i&ModMask] = mz;
 #ifdef DEBUG_SCAN
-          printf(" %4d: %1lld %0*llx %0*llx :: %4d %0*llx\n",i,x,2*Mmer,n,2*Mmer,c,mi,2*Mmer,mb);
+		  printf(" %4d: %1lld %0*llx %0*llx :: %4d %0*llx\n",i,x,2*Mmer,n,2*Mmer,c,mi,2*Mmer,mb);
 #endif
-          if (i > mi+MaxSuper)
-            { ohang = (i-last)-1;
-              transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
-              last = i;
-              mb = mzr[(++mi)&ModMask];
-              for (j = mi+1; j <= i; j++)
-                { mz = mzr[j&ModMask];
-                  if (mz <= mb)
-                    { mi = j;
-                      mb = mz;
-                    }
-                }
+		  if (i > mi+MaxSuper)
+			{ ohang = (i-last)-1;
+			  transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
+			  last = i;
+			  mb = mzr[(++mi)&ModMask];
+			  for (j = mi+1; j <= i; j++)
+				{ mz = mzr[j&ModMask];
+				  if (mz <= mb)
+					{ mi = j;
+					  mb = mz;
+					}
+				}
 #ifdef DEBUG_SCAN
-              printf("%*s:: %4d %0*llx  Forced\n",4*Mmer+11,"",mi,2*Mmer,mb);
+			  printf("%*s:: %4d %0*llx  Forced\n",4*Mmer+11,"",mi,2*Mmer,mb);
 #endif
-            }
-          else if (mz < mb)
-            { ohang = (i-last)-1;
-              transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
-              last = i;
-              mi = i;
-              mb = mz; 
+			}
+		  else if (mz < mb)
+			{ ohang = (i-last)-1;
+			  transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
+			  last = i;
+			  mi = i;
+			  mb = mz;
 #ifdef DEBUG_SCAN
-              printf("%*s:: %4d %0*llx  New Min\n",4*Mmer+11,"",mi,2*Mmer,mb);
+			  printf("%*s:: %4d %0*llx  New Min\n",4*Mmer+11,"",mi,2*Mmer,mb);
 #endif
-            }
-        }
-      ohang = (len-last)-1;
-      transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
+			}
+		}
+	  ohang = (len-last)-1;
+	  transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
   
-      beg = end+1;
-    }
+	  beg = end+1;
+	}
 }
 
 
@@ -495,10 +495,10 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
 
 typedef struct
   { uint64 *ptr;   // current ptr/rem position in array
-    int     rem;
-    uint64 *eptr;  // last position in the current packet
-    int     erem;
-    uint64 *dend;  // ptr to the end of the data array
+	int     rem;
+	uint64 *eptr;  // last position in the current packet
+	int     erem;
+	uint64 *dend;  // ptr to the end of the data array
   } S_Bundle;
 
   //  Setup to scan/process a section (or all) of a data array starting
@@ -510,7 +510,7 @@ Scan_Bundle *Begin_Supermer_Scan(uint64 *data, uint64 size)
 
   bundle = (S_Bundle *) malloc(sizeof(S_Bundle));
   if (bundle == NULL)
-    return (NULL);
+	return (NULL);
 
   totbits = *data;
   bundle->erem = 64 - (totbits & 0x3f);
@@ -522,9 +522,9 @@ Scan_Bundle *Begin_Supermer_Scan(uint64 *data, uint64 size)
 #ifdef DEBUG_RECIEVE
   printf("\n   Scanning Packet of %lld bits",totbits);
   if (bundle->erem == 64)
-    printf(" covering %lld uint64 words\n\n",totbits>>6);
+	printf(" covering %lld uint64 words\n\n",totbits>>6);
   else
-    printf(" covering %lld uint64 words\n\n",(totbits>>6)+1);
+	printf(" covering %lld uint64 words\n\n",(totbits>>6)+1);
   fflush(stdout);
 #endif
 
@@ -549,7 +549,7 @@ uint64 *New_Supermer_Buffer()
 
   super = (uint64 *) malloc(sizeof(uint64)*(Kmer+MaxSuper));
   if (super == NULL)
-    return (NULL);
+	return (NULL);
   return (super);
 }
 
@@ -561,18 +561,18 @@ static uint64 *unstuff_int(int *ohang, int *pos, uint64 *ptr)
 
   rem = *pos;
   if (SBits < rem)
-    { rem -= SBits;
-      *ohang = (((*ptr) >> rem) & SMask);
-    }
+	{ rem -= SBits;
+	  *ohang = (((*ptr) >> rem) & SMask);
+	}
   else if (SBits == rem)
-    { *ohang = (*ptr++) & SMask;
-      rem  = 64;
-    }
+	{ *ohang = (*ptr++) & SMask;
+	  rem  = 64;
+	}
   else
-    { uint64 x = (*ptr++) << (SBits-rem);
-      rem += 64 - SBits;
-      *ohang = (x | (*ptr >> rem)) & SMask;
-    }
+	{ uint64 x = (*ptr++) << (SBits-rem);
+	  rem += 64 - SBits;
+	  *ohang = (x | (*ptr >> rem)) & SMask;
+	}
   *pos = rem;
   return (ptr);
 }
@@ -586,28 +586,28 @@ static uint64 *unstuff_seq(uint64 *s, int len, int *pos, uint64 *ptr)
 
   rem = *pos;
   for (i = 32; i <= len; i += 32)
-    if (rem == 64)
-      *s++ = *ptr++;
-    else
-      { x = ((*ptr++) << (64-rem));
-        *s++ = (x | (*ptr >> rem));
-      }
+	if (rem == 64)
+	  *s++ = *ptr++;
+	else
+	  { x = ((*ptr++) << (64-rem));
+		*s++ = (x | (*ptr >> rem));
+	  }
   i = (len & 0x1f) << 1;
   if (i > 0)
-    { if (rem > i)
-        { rem -= i;
-          *s++ = ((*ptr >> rem) << (64-i));
-        }
-      else if (rem == i)
-        { *s++ = *ptr++ << (64-rem);
-          rem = 64;
-        }
-      else
-        { x = ((*ptr++) << (64-rem));
-          rem += 64-i;
-          *s++ = (x | (*ptr >> rem) << (64-i));
-        }
-    }
+	{ if (rem > i)
+		{ rem -= i;
+		  *s++ = ((*ptr >> rem) << (64-i));
+		}
+	  else if (rem == i)
+		{ *s++ = *ptr++ << (64-rem);
+		  rem = 64;
+		}
+	  else
+		{ x = ((*ptr++) << (64-rem));
+		  rem += 64-i;
+		  *s++ = (x | (*ptr >> rem) << (64-i));
+		}
+	}
   *pos = rem;
   return (ptr);
 }
@@ -625,24 +625,24 @@ int Next_Supermer(uint64 *super, Scan_Bundle *_bundle)
   int    ohang, len;
 
   if (bundle->ptr >= bundle->eptr && bundle->rem <= bundle->erem)
-    { if (bundle->rem < 64)
-        bundle->ptr += 1;
-      if (bundle->ptr >= bundle->dend)
-        return (0);
-      totbits = *bundle->ptr;
-      bundle->erem = 64 - (totbits & 0x3f);
-      bundle->eptr = bundle->ptr+(totbits>>6);
-      bundle->rem  = 64;
-      bundle->ptr += 1;
+	{ if (bundle->rem < 64)
+		bundle->ptr += 1;
+	  if (bundle->ptr >= bundle->dend)
+		return (0);
+	  totbits = *bundle->ptr;
+	  bundle->erem = 64 - (totbits & 0x3f);
+	  bundle->eptr = bundle->ptr+(totbits>>6);
+	  bundle->rem  = 64;
+	  bundle->ptr += 1;
 #ifdef DEBUG_RECIEVE
-      printf("\n   Scanning Packet of %lld bits",totbits);
-      if (bundle->erem == 64)
-        printf(" covering %lld uint64 words\n\n",totbits>>6);
-      else
-        printf(" covering %lld uint64 words\n\n",(totbits>>6)+1);
-      fflush(stdout);
+	  printf("\n   Scanning Packet of %lld bits",totbits);
+	  if (bundle->erem == 64)
+		printf(" covering %lld uint64 words\n\n",totbits>>6);
+	  else
+		printf(" covering %lld uint64 words\n\n",(totbits>>6)+1);
+	  fflush(stdout);
 #endif
-    }
+	}
 
   bundle->ptr = unstuff_int(&ohang,&bundle->rem,bundle->ptr);
   len = ohang+Kmer;
@@ -651,19 +651,19 @@ int Next_Supermer(uint64 *super, Scan_Bundle *_bundle)
 #ifdef DEBUG_RECIEVE
   { int i, w, x;
 
-    printf("   Transmit %d %d to bucket 1\n       ",len,ohang);
-    x = 62;
-    w = 0;
-    for (i = 0; i < len; i++)
-      { printf("%1lld",(super[w]>>x)&0x3llu);
-        if (x == 0)
-          { w += 1;
-            x = 64;
-          }
-        x -= 2;
-      }
-    printf("\n");
-    fflush(stdout);
+	printf("   Transmit %d %d to bucket 1\n       ",len,ohang);
+	x = 62;
+	w = 0;
+	for (i = 0; i < len; i++)
+	  { printf("%1lld",(super[w]>>x)&0x3llu);
+		if (x == 0)
+		  { w += 1;
+			x = 64;
+		  }
+		x -= 2;
+	  }
+	printf("\n");
+	fflush(stdout);
   }
 #endif
 
@@ -691,14 +691,22 @@ uint64 *Skip_To_Next_Packet(Scan_Bundle *_bundle)
 
   bundle->ptr = bundle->eptr;
   if (bundle->erem < 64)
-    bundle->ptr += 1;
+	bundle->ptr += 1;
   if (bundle->ptr >= bundle->dend)
-    return (NULL);
+	return (NULL);
   totbits = *bundle->ptr;
   bundle->erem = 64 - (totbits & 0x3f);
   bundle->eptr = bundle->ptr+(totbits>>6);
   bundle->rem  = 64;
   bundle->ptr += 1;
+#ifdef DEBUG_RECIEVE
+  printf("\n   Next Packet of %lld bits",totbits);
+  if (bundle->erem == 64)
+	printf(" covering %lld uint64 words\n\n",totbits>>6);
+  else
+	printf(" covering %lld uint64 words\n\n",(totbits>>6)+1);
+  fflush(stdout);
+#endif
   return (bundle->ptr-1);
 }
 
@@ -712,24 +720,24 @@ int Get_Kmer_Count(Scan_Bundle *_bundle)
   int    ohang;
 
   if (bundle->ptr >= bundle->eptr && bundle->rem <= bundle->erem)
-    { if (bundle->rem < 64)
-        bundle->ptr += 1;
-      if (bundle->ptr >= bundle->dend)
-        return (0);
-      totbits = *bundle->ptr;
-      bundle->erem = 64 - (totbits & 0x3f);
-      bundle->eptr = bundle->ptr+(totbits>>6);
-      bundle->rem  = 64;
-      bundle->ptr += 1;
+	{ if (bundle->rem < 64)
+		bundle->ptr += 1;
+	  if (bundle->ptr >= bundle->dend)
+		return (0);
+	  totbits = *bundle->ptr;
+	  bundle->erem = 64 - (totbits & 0x3f);
+	  bundle->eptr = bundle->ptr+(totbits>>6);
+	  bundle->rem  = 64;
+	  bundle->ptr += 1;
 #ifdef DEBUG_RECIEVE
-      printf("\n   Scanning Packet of %lld bits",totbits);
-      if (bundle->erem == 64)
-        printf(" covering %lld uint64 words\n\n",totbits>>6);
-      else
-        printf(" covering %lld uint64 words\n\n",(totbits>>6)+1);
-      fflush(stdout);
+	  printf("\n   Scanning Packet of %lld bits",totbits);
+	  if (bundle->erem == 64)
+		printf(" covering %lld uint64 words\n\n",totbits>>6);
+	  else
+		printf(" covering %lld uint64 words\n\n",(totbits>>6)+1);
+	  fflush(stdout);
 #endif
-    }
+	}
 
   bundle->ptr = unstuff_int(&ohang,&bundle->rem,bundle->ptr);
 
@@ -753,11 +761,11 @@ void Skip_Kmers(int count, Scan_Bundle *_bundle)
   count = (count & 0x1f) << 1;
   rem   = bundle->rem;
   if (rem > count)
-    rem -= count;
+	rem -= count;
   else
-    { rem += 64-count;
-      bundle->ptr += 1;
-    }
+	{ rem += 64-count;
+	  bundle->ptr += 1;
+	}
   bundle->rem = rem;
 }
 
@@ -793,12 +801,12 @@ static inline uint64 get_comp64(int rem, uint64 *ptr)
   int    i;
 
   if (rem == 64)
-    w = ptr[-1];
+	w = ptr[-1];
   else
-    w = (*ptr >> rem) | (ptr[-1] << (64-rem));
+	w = (*ptr >> rem) | (ptr[-1] << (64-rem));
   x = (Comp[w&0xffllu]<<56);
   for (i = 8; i < 64; i += 8)
-    x |= (Comp[(w >> i) & 0xffllu] << (56-i));
+	x |= (Comp[(w >> i) & 0xffllu] << (56-i));
   return (x);
 }
 
@@ -808,9 +816,9 @@ static inline uint64 get_norm64(int rem, uint64 *ptr)
 { uint64 x;
 
   if (rem == 64)
-    x = *ptr;
+	x = *ptr;
   else
-    x = (*ptr << (64-rem)) | (ptr[1] >> rem);
+	x = (*ptr << (64-rem)) | (ptr[1] >> rem);
   return (x);
 }
 
@@ -826,31 +834,31 @@ int Get_Hash(uint64 *hash, uint64 *finger, uint64 offset)
   rem = 64-(offset & 0x3f);
   ptr = finger + (offset>>6);
   n = get_norm64(rem,ptr);
-  if (rem < KBits)
-    { rem  = KBits-rem;
-      ptr += (rem>>6) + 1;
-      rem  = 64 - (rem & 0x3f);
-    }
+  if (rem <= KBits)
+	{ rem  = KBits-rem;
+	  ptr += (rem>>6) + 1;
+	  rem  = 64 - (rem & 0x3f);
+	}
   else
-    rem -= KBits;
+	rem -= KBits;
   c = get_comp64(rem,ptr);
 
   if (Kmer < 32)
-    { c &= KMask;
-      n &= KMask;
-    }
+	{ c &= KMask;
+	  n &= KMask;
+	}
   if (c < n)
-    { *hash = c;
-      return (-1);
-    }
+	{ *hash = c;
+	  return (-1);
+	}
   else if (c == n)
-    { *hash = c;
-      return (0);
-    }
+	{ *hash = c;
+	  return (0);
+	}
   else
-    { *hash = n;
-      return (1);
-    }
+	{ *hash = n;
+	  return (1);
+	}
 }
 
   //  Get the canonical k-mer at the offset from finger whose hash is hash that comes from the end
@@ -865,61 +873,62 @@ int Get_Canonical_Kmer(uint64 *super, int dir, uint64 hash, uint64 *finger, uint
 
   *super++ = hash;
   if (Kmer <= 32)
-    { if (dir >= 0)
-        return (1);
-      else
-        return (-1);
-    }
+	{ if (dir >= 0)
+		return (1);
+	  else
+		return (-1);
+	}
 
-  rem = (offset & 0x3f)+1;
+  rem = 64 - (offset & 0x3f);
   ptr = finger + (offset>>6);
   if (dir <= 0)
-    { cem  = KBits-rem;
-      ctr  = ptr + (cem>>6);
-      cem  = 64 - (cem & 0x3f);
-    }
+	{ cem  = KBits-rem;
+	  ctr  = ptr + (cem>>6);
+	  cem  = 64 - (cem & 0x3f);
+	}
+  ptr += 1;
 
   i = 0;
   if (dir == 0)
-    { for (i = 0; i < KWords; i++)
-        { n = get_norm64(rem,ptr++);
-          c = get_comp64(cem,ctr--);
-          if (c < n)
-            { dir = -1;
-              *super++ = c;
-              break;
-            }
-          if (c > n)
-            { dir = 1;
-              *super++ = n;
-              break;
-            }
-          *super++ = c;
-         }
-       if (i >= KWords)
-         { n = get_norm64(rem,ptr) & KMask;
-           c = get_comp64(cem,ctr) & KMask;
-           if (c < n)
-             { *super = c;
-               return (-1);
-             }
-           else
-             { *super = n;
-               return (1);
-             }
-         }
-       i += 1;
-    }
+	{ for (i = 0; i < KWords; i++)
+		{ n = get_norm64(rem,ptr++);
+		  c = get_comp64(cem,ctr--);
+		  if (c < n)
+			{ dir = -1;
+			  *super++ = c;
+			  break;
+			}
+		  if (c > n)
+			{ dir = 1;
+			  *super++ = n;
+			  break;
+			}
+		  *super++ = c;
+		 }
+	   if (i >= KWords)
+		 { n = get_norm64(rem,ptr) & KMask;
+		   c = get_comp64(cem,ctr) & KMask;
+		   if (c < n)
+			 { *super = c;
+			   return (-1);
+			 }
+		   else
+			 { *super = n;
+			   return (1);
+			 }
+		 }
+	   i += 1;
+	}
 
   if (dir < 0)
-    { for ( ; i < KWords; i++)
-        *super++ = get_comp64(cem,ctr--);
-      *super = get_comp64(cem,ctr) & KMask;
-      return (-1);
-    }
+	{ for ( ; i < KWords; i++)
+		*super++ = get_comp64(cem,ctr--);
+	  *super = get_comp64(cem,ctr) & KMask;
+	  return (-1);
+	}
 
   for ( ; i < KWords; i++)
-    *super++ = get_norm64(rem,ptr++);
+	*super++ = get_norm64(rem,ptr++);
   *super = get_norm64(rem,ptr) & KMask;
   return (1);
 }
