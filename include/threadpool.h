@@ -110,17 +110,17 @@ template<class T>
 void ThreadPool<T>::init(int maxThreads) {
     
     if(maxThreads == 0) maxThreads = std::thread::hardware_concurrency();
-    if(maxThreads == 0 || maxThreads == 1) maxThreads = 2;
-    threads.resize(maxThreads-1);
-    threadStates.resize(maxThreads-1);
+    if(maxThreads == 0) maxThreads = 1;
+    threads.resize(maxThreads);
+    threadStates.resize(maxThreads);
     
-    lg.verbose("Generating threadpool with " + std::to_string(maxThreads-1) + " threads");
+    lg.verbose("Generating threadpool with " + std::to_string(maxThreads) + " threads");
     
-    for(int i=0; i<maxThreads-1; ++i) {
+    for(int i=0; i<maxThreads; ++i) {
         threads[i] = std::thread(&ThreadPool::threadLoop, this, i);
         threadStates[i] = true;
     }
-    this->maxThreads = maxThreads-1;
+    this->maxThreads = maxThreads;
     done = false;
 }
 
@@ -128,7 +128,6 @@ template<class T>
 uint32_t ThreadPool<T>::queueJob(const T& job) {
     
     uint32_t jid;
-    
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         
@@ -147,7 +146,6 @@ std::vector<uint32_t> ThreadPool<T>::queueJobs(const std::vector<T> &newJobs) {
     
     std::vector<uint32_t> jids;
     uint32_t jid;
-    
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         
@@ -279,7 +277,6 @@ inline void flushLogs() {
         it->print();
         logs.erase(it--);
     }
-    
 }
 
 template<class T>
@@ -305,8 +302,8 @@ void jobWait(ThreadPool<T>& threadPool, bool master = false) {
         if (master)
             threadPool.execJob(); // have the master thread contribute
         
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
-    
 }
 
 template<class T>
@@ -358,6 +355,9 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, boo
         if (master)
             threadPool.execJob(); // have the master thread contribute
         
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        
+        threadPool.notify_all();
     }
     
 }
