@@ -16,10 +16,8 @@
 #include "gfa.h"
 
 InSequences::~InSequences() {
-    
     for (InSegment* p : inSegments)
-        delete p;
-    
+        delete p;    
 }
 
 InGap InSequences::pushbackGap(Log* threadLog, InPath* path, std::string* seqHeader, unsigned int* iId, uint64_t &dist, char sign, unsigned int uId1, unsigned int uId2) {
@@ -90,9 +88,7 @@ InSegment* InSequences::pushbackSegment(unsigned int currId, Log* threadLog, InP
 bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // traverse the sequence to split at gaps and measure sequence properties
     
     Log threadLog;
-    
     threadLog.setId(sequence->seqPos);
-
     std::vector<std::pair<uint64_t, uint64_t>> bedCoords;
     if(hc_cutoff != -1)
         homopolymerCompress(sequence->sequence, bedCoords, hc_cutoff);
@@ -114,58 +110,41 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
     bool wasN = false;
     
     sequence->sequence->erase(std::remove(sequence->sequence->begin(), sequence->sequence->end(), '\n'), sequence->sequence->end());
-    
     std::unique_lock<std::mutex> lck (mtx, std::defer_lock);
-    
     lck.lock();
-
     InPath path;
     
     phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find (sequence->header); // get the headers to uIds table to look for the header
 
-    if (got == headersToIds.end()) { // this is the first time we see this path name
-
+    if (got == headersToIds.end()) // this is the first time we see this path name
         insertHash(sequence->header, uId.get());
-
-    }else{
-
-        fprintf(stderr, "Error: path name already exists (%s). Terminating.\n", sequence->header.c_str()); exit(1);
-
+    else {
+        fprintf(stderr, "Error: path name already exists (%s). Terminating.\n", sequence->header.c_str());
+        exit(1);
     }
     
     path.newPath(uId.get(), sequence->header, "", sequence->seqPos);
-    
     threadLog.add("Processed sequence: " + sequence->header + " (uId: " + std::to_string(uId.get()) + ")");
-
     uId.next();
-    
     currId = uId.get();
-    
     uId.next();
-    
     lck.unlock();
     
-    if (sequence->comment != "") {
-
+    if (sequence->comment != "")
         path.setComment(sequence->comment);
-
-    }
 
     uint64_t seqLen = sequence->sequence->size()-1;
     
     for (char &base : *sequence->sequence) {
 
-        count = 1;
+        count = 1; // GF, this functionality added by AB is conceptually wrong and should be fixed: it will return the original counts for ACGTN but everything else won't be affected (eg total length will be in hom-compressed space). The hashtable could be further used to output all homopolymer locations
         if(hc_cutoff != -1 && hc_index < bedCoords.size() && pos == bedCoords[hc_index].first) {
             count = bedCoords[hc_index].second - bedCoords[hc_index].first;
             ++hc_index;
         }
 
-        if (islower(base)) {
-
+        if (islower(base))
             lowerCount+=count;
-
-        }
 
         switch (base) {
 
@@ -182,23 +161,15 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                     newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
                     
                     lck.lock();
-                    
                     uId.next();
-                    
                     lck.unlock();
-
                 }
-
                 if(pos == seqLen) { // end of scaffold, terminal gap
 
                     sign = '-';
-                    
                     newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, dist, sign, currId, currId));
-
                 }
-
                 wasN = true;
-
                 break;
             }
             default: {
@@ -206,101 +177,65 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
                 switch (base) {
                     case 'A':
                     case 'a':{
-
                         A+=count;
                         break;
-
                     }
                     case 'C':
                     case 'c':{
-
                         C+=count;
                         break;
-
                     }
                     case 'G':
                     case 'g': {
-
                         G+=count;
                         break;
-
                     }
                     case 'T':
                     case 't': {
-
                         T+=count;
                         break;
-
                     }
-
                 }
-
                 if (wasN) { // internal gap end
                     
                     lck.lock();
-                    
                     uId.next();
-                    
                     nextId = uId.get();
-                    
                     uId.next();
-                    
                     lck.unlock();
                     
-                    if (newSegments.size() == 0) currId = nextId;
+                    if (newSegments.size() == 0)
+                        currId = nextId;
 
                     sStart = pos;
                     newGaps.push_back(pushbackGap(&threadLog, &path, &sequence->header, &iId, dist, sign, currId, nextId));
-                    
                     currId = nextId;
-
                 }
 
                 if (pos == seqLen) {
 
                     sEnd = pos;
                     newSegments.push_back(pushbackSegment(currId, &threadLog, &path, &sequence->header, &sequence->comment, sequence->sequence, &iId, &A, &C, &G, &T, &lowerCount, sequence->seqPos, sStart, sEnd, sequence->sequenceQuality));
-                    
                     lck.lock();
-                    
                     uId.next();
-                    
                     lck.unlock();
-
                 }
-
                 wasN = false;
-
             }
-
         }
-
         pos++;
-
     }
-    
     delete sequence;
-    
     lck.lock();
-
     inGaps.insert(std::end(inGaps), std::begin(newGaps), std::end(newGaps));
-    
     threadLog.add("Segments added to segment vector");
-    
     inSegments.insert(std::end(inSegments), std::begin(newSegments), std::end(newSegments));
-    
     threadLog.add("Gaps added to segment vector");
-    
     inPaths.push_back(path);
-
     threadLog.add("Added fasta sequence as path");
-    
     logs.push_back(threadLog);
-    
     lck.unlock();
-    
     return true;
-
 }
 
 bool InSequences::traverseInSegmentWrapper(Sequence* sequence, std::vector<Tag> inSequenceTags) {
@@ -950,11 +885,8 @@ bool InSequences::appendEdge(InEdge edge) {
         edge.seteUId(uId.next());
     
     inEdges.push_back(edge);
-
     lg.verbose("Edge added to edge vector");
-    
     return true;
-    
 }
 
 //sorting methods
@@ -1004,41 +936,24 @@ void InSequences::sortPathsByNameDescending(){
 void InSequences::sortPathsByList(std::vector<std::string> headerList){
     
     int index1 = 0, index2 = 0;
-    
     auto comp = [&](InPath& one, InPath& two)-> bool { // lambda function for custom sorting
-    
     auto it = find(headerList.begin(), headerList.end(), one.getHeader());
-  
     if (it != headerList.end()) { // if element one was found
-
         index1 = it - headerList.begin(); // calculating the index
-
     }else {
-
         std::cout<<"Error: sequence missing from sort list (" << one.getHeader() << ")\n";
         exit(1);
-
     }
-        
     it = find(headerList.begin(), headerList.end(), two.getHeader());
-  
     if (it != headerList.end()) { // if element two was found
-
         index2 = it - headerList.begin(); // calculating the index
-
     }else {
-
         std::cout<<"Error: sequence missing from sort list ("<<two.getHeader()<<")\n";
         exit(1);
-
     }
-
         return index1<index2;
-        
     };
-    
     sort(inPaths.begin(), inPaths.end(), comp);
-    
 }
 
 void InSequences::sortPathsBySize(bool largest){
@@ -1082,36 +997,19 @@ void InSequences::sortPathsBySize(bool largest){
             uId = component->id;
             
             if (component->componentType == SEGMENT) {
-            
                 auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
-                
                 if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
-                
                 size2 += inSegments[sIdx]->getInSequence().size();
-                
             }else{
-                
                 auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
-                
                 if (gId != inGaps.end()) {gIdx = std::distance(inGaps.begin(), gId);} // gives us the segment index
-                
                 size2 += inGaps[gIdx].getDist();
-                
             }
-        
-        
         }
-            
-        if(largest) {
-        
+        if(largest)
             return size1<size2;
-            
-        }else{
-            
+        else
             return size1>size2;
-            
-        }
-            
     };
         
     sort(inPaths.begin(), inPaths.end(), comp);
@@ -1135,21 +1033,15 @@ void InSequences::eraseHash(const std::string &segHeader, unsigned int i) {
 }
 
 unsigned int InSequences::getuId() {
-
     return uId.get();
-
 }
 
 phmap::flat_hash_map<std::string, unsigned int>* InSequences::getHash1() {
-
     return &headersToIds;
-
 }
 
 phmap::flat_hash_map<unsigned int, std::string>* InSequences::getHash2() {
-
     return &idsToHeaders;
-
 }
 
 void InSequences::buildGraph(std::vector<InGap> const& gaps) { // graph constructor
@@ -1181,50 +1073,43 @@ void InSequences::buildGraph(std::vector<InGap> const& gaps) { // graph construc
     
 }
 
-void InSequences::buildEdgeGraph(std::vector<InEdge> const& edges) { // graph constructor
+void InSequences::buildEdgeGraph() { // graph constructor
     
     lg.verbose("Started edge graph construction");
-    
     adjEdgeList.clear();
-    
     adjEdgeList.resize(uId.get()); // resize the adjaciency list to hold all nodes
     
-    for (auto &edge: edges) // add edges to the graph
-    {
+    for (auto &edge: inEdges) { // add edges to the graph
+		
+		Edge fwEdge = {edge.sId1Or, edge.sId2, edge.sId2Or};
+		
+		if (find(adjEdgeList.at(edge.sId1).begin(), adjEdgeList.at(edge.sId1).end(), fwEdge) != adjEdgeList.at(edge.sId1).end()) // add edge only if is not already present
+			continue;
         
         lg.verbose("Adding edge: " + idsToHeaders[edge.sId1] + "(" + std::to_string(edge.sId1) + ") " + edge.sId1Or + " " + idsToHeaders[edge.sId2] + "(" + std::to_string(edge.sId2) + ") " + edge.sId2Or);
-        
-        adjEdgeList.at(edge.sId1).push_back({edge.sId1Or, edge.sId2, edge.sId2Or}); // insert at edge start gap destination and orientations
-        
+
+        adjEdgeList.at(edge.sId1).push_back(fwEdge); // insert at edge start gap destination and orientations
         Edge rvEdge {edge.sId2Or == '+' ? '-' : '+', edge.sId1, edge.sId1Or == '+' ? '-' : '+'};
-        
-        if (find(adjEdgeList.at(edge.sId2).begin(), adjEdgeList.at(edge.sId2).end(), rvEdge) == adjEdgeList.at(edge.sId2).end()) // add backward edge only if is not already present
-            adjEdgeList.at(edge.sId2).push_back(rvEdge); // assembly are bidirected by definition
-        
+		adjEdgeList.at(edge.sId2).push_back(rvEdge); // assembly are bidirected by definition
     }
-    
     lg.verbose("Graph built");
-    
     visited.clear();
-    
-//        assignIds(); // this is not used at present, and seems outdated (segfault on some templates)
-    
+}
+
+std::vector<std::vector<Edge>>& InSequences::getAdjEdgeList() {
+    return adjEdgeList;
 }
 
 void InSequences::dfsEdges(unsigned int v, unsigned int* componentLength) { // Depth First Search to explore graph connectivity
 
    visited[v] = true; // mark the current node as visited
-
    unsigned int sIdx = 0;
-
    auto sId = find_if(inSegments.begin(), inSegments.end(), [v](InSegment* obj) {return obj->getuId() == v;}); // given a node Uid, find it
-    
    if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
 
    if (adjEdgeList.at(v).size() > 1) { // if the vertex has more than one edge
 
         *componentLength += inSegments[sIdx]->getSegmentLen();
-
         char sign = adjEdgeList.at(v).at(0).orientation0;
         unsigned int i = 0;
 
@@ -1235,45 +1120,28 @@ void InSequences::dfsEdges(unsigned int v, unsigned int* componentLength) { // D
             if(edge.orientation0 != sign){
 
                 lg.verbose("node: " + idsToHeaders[v] + " --> case a: internal node, multiple edges");
-
                 break;
 
             }else if (i == adjEdgeList.at(v).size()) {
 
                 lg.verbose("node: " + idsToHeaders[v] + " --> case b: single dead end, multiple edges");
-
                 deadEnds += 1;
             }
-
         sign = edge.orientation0;
-
         }
-
     }else if (adjEdgeList.at(v).size() == 1){ // this is a single dead end
-
         deadEnds += 1;
         *componentLength += inSegments[sIdx]->getSegmentLen();
-
         lg.verbose("node: " + idsToHeaders[v] + " --> case c: single dead end, single edge");
-
     }else if(adjEdgeList.at(v).size() == 0){ // disconnected component (double dead end)
-
         deadEnds += 2;
-
         disconnectedComponents++;
         lengthDisconnectedComponents += inSegments[sIdx]->getSegmentLen();
-
         lg.verbose("node: " + idsToHeaders[v] + " --> case d: disconnected component");
-
     }
-
     for (auto i: adjEdgeList[v]) { // recur for all forward vertices adjacent to this vertex
-
-       if (!visited[i.id] && !deleted[i.id]) {
-
+       if (!visited[i.id] && !deleted[i.id])
            dfsEdges(i.id, componentLength); // recurse
-
-       }
     }
 }
 
@@ -1500,7 +1368,7 @@ bool InSequences::updateStats() {
     
 }
 
-bool InSequences::removeTerminalGaps() { // if two contigs are provided, remove all edges connecting them, if only one contig is provided remove all edges where it appears
+bool InSequences::removeTerminalGaps() {
     
     std::vector<InPath>::iterator pathIt = inPaths.begin(); // first, remove the gaps from the paths they occur in
     std::vector<PathComponent> pathComponents;
@@ -1519,7 +1387,7 @@ bool InSequences::removeTerminalGaps() { // if two contigs are provided, remove 
                 
                 auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a gap Uid, find it
                 
-                if (gId->getsId1() == gId->getsId2()) {
+                if (gId->getsId1() == gId->getsId2()) { // terminal gaps connect on themeselves
                     
                     gIdx = std::distance(pathComponents.begin(), componentIt); // gives us the gap index
                 
@@ -1867,7 +1735,7 @@ void InSequences::joinPaths(std::string pHeader, unsigned int pUId1, unsigned in
     
     InPath path;
     
-    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find (pHeader); // get the headers to uIds table to look for the header
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
     
     if (got == headersToIds.end()) { // this is the first time we see this path
         
@@ -2715,7 +2583,7 @@ void InSequences::findBubbles() {
     
     visited.clear();
     
-    buildEdgeGraph(inEdges);
+    buildEdgeGraph();
     
     for (InSegment* segment : inSegments) {
         
@@ -2789,9 +2657,7 @@ void InSequences::findBubbles() {
 }
 
 std::vector<Bubble>* InSequences::getBubbles() {
-    
     return &bubbles;
-    
 }
 
 std::vector<uint32_t> InSequences::getCircularSegments() {
@@ -2800,18 +2666,13 @@ std::vector<uint32_t> InSequences::getCircularSegments() {
     std::vector<uint32_t>::iterator it;
     
     for (InEdge& inEdge : inEdges) {
-        
         if (inEdge.sId1 == inEdge.sId2)
             segments.push_back(inEdge.sId1);
-        
     }
-    
     sort(segments.begin(), segments.end());
     it = std::unique(segments.begin(), segments.end());
     segments.resize(std::distance(segments.begin(),it));
-    
     return segments;
-    
 }
 
 std::vector<uint32_t> InSequences::getCircularPaths() {
@@ -2973,7 +2834,6 @@ std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint6
     uId.next();
     lg.verbose("Segment1 size after trimming: " + std::to_string(inSegment1->getSegmentLen()));
 
-    
     lg.verbose("Segment2 size before trimming: " + std::to_string(inSegment2->getSegmentLen()));
     inSegment2->trimSegment(0, start);
     inSegment2->setSeqHeader(sHeader3);
@@ -2985,12 +2845,75 @@ std::pair<InSegment*,InSegment*> InSequences::cleaveSegment(uint32_t sUId, uint6
     lg.verbose("Segment2 size after trimming: " + std::to_string(inSegment2->getSegmentLen()));
     
     if (eHeader1 != "") {
-        
         edge.newEdge(this->uId.next(), inSegment1->getuId(), inSegment2->getuId(), '+', '+', "0M", eHeader1);
         this->appendEdge(edge);
+    }
+    return std::make_pair(inSegment1, inSegment2);
+}
+
+void InSequences::pushBackSegment(InSegment *inSegment) {
+    InSegment* inSegmentCpy = new InSegment(*inSegment);
+    inSegmentCpy->setuId(uId.next());
+    inSegments.push_back(inSegmentCpy);
+    insertHash(inSegmentCpy->seqHeader, inSegmentCpy->getuId());
+}
+
+InSequences* InSequences::subgraph(std::vector<std::string> nodeList) {
+    
+    phmap::flat_hash_set<std::string> nodes(nodeList.begin(), nodeList.end());
+    
+    InSequences *subgraph = new InSequences;
+    
+    for (InSegment *inSegment : inSegments) {
+        if (nodes.find(inSegment->seqHeader) != nodes.end()) {
+            subgraph->pushBackSegment(inSegment);
+            subgraph->insertHash(inSegment->seqHeader, subgraph->uId.next());
+        }
+    }
+    for (const InEdge &inEdge : inEdges) {
         
+        std::string sHeader1 = idsToHeaders.find(inEdge.sId1)->second, sHeader2 = idsToHeaders.find(inEdge.sId2)->second;
+        if (nodes.find(sHeader1) != nodes.end() && nodes.find(sHeader2) != nodes.end()) {
+            InEdge inEdgeCpy(inEdge);
+            inEdgeCpy.seteUId(subgraph->uId.next());
+            inEdgeCpy.setsId1(subgraph->headersToIds.find(sHeader1)->second);
+            inEdgeCpy.setsId2(subgraph->headersToIds.find(sHeader2)->second);
+            subgraph->insertHash(inEdgeCpy.eHeader, inEdgeCpy.geteUId());
+            subgraph->appendEdge(inEdgeCpy);
+        }
+    }
+    return subgraph;
+}
+
+void InSequences::renamePath(std::string pHeader, std::string newHeader) {
+    
+    unsigned int pUId = 0;
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
+    
+    if (got == headersToIds.end()) { // this is the first time we see this path
+        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str());
+        exit(1);
+    }else{
+        pUId = got->second;
     }
     
-    return std::make_pair(inSegment1, inSegment2);
+    auto pathIt = find_if(inPaths.begin(), inPaths.end(), [pUId](InPath& obj) {return obj.getpUId() == pUId;});
+    pathIt->setHeader(newHeader);
+    eraseHash(pHeader, pUId);
+    insertHash(newHeader, pUId);
+}
+
+void InSequences::updateComment(std::string pHeader, std::string comment) {
     
+    unsigned int pUId = 0;
+    phmap::flat_hash_map<std::string, unsigned int>::const_iterator got = headersToIds.find(pHeader); // get the headers to uIds table to look for the header
+    
+    if (got == headersToIds.end()) { // this is the first time we see this path
+        fprintf(stderr, "Error: path name not found (%s). Terminating.\n", pHeader.c_str());
+        exit(1);
+    }else{
+        pUId = got->second;
+    }
+    auto pathIt = find_if(inPaths.begin(), inPaths.end(), [pUId](InPath& obj) {return obj.getpUId() == pUId;});
+    pathIt->setComment(comment);
 }

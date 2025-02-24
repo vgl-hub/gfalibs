@@ -14,7 +14,7 @@ std::string UserInput::file(char type, uint16_t num) {
             filename = inSequence;
             break;
         case 'r':
-            filename = inReads[num];
+            filename = inFiles[num];
             break;
         case 'i':
             filename = inBedInclude;
@@ -43,8 +43,21 @@ Sequences::~Sequences() {
 }
 
 Sequence::~Sequence() {
-    delete sequence;
-    delete sequenceQuality;
+    if (sequence != NULL)
+        delete sequence;
+    if (sequenceQuality != NULL)
+        delete sequenceQuality;
+}
+
+void Sequence::deleteSequence() {
+    if (sequence != NULL) {
+        delete sequence;
+        sequence = NULL;
+    }
+    if (sequenceQuality != NULL) {
+        delete sequenceQuality;
+        sequenceQuality = NULL;
+    }
 }
 
 bool Edge::operator==(const Edge& e) const {

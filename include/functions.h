@@ -23,6 +23,10 @@
 #include <numeric>
 #include <tuple>
 
+#ifdef EVP
+#include <openssl/evp.h>
+#endif
+
 #include <sys/types.h>
 #include <dirent.h>
 #include <stdio.h>
@@ -239,7 +243,6 @@ static inline std::vector<unsigned int> intervalSizes(std::vector<unsigned int> 
 static inline std::string output(std::string output){ // use tab delimiter if tabular flag is true
     
     if (tabular_flag) {
-        
         output = output + "\t";
         
     }else{
@@ -272,11 +275,11 @@ static inline bool ifFileExists(const char * optarg) { // check if file exists
     
 }
 
-static inline void textWrap(std::string input, std::ostream& output, int width) { // generic text wrapper (useful for fasta output)
+static inline void textWrap(std::string input, std::ostream& output, uint32_t width) { // generic text wrapper (useful for fasta output)
     
     std::string tmp;
     char cur = '\0';
-    int i = 0;
+    uint32_t i = 0;
     
     std::stringstream ss(input);
     
@@ -314,8 +317,8 @@ static inline std::string rmFileExt(const std::string path) { // utility to stri
     return path;
 }
 
-static inline std::string getFileExt(std::string fileName) // utility to get file extension
-{
+static inline std::string getFileExt(std::string fileName) { // utility to get file extension
+
     if(fileName.find_last_of(".") != std::string::npos) {
         
         if(fileName.substr(fileName.find_last_of(".")+1) == "gz") {
@@ -329,6 +332,10 @@ static inline std::string getFileExt(std::string fileName) // utility to get fil
         return fileName.substr(fileName.find_last_of(".")+1);
     }
     return "";
+}
+
+static inline std::string getFileName(std::string path) { // utility to get file extension
+    return path.substr(path.find_last_of("/\\") + 1);
 }
 
 static inline std::string revCom(std::string seq) { // reverse complement
@@ -367,6 +374,39 @@ static inline std::string revCom(std::string seq) { // reverse complement
     return seq;
 }
 
+static inline char revCom(char c) { // reverse complement
+    auto lambda = [](const char c) {
+        switch (c) {
+        case '*':
+            return '*';
+        case 'A':
+            return 'T';
+        case 'G':
+            return 'C';
+        case 'C':
+            return 'G';
+        case 'T':
+            return 'A';
+        case 'a':
+            return 't';
+        case 'g':
+            return 'c';
+        case 'c':
+            return 'g';
+        case 't':
+            return 'a';
+        case 'N':
+        case 'n':
+        case 'X':
+        case 'x':
+            return c;
+        default:
+            throw std::domain_error("Invalid nucleotide.");
+        }
+    };
+    return lambda(c);
+}
+
 static inline std::string rev(std::string seq) { // reverse string
     
     reverse(seq.begin(), seq.end());
@@ -378,25 +418,16 @@ static inline std::string rev(std::string seq) { // reverse string
 static inline std::vector<std::string> readDelimited(std::string line, std::string delimiter, std::string skipLine = "") { // read line delimited by specific character, optionally skip lines starting with specific string
 
     std::vector<std::string> arguments;
-
     size_t pos = 0;
     
-    if (skipLine != "" && line.substr(0, skipLine.size()) == skipLine) {
-        
+    if (skipLine != "" && line.substr(0, skipLine.size()) == skipLine)
         return arguments;
-        
-    }
 
     while ((pos = line.find(delimiter)) != std::string::npos) {
-        
         arguments.push_back(line.substr(0, pos));
-        
         line.erase(0, pos + delimiter.length());
-            
     }
-    
     arguments.push_back(line); // last column
-        
     return arguments;
     
 }
@@ -549,12 +580,11 @@ static inline void homopolymerBedCoords(std::string *sequence, std::vector<std::
     }
 }
 
-static inline void computeNstars(std::vector<uint64_t>& lens, // compute N/L* statistics, vector of all lengths
+static inline void computeNstars(std::vector<uint64_t>& lens, // compute N/L* statistics, vector of all lengths, returns sorted vector of lengths
                    std::vector<uint64_t>& Nstars,      std::vector<unsigned int>& Lstars, // required arguments are passed by reference
                    std::vector<uint64_t>* NGstars = NULL, std::vector<unsigned int>* LGstars = NULL, uint64_t gSize = 0) { // optional arguments are passed by pointer
     
     sort(lens.begin(), lens.end(), std::greater<uint64_t>()); // sort lengths Z-A
-    
     uint64_t sum = 0, totLen = 0;
     
     for(std::vector<uint64_t>::iterator it = lens.begin(); it != lens.end(); ++it) // find total length
@@ -565,27 +595,19 @@ static inline void computeNstars(std::vector<uint64_t>& lens, // compute N/L* st
     for(unsigned int i = 0; i < lens.size(); i++) { // for each length
         
         sum += lens[i]; // increase sum
-        
         while (sum >= ((double) totLen / 10 * N) && N<= 10) { // conditionally add length.at or pos to each N/L* bin
             
             Nstars[N-1] = lens[i];
             Lstars[N-1] = i + 1;
-            
             N = N + 1;
-            
         }
-        
         while (gSize > 0 && (sum >= ((double) gSize / 10 * NG)) && NG<= 10) { // if not computing gap statistics repeat also for NG/LG* statistics
             
             (*NGstars)[NG-1] = lens[i];
             (*LGstars)[NG-1] = i + 1;
-            
             NG = NG + 1;
-            
         }
-        
     }
-    
 }
 
 static inline void rmChrFromStr(std::string &str, const char* charsToRemove) {
@@ -661,6 +683,10 @@ static inline void unmaskSequence(std::string &sequence) {
     std::transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
 }
 
+static inline void eraseChar(std::string& input, char rmChar) {
+    input.erase(std::remove(input.begin(), input.end(), rmChar), input.end());
+}
+
 static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::string input) {
     
     std::string header, cBegin, cEnd; // the header for coordinates provided as positional argument
@@ -689,5 +715,45 @@ static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::s
     
     return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
+
+static inline uint64_t parseCigar(std::string cigar) { // only works with M (identity)
+	uint64_t pos = cigar.find_first_of('M');
+	return stoi(cigar.substr(0, pos));
+}
+
+#ifdef EVP
+static inline bool computeMd5(const std::string file, std::string &md5) {
+    unsigned char md_value[EVP_MAX_MD_SIZE];
+    unsigned int  md_len;
+
+    EVP_MD_CTX*   context = EVP_MD_CTX_new();
+    const EVP_MD* md = EVP_md5();
+
+    EVP_DigestInit_ex2(context, md, NULL);
+
+    const int bufSize = 1024;
+    char buffer[bufSize];
+
+    std::ifstream fin(file);
+
+    while(!fin.eof()) {
+        fin.read(buffer, bufSize);
+        std::streamsize s=fin.gcount();
+        EVP_DigestUpdate(context, buffer, s);
+    }
+
+    EVP_DigestFinal_ex(context, md_value, &md_len);
+    EVP_MD_CTX_free(context);
+
+    char *md_value_buf = new char[md_len*2+1]; // two characters per digit + null termination
+
+    for (unsigned int i = 0 ; i < md_len ; ++i)
+        snprintf(md_value_buf+i*2, 3, "%02x", md_value[i]);
+
+    md5 = std::string(md_value_buf);
+    delete[] md_value_buf;
+    return true;
+}
+#endif
 
 #endif /* FUNCTIONS_H */

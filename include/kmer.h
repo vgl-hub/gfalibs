@@ -120,8 +120,7 @@ protected: // they are protected, so that they can be further specialized by inh
     std::atomic<bool> readingDone{false};
     std::string DBextension;
     
-    const static uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
-    
+    const static uint16_t mapCount = 127; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency, prime number
     const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
     
     using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
@@ -856,6 +855,41 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenc
     
     return true;
     
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+inline uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hash(uint8_t *kmer, bool *isFw) { // hashing function for kmers
+    
+    uint64_t fw = 0, rv = 0; // hashes for both forward and reverse complement sequence
+    
+    for(uint8_t c = 0; c<k; ++c) { // for each position up to klen
+        fw += *kmer * pows[c]; // base * 2^N
+        rv += (3-(*kmer++)) * pows[k-c-1]; // we walk the kmer backward to compute the rvcp
+    }
+    
+    if (isFw != NULL)
+        *isFw = fw < rv ? true : false; // we preserve the actual orientation for DBG applications
+    
+    return fw < rv ? fw : rv;
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+inline std::string Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::reverseHash(uint64_t hash) { // reverse hashing function for kmers
+    
+    std::string seq(k, 'A');
+    
+    for(uint8_t c = k; c > 0; --c) { // for each position from klen to zero
+        uint8_t i = c-1; // to prevent overflow
+        seq[i] = itoc[hash / pows[i]];
+        hash = hash % pows[i]; // modulo
+    }
+    
+//    if (hash != 0) {
+//        std::cout<<"reashing error!"<<std::endl;
+//        exit(EXIT_FAILURE);
+//    }
+    
+    return seq;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>

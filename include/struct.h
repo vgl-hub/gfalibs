@@ -13,7 +13,7 @@ struct UserInput { // a container for user input
     std::string inAgp; // input agp
     std::string inBedInclude; // input bed file of coordinates to include
     std::string inBedExclude; // input bed file of coordinates to exclude
-    std::vector<std::string> inReads; // input reads to evaluate
+    std::vector<std::string> inFiles; // input reads to evaluate
     std::string inAlign;
     // coordinates
     BedCoordinates bedIncludeList;
@@ -21,19 +21,24 @@ struct UserInput { // a container for user input
     char pipeType = 'n'; // default pipe type null
     std::string sortType = "none"; // type of sorting (default: none)
     
-    int noSequence = 0; // output gfa without sequence
+    int noSequence = 0, // output gfa without sequence
+        discoverPaths_flag = 0,
+        stats_flag = 0;
     
     std::string file(char type, uint16_t fileNum = 0);
-    uint8_t mode = 0,
-            hc_cutoff = -1,
-            discoverPaths_flag = 0,
-            stats_flag = 0;
-    
+    uint8_t mode = 0;
+    int8_t hc_cutoff = -1;
+
     std::vector<std::string> kmerDB; // a database of kmers (or DBG)
     std::string prefix = ".", outFile = "";
     
     uint32_t kLen = 21;
     uint8_t sLen = 8;
+    
+    uint64_t gSize = 0; // expected genome size, with 0 statistics are not computed
+    
+    std::vector<std::string> outFiles; // output files
+    uint32_t splitLength = 0;
     
 };
 
@@ -45,12 +50,14 @@ struct Sequence { // a generic sequence container
     
     ~Sequence();
     
+    void deleteSequence();
+    
 };
 
 struct Sequences { // a collection of sequences
     
     std::vector<Sequence*> sequences;
-    unsigned int batchN;
+    uint32_t batchN;
     
     ~Sequences();
     
@@ -99,18 +106,14 @@ struct Bubble {
     unsigned int id0, id1, id2, id3;
 };
 
-enum variantType {REF, SNV, INS, DEL};
+enum variantType {REF, SNV, INS, DEL, COM};
 struct DBGpath {
     
     variantType type;
+    uint16_t refLen = 1;
     uint64_t pos;
     std::string sequence;
     double score = 0;
-    
-    DBGpath() {}
-    DBGpath(uint64_t pos) : pos(pos) {}
-    DBGpath(uint64_t pos, double score) : pos(pos), score(score) {}
-    DBGpath(variantType type, uint64_t pos, std::string sequence, double score) : type(type), pos(pos), sequence(sequence), score(score) {}
     
 };
 

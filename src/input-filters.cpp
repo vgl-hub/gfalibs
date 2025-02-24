@@ -75,31 +75,28 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
         
         offset = 0;
         outSeq = true;
-        
         auto coordinates = bedExcludeList.getCoordinates();
         auto got = coordinates.find(seqHeader);
-        if (got == coordinates.end())
-            return NULL;
-        
-        for(std::pair<uint64_t,uint64_t> coordinate : got->second) {
-
-            cBegin = coordinate.first;
-            cEnd = coordinate.second;
-            
-            if (!(cBegin == 0 && cEnd == 0)) {
+        if (got != coordinates.end()) {
+            for(std::pair<uint64_t,uint64_t> coordinate : got->second) {
                 
-                inSequence->erase(cBegin-offset, cEnd-cBegin);
+                cBegin = coordinate.first;
+                cEnd = coordinate.second;
                 
-                if (inSequenceQuality != NULL)
-                    inSequenceQuality->erase(cBegin-offset, cEnd-cBegin);
+                if (!(cBegin == 0 && cEnd == 0)) {
                     
-                offset += cEnd-cBegin;
-                
-            }else{
-                outSeq = false;
+                    inSequence->erase(cBegin-offset, cEnd-cBegin);
+                    
+                    if (inSequenceQuality != NULL)
+                        inSequenceQuality->erase(cBegin-offset, cEnd-cBegin);
+                    
+                    offset += cEnd-cBegin;
+                    
+                }else{
+                    outSeq = false;
+                }
             }
         }
-                
     }else if
             (!bedIncludeList.empty() &&
              !bedExcludeList.empty()) {
@@ -111,23 +108,13 @@ Sequence* includeExcludeSeq(std::string seqHeader, std::string seqComment, std::
                 if (got1 == coordinates.end() && got2 == coordinates.end()) {
                     outSeq = true;
                 }
-                
-                
-                
     }
-    
     if (outSeq && inSequence->size()>0) {
-    
         return new Sequence {seqHeader, seqComment, inSequence, inSequenceQuality};
-    
     }else {
-        
         lg.verbose("Sequence entirely removed as a result of BED filter: " + seqHeader);
-        
         return NULL;
-        
     }
-    
 }
 
 Sequence* includeExcludeSeg(InSequences* inSequences, std::string* seqHeader, std::string* seqComment, std::string* inSequence, BedCoordinates bedIncludeList, BedCoordinates* bedExcludeList, std::string* inSequenceQuality) {

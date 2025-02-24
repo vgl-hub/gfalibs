@@ -7,7 +7,6 @@ template<typename OBJECT>
 bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t fileNum) { // load from FASTA/FASTQ to templated object
     
     // stream read variables
-    char* c;
     std::string firstLine, newLine, seqHeader, seqComment, line, bedHeader;
     uint32_t seqPos = 0; // to keep track of the original sequence order
     uint32_t batchSize = 10000; // number of sequences processed by a thread
@@ -27,11 +26,12 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 
                 while (getline(*stream, newLine)) {
                     
-                    seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); //process header line
-                    c = strtok(NULL,""); //read comment
-                    
-                    if (c != NULL)
-                        seqComment = std::string(c);
+                    size_t spacePos = newLine.find(" ");
+                    seqHeader = newLine.substr(0, spacePos);
+                    if (spacePos != std::string::npos)
+                        seqComment = newLine.substr(spacePos + 1);
+                    else
+                        seqComment.clear();
                     
                     std::string* inSequence = new std::string;
                     getline(*stream, *inSequence, '>');
@@ -49,11 +49,12 @@ bool loadSequences(UserInput userInput, OBJECT& object, char type, uint16_t file
                 while (getline(*stream, newLine)) { // file input
                     
                     newLine.erase(0, 1);
-                    seqHeader = std::string(strtok(strdup(newLine.c_str())," ")); // process header line
-                    c = strtok(NULL,""); // read comment
-                    
-                    if (c != NULL)
-                        seqComment = std::string(c);
+                    size_t spacePos = newLine.find(" ");
+                    seqHeader = newLine.substr(0, spacePos);
+                    if (spacePos != std::string::npos)
+                        seqComment = newLine.substr(spacePos + 1);
+                    else
+                        seqComment.clear();
 
                     std::string* inSequence = new std::string;
                     getline(*stream, *inSequence);
