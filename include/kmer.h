@@ -371,6 +371,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 	threadPool.queueJobs(jobs);
 }
 
+static char DNA[4] = { 'A', 'C', 'G', 'T' };
+
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 	
@@ -407,6 +409,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		
 		ParallelMap &map = *tmpMaps[m][t];
 		ParallelMap32 &map32 = *tmpMaps32[m][t];
+		int shift = (32-k)*2;
 
 		while ((count = Get_Kmer_Count(bundle))) {
 			
@@ -415,26 +418,26 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			for (int c = 0; c<count; ++c) {
 				
 				Get_Hash(&hash, data, offset);
-				//std::cout<<+(hash % totalThreads)<<std::endl;
-				if (hash % totalThreads != t)
-					continue;
-					
-				Key key(offset);
-				TYPE1 &count = map[key];
-				bool overflow = (count >= 254 ? true : false);
 				
-				if (!overflow)
-					++count; // increase kmer coverage
-				else {
+				if ((hash >> shift) % totalThreads == t) {
 					
-					TYPE2 &count32 = map32[key];
+					Key key(offset);
+					TYPE1 &count = map[key];
+					bool overflow = (count >= 254 ? true : false);
 					
-					if (count32 == 0) { // first time we add the kmer
-						count32 = count;
-						count = 255; // invalidates int8 kmer
+					if (!overflow)
+						++count; // increase kmer coverage
+					else {
+						
+						TYPE2 &count32 = map32[key];
+						
+						if (count32 == 0) { // first time we add the kmer
+							count32 = count;
+							count = 255; // invalidates int8 kmer
+						}
+						if (count32 < LARGEST)
+							++count32; // increase kmer coverage
 					}
-					if (count32 < LARGEST)
-						++count32; // increase kmer coverage
 				}
 				offset += 2;
 			}
@@ -533,15 +536,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
 	
 	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
-		
-//		std::cout<<+t<<" "<<tmpMaps[m][t]->size()<<std::endl;
-		
 		maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
 		delete tmpMaps[m][t];
 		maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
 		delete tmpMaps32[m][t];
 	}
-	//summary(m);
+	summary(m);
 	delete seqBuf[m].data;
 	dumpTmpMap(userInput.prefix, m, maps[m]);
 	return true;
