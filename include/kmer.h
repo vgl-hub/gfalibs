@@ -440,7 +440,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			}
 			Skip_Kmers(count, bundle);
 		}
-		free(super);
 		End_Supermer_Scan(bundle);
 		{
 			std::lock_guard<std::mutex> lck(summaryMtx);
