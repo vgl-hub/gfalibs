@@ -401,7 +401,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		Scan_Bundle *bundle = Begin_Supermer_Scan(data, seqBuf[m].len);
 		
 		tmpMaps[m][t] = new ParallelMap(0, KeyHasher(data), KeyEqualTo(data, k));
-		tmpMaps[m][t]->reserve(seqBuf[m].len);
+		//tmpMaps[m][t]->reserve(seqBuf[m].len);
 		tmpMaps32[m][t] = new ParallelMap32(0, KeyHasher(data), KeyEqualTo(data, k));
 		
 		ParallelMap &map = *tmpMaps[m][t];
@@ -416,26 +416,26 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 				
 				Get_Hash(&hash, data, offset);
 				
-//				if ((hash >> shift) % totalThreads == t) {
-//					
-//					Key key(offset);
-//					TYPE1 &count = map[key];
-//					bool overflow = (count >= 254 ? true : false);
-//					
-//					if (!overflow)
-//						++count; // increase kmer coverage
-//					else {
-//						
-//						TYPE2 &count32 = map32[key];
-//						
-//						if (count32 == 0) { // first time we add the kmer
-//							count32 = count;
-//							count = 255; // invalidates int8 kmer
-//						}
-//						if (count32 < LARGEST)
-//							++count32; // increase kmer coverage
-//					}
-//				}
+				if ((hash >> shift) % totalThreads == t) {
+					
+					Key key(offset);
+					TYPE1 &count = map[key];
+					bool overflow = (count >= 254 ? true : false);
+					
+					if (!overflow)
+						++count; // increase kmer coverage
+					else {
+						
+						TYPE2 &count32 = map32[key];
+						
+						if (count32 == 0) { // first time we add the kmer
+							count32 = count;
+							count = 255; // invalidates int8 kmer
+						}
+						if (count32 < LARGEST)
+							++count32; // increase kmer coverage
+					}
+				}
 				offset += 2;
 			}
 			Skip_Kmers(count, bundle);
@@ -456,19 +456,19 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // concurrent merging of the maps that store the same hashes
 	
-//	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-//	maps[m]->reserve(seqBuf[m].len);
-//	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-//	
-//	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
-//		maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
-//		delete tmpMaps[m][t];
-//		maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
-//		delete tmpMaps32[m][t];
-//	}
-//	summary(m);
-//	delete seqBuf[m].data;
-//	dumpTmpMap(userInput.prefix, m, maps[m]);
+	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+	//maps[m]->reserve(seqBuf[m].len);
+	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+	
+	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
+		maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
+		delete tmpMaps[m][t];
+		maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
+		delete tmpMaps32[m][t];
+	}
+	summary(m);
+	delete seqBuf[m].data;
+	dumpTmpMap(userInput.prefix, m, maps[m]);
 	return true;
 }
 
