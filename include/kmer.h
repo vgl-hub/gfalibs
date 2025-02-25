@@ -227,7 +227,7 @@ public:
 	
 	bool hashBuffer(uint16_t thisThread);
 	
-	void consolidateTmpMaps();
+	bool consolidateTmpMap(uint16_t m);
 	
 	bool dumpTmpMap(std::string prefix, uint8_t m, ParallelMap *map);
 	
@@ -388,19 +388,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 				return false;
 			});
 		}
-		maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-		maps[m]->reserve(seqBuf[m].len);
-		maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-		
-		for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
-			maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
-			delete tmpMaps[m][t];
-			maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
-			delete tmpMaps32[m][t];
-		}
-		summary(m);
-		delete seqBuf[m].data;
-		dumpTmpMap(userInput.prefix, m, maps[m]);
+		threadPool.queueJob([=]{ return consolidateTmpMap(m); });
 	}
 }
 
@@ -547,14 +535,22 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a si
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMaps(){ // concurrent merging of the maps that store the same hashes
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // concurrent merging of the maps that store the same hashes
 	
-	lg.verbose("Consolidating temporary maps");
+	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+	maps[m]->reserve(seqBuf[m].len);
+	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
 	
-	std::vector<uint64_t> fileSizes;
-	
-	for (uint16_t m = 0; m<mapCount; ++m) // compute size of map files
-		mergeTmpMaps(m);
+	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
+		maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
+		delete tmpMaps[m][t];
+		maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
+		delete tmpMaps32[m][t];
+	}
+	summary(m);
+	delete seqBuf[m].data;
+	dumpTmpMap(userInput.prefix, m, maps[m]);
+	return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
