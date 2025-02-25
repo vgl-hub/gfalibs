@@ -416,26 +416,26 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 				
 				Get_Hash(&hash, data, offset);
 				
-				if ((hash >> shift) % totalThreads == t) {
-					
-					Key key(offset);
-					TYPE1 &count = map[key];
-					bool overflow = (count >= 254 ? true : false);
-					
-					if (!overflow)
-						++count; // increase kmer coverage
-					else {
-						
-						TYPE2 &count32 = map32[key];
-						
-						if (count32 == 0) { // first time we add the kmer
-							count32 = count;
-							count = 255; // invalidates int8 kmer
-						}
-						if (count32 < LARGEST)
-							++count32; // increase kmer coverage
-					}
-				}
+//				if ((hash >> shift) % totalThreads == t) {
+//					
+//					Key key(offset);
+//					TYPE1 &count = map[key];
+//					bool overflow = (count >= 254 ? true : false);
+//					
+//					if (!overflow)
+//						++count; // increase kmer coverage
+//					else {
+//						
+//						TYPE2 &count32 = map32[key];
+//						
+//						if (count32 == 0) { // first time we add the kmer
+//							count32 = count;
+//							count = 255; // invalidates int8 kmer
+//						}
+//						if (count32 < LARGEST)
+//							++count32; // increase kmer coverage
+//					}
+//				}
 				offset += 2;
 			}
 			Skip_Kmers(count, bundle);
