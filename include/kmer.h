@@ -415,7 +415,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			for (int c = 0; c<count; ++c) {
 				
 				Get_Hash(&hash, data, offset);
-				std::cout<<+(hash % totalThreads)<<std::endl;
+				//std::cout<<+(hash % totalThreads)<<std::endl;
 				if (hash % totalThreads != t)
 					continue;
 					
