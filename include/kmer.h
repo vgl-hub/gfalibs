@@ -415,6 +415,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			for (int c = 0; c<count; ++c) {
 				
 				Get_Hash(&hash, data, offset);
+				std::cout<<+(hash % totalThreads)<<std::endl;
 				if (hash % totalThreads != t)
 					continue;
 					
@@ -532,12 +533,15 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
 	
 	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
+		
+//		std::cout<<+t<<" "<<tmpMaps[m][t]->size()<<std::endl;
+		
 		maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
 		delete tmpMaps[m][t];
 		maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
 		delete tmpMaps32[m][t];
 	}
-	summary(m);
+	//summary(m);
 	delete seqBuf[m].data;
 	dumpTmpMap(userInput.prefix, m, maps[m]);
 	return true;
