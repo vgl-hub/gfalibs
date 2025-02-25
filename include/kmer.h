@@ -176,7 +176,7 @@ protected: // they are protected, so that they can be further specialized by inh
 	std::array<uint16_t,mapCount> hashBufferDone{}, mapDoneCounts{};
 	
 	std::mutex readMtx, hashMtx, summaryMtx;
-	std::condition_variable readMutexCondition, hashMutexCondition, summaryMtxCondition;
+	std::condition_variable readMutexCondition, hashMutexCondition;
 	uint16_t bufferDone = 0;
 	
 	int bufferFiles[mapCount];
@@ -369,19 +369,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 	for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
 		jobs.push_back([this, t] { return static_cast<DERIVED*>(this)->hashBuffer(t); });
 	threadPool.queueJobs(jobs);
-	
-	for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
-		
-		{
-			std::unique_lock<std::mutex> lck(summaryMtx);
-			summaryMtxCondition.wait(lck, [&] {
-				if (mapDoneCounts[m] == threadPool.totalThreads())
-					return true;
-				return false;
-			});
-		}
-		threadPool.queueJob([=]{ return consolidateTmpMap(m); });
-	}
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -399,10 +386,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			hashMutexCondition.wait(lck, [this,m] {
 				
 				if (seqBuf[m].data == NULL) {
-					++mapReady;
 					loadBuffer(m);
 					tmpMaps[m].resize(threadPool.totalThreads());
 					tmpMaps32[m].resize(threadPool.totalThreads());
+					++mapReady;
 				}
 				return mapReady > m;
 			});
@@ -457,8 +444,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		{
 			std::lock_guard<std::mutex> lck(summaryMtx);
 			++mapDoneCounts[m];
+			
+			if (mapDoneCounts[m] == threadPool.totalThreads())
+				threadPool.queueJob([=]{ return consolidateTmpMap(m); });
 		}
-		summaryMtxCondition.notify_one();
 		++m;
 	}
 	return true;
