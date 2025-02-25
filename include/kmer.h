@@ -114,7 +114,8 @@ protected: // they are protected, so that they can be further specialized by inh
 	UserInput &userInput;
 	InSequences inSequences; // when we read a reference we can store it here
 	
-	uint32_t sLen, k; // kmer, smer length
+	uint8_t sLen; // smer length
+	uint32_t k; // kmer length
 	uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
 	std::atomic<bool> readingDone{false};
 	std::string DBextension;
@@ -204,16 +205,15 @@ public:
 			}
 			jobWait(threadPool);
 			
-			for(uint16_t m = 0; m<mapCount; ++m) {
+			for(uint16_t m = 0; m<mapCount; ++m)
 				bufferFiles[m] = open((userInput.prefix + "/.buf." + std::to_string(m) + ".bin").c_str(), O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-				write(bufferFiles[m],&k,sizeof(int));
-				write(bufferFiles[m],&sLen,sizeof(int));
-			}
+			
 			initBuffering(); // start parallel buffering
 		}
 	};
 	
 	uint64_t mapSize(ParallelMap& m);
+
 	
 	bool memoryOk();
 	
@@ -382,15 +382,12 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadBuffer(uint8_t m){
 		exit(EXIT_FAILURE);
 	}
 	std::ifstream bufFile(fl, std::ios::binary | std::ios::ate);
-	std::streamsize size = (uint32_t)bufFile.tellg() - 2*sizeof(int);
+	std::streamsize size = bufFile.tellg();
 	bufFile.seekg(0, std::ios::beg);
 	pos = size/8;
 	
 	uint64 *data = new uint64[pos];
-	int KMER, SMER;
-	bufFile.read(reinterpret_cast<char *>(&KMER), sizeof(int));
-	bufFile.read(reinterpret_cast<char *>(&SMER), sizeof(int));
-	if (!bufFile.read(reinterpret_cast<char *>(data), sizeof(uint8_t) * size)) {
+	if (!bufFile.read(reinterpret_cast<char *>(data),  sizeof(uint8_t) * size)) {
 			printf("Cannot read %i buffer. Terminating.\n", m);
 		exit(EXIT_FAILURE);
 	}
@@ -518,7 +515,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMaps(){ // concurren
 	
 	for (uint16_t m = 0; m<mapCount; ++m) // compute size of map files
 		mergeTmpMaps(m);
-
+	
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -877,7 +874,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
 				return bufferDone == threadPool.totalThreads();
 			});
 		}
-		lg.verbose("Converting buffers to maps");
+		
 		static_cast<DERIVED*>(this)->buffersToMaps();
 	}
 }
