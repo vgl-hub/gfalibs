@@ -399,7 +399,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		data = seqBuf[m].data;
 
 		Scan_Bundle *bundle = Begin_Supermer_Scan(data, seqBuf[m].len);
-		uint64 *super = New_Supermer_Buffer();
 		
 		tmpMaps[m][t] = new ParallelMap(0, KeyHasher(data), KeyEqualTo(data, k));
 		tmpMaps[m][t]->reserve(seqBuf[m].len);
@@ -529,9 +528,9 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a si
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // concurrent merging of the maps that store the same hashes
 	
-	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-	maps[m]->reserve(seqBuf[m].len);
-	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+	//maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+	//maps[m]->reserve(seqBuf[m].len);
+	//maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
 	
 	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
 		//maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
@@ -541,7 +540,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	}
 	//summary(m);
 	delete seqBuf[m].data;
-	dumpTmpMap(userInput.prefix, m, maps[m]);
+	//dumpTmpMap(userInput.prefix, m, maps[m]);
 	return true;
 }
 
