@@ -101,7 +101,7 @@ struct KeyEqualTo {
 };
 
 struct SeqBuf {
-	uint64 *data;
+	uint64 *data = NULL;
 	uint64_t len;
 };
 
@@ -372,14 +372,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 	
 	for (uint16_t m = 0; m<mapCount; ++m) { // the master thread reads the buffers in
 		
-		loadBuffer(m);
-		tmpMaps[m].resize(threadPool.totalThreads());
-		tmpMaps32[m].resize(threadPool.totalThreads());
-		{
-			std::lock_guard<std::mutex> lck(hashMtx);
-			++mapReady;
-		}
-		hashMutexCondition.notify_all();
 		{
 			std::unique_lock<std::mutex> lck(summaryMtx);
 			summaryMtxCondition.wait(lck, [&] {
@@ -405,9 +397,18 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		{
 			std::unique_lock<std::mutex> lck(hashMtx);
 			hashMutexCondition.wait(lck, [this,m] {
+				
+				if (seqBuf[m].data == NULL) {
+					++mapReady;
+					loadBuffer(m);
+					tmpMaps[m].resize(threadPool.totalThreads());
+					tmpMaps32[m].resize(threadPool.totalThreads());
+				}
 				return mapReady > m;
 			});
 		}
+		hashMutexCondition.notify_all();
+		
 		data = seqBuf[m].data;
 
 		Scan_Bundle *bundle = Begin_Supermer_Scan(data, seqBuf[m].len);
