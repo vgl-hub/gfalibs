@@ -45,7 +45,7 @@ public:
     short unsigned int running();
     unsigned int queueSize();
     void join();
-    short unsigned int totalThreads();
+    uint32_t totalThreads();
     void execJob();
     void status();
     std::condition_variable& getMutexCondition();
@@ -220,7 +220,7 @@ void ThreadPool<T>::join() {
 }
 
 template<class T>
-short unsigned int ThreadPool<T>::totalThreads() {
+uint32_t ThreadPool<T>::totalThreads() {
     return maxThreads;
 }
 

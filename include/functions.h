@@ -322,13 +322,9 @@ static inline std::string getFileExt(std::string fileName) { // utility to get f
     if(fileName.find_last_of(".") != std::string::npos) {
         
         if(fileName.substr(fileName.find_last_of(".")+1) == "gz") {
-            
             fileName = rmFileExt(fileName);
-            
             return getFileExt(fileName) + ".gz";
-            
         }
-        
         return fileName.substr(fileName.find_last_of(".")+1);
     }
     return "";
