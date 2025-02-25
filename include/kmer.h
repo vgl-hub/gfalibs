@@ -371,8 +371,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 	threadPool.queueJobs(jobs);
 }
 
-static char DNA[4] = { 'A', 'C', 'G', 'T' };
-
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 	
@@ -536,12 +534,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
 	
 	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
-		maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
+		//maps[m]->insert(tmpMaps[m][t]->begin(), tmpMaps[m][t]->end());
 		delete tmpMaps[m][t];
-		maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
+		//maps32[m]->insert(tmpMaps32[m][t]->begin(), tmpMaps32[m][t]->end());
 		delete tmpMaps32[m][t];
 	}
-	summary(m);
+	//summary(m);
 	delete seqBuf[m].data;
 	dumpTmpMap(userInput.prefix, m, maps[m]);
 	return true;
