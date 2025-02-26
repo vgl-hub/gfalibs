@@ -111,7 +111,7 @@ class Kmap {
 
 protected: // they are protected, so that they can be further specialized by inheritance
 	
-	UserInput &userInput;
+	UserInputKcount &userInput;
 	InSequences inSequences; // when we read a reference we can store it here
 	
 	uint8_t sLen; // smer length
@@ -183,7 +183,7 @@ protected: // they are protected, so that they can be further specialized by inh
 	
 public:
 	
-	Kmap(UserInput& userInput) : userInput(userInput), sLen{userInput.sLen}, k{userInput.kLen} {
+	Kmap(UserInputKcount& userInput) : userInput(userInput), sLen{userInput.sLen}, k{userInput.kLen} {
 		
 		DBextension = "kc";
 		
@@ -374,6 +374,7 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 	
 	int count;
+	const int hThreads = userInput.hashThreads;
 	uint64 *data;
 	uint64 offset, hash;
 	uint32_t totalThreads = threadPool.totalThreads();
@@ -383,15 +384,17 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		fileSizes.push_back(fileSize(userInput.prefix + "/.buf." + std::to_string(m) + ".bin"));
 	std::vector<uint32_t> idx = sortedIndex(fileSizes, true); // sort by largest
 	
+	std::vector<int> threads(totalThreads);
+	std::iota(threads.begin(), threads.end(), 0);
+	
 	for(uint32_t m : idx) {
 		
-		std::vector<int> threads(totalThreads);
-		std::iota(threads.begin(), threads.end(), 0);
-		shuffle(threads.begin(), threads.end(), std::default_random_engine(m));
-		threads.resize(4);
-		phmap::flat_hash_map<int, int> threadsMap;
+		std::vector<int> threadSubset = threads;
+		shuffle(threadSubset.begin(), threadSubset.end(), std::default_random_engine(m));
+		threadSubset.resize(hThreads);
+		phmap::flat_hash_map<uint32_t, uint32_t> threadsMap;
 
-		for (size_t i = 0; i < threads.size(); ++i)
+		for (size_t i = 0; i < threadSubset.size(); ++i)
 			threadsMap[threads[i]] = i;
 		
 		if (threadsMap.find(t) == threadsMap.end())
@@ -399,12 +402,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		
 		{
 			std::unique_lock<std::mutex> lck(hashMtx);
-			hashMutexCondition.wait(lck, [this,m] {
+			hashMutexCondition.wait(lck, [this,m,hThreads] {
 				
 				if (seqBuf[m].data == NULL) {
 					loadBuffer(m);
-					tmpMaps[m].resize(4);
-					tmpMaps32[m].resize(4);
+					tmpMaps[m].resize(hThreads);
+					tmpMaps32[m].resize(hThreads);
 				}
 				return seqBuf[m].data != NULL;
 			});
@@ -431,7 +434,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 				
 				Get_Hash(&hash, data, offset);
 				
-				if ((hash >> shift) % 4 == threadsMap[t]) {
+				if ((hash >> shift) % hThreads == threadsMap[t]) {
 					
 					Key key(offset);
 					TYPE1 &count = map[key];
@@ -456,7 +459,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			std::lock_guard<std::mutex> lck(summaryMtx);
 			++mapDoneCounts[m];
 			
-			if (mapDoneCounts[m] == 4)
+			if (mapDoneCounts[m] == hThreads)
 				writeThreads.push_back(std::thread(&Kmap::consolidateTmpMap, this, m));
 		}
 	}
