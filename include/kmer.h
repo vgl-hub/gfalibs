@@ -123,19 +123,15 @@ protected: // they are protected, so that they can be further specialized by inh
 	
 	const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
 	
-	using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
+	using ParallelMap = phmap::flat_hash_map<KEY, TYPE1,
 											  KeyHasher,
 											  KeyEqualTo,
-											  std::allocator<std::pair<const KEY, TYPE1>>,
-											  8,
-											  phmap::NullMutex>;
+											  std::allocator<std::pair<const KEY, TYPE1>>>;
 
-	using ParallelMap32 = phmap::parallel_flat_hash_map<KEY, TYPE2,
+	using ParallelMap32 = phmap::flat_hash_map<KEY, TYPE2,
 											  KeyHasher,
 											  KeyEqualTo,
-											  std::allocator<std::pair<const KEY, TYPE2>>,
-											  8,
-											  phmap::NullMutex>;
+											  std::allocator<std::pair<const KEY, TYPE2>>>;
 	
 	std::vector<ParallelMap*> maps; // all hash maps where TYPE1 are stored
 	std::vector<ParallelMap32*> maps32; // all hash maps where TYPE2 are stored
@@ -471,7 +467,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	}
 	summary(m);
 	delete seqBuf[m].data;
-	dumpTmpMap(userInput.prefix, m, maps[m]);
+	dumpMap(userInput.prefix, m);
 	return true;
 }
 
@@ -541,9 +537,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a si
 		
 	}
 	dumpMap(userInput.prefix, m);
-	
 	return true;
-
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -800,14 +794,10 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpMap(std::string prefix, uint16_t m) {
 	
 	prefix.append("/.map." + std::to_string(m) + ".bin");
-	
 	phmap::BinaryOutputArchive ar_out(prefix.c_str());
 	maps[m]->phmap_dump(ar_out);
-	
 	deleteMap(m);
-	
 	return true;
-	
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
