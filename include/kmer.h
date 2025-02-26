@@ -182,6 +182,8 @@ protected: // they are protected, so that they can be further specialized by inh
 	int bufferFiles[mapCount];
 	SeqBuf seqBuf[mapCount];
 	
+	std::vector<std::thread> writeThreads;
+	
 public:
 	
 	Kmap(UserInput& userInput) : userInput(userInput), sLen{userInput.sLen}, k{userInput.kLen} {
@@ -446,7 +448,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			++mapDoneCounts[m];
 			
 			if (mapDoneCounts[m] == threadPool.totalThreads())
-				threadPool.queueJob([=]{ return consolidateTmpMap(m); });
+				writeThreads.push_back(std::thread(&Kmap::consolidateTmpMap, this, m));
 		}
 		++m;
 	}
@@ -502,6 +504,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 	
 	initHashing();
 	jobWait(threadPool);
+	for(std::thread& thread : writeThreads)
+		thread.join();
 	dumpHighCopyKmers();
 }
 
