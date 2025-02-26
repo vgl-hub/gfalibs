@@ -474,6 +474,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	summary(m);
 	delete seqBuf[m].data;
 	dumpMap(userInput.prefix, m);
+	std::cout<<"map: "<<+m<<" done"<<std::endl;
 	return true;
 }
 
