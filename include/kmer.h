@@ -455,8 +455,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // concurrent merging of the maps that store the same hashes
 	
+	uint32_t size = 0;
+	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t)
+		size += tmpMaps[m][t]->size();
+	
 	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-	//maps[m]->reserve(seqBuf[m].len);
+	maps[m]->reserve(size);
 	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
 	
 	for (uint32_t t = 0; t < tmpMaps[m].size(); ++t) {
