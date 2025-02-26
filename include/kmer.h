@@ -444,8 +444,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			std::lock_guard<std::mutex> lck(summaryMtx);
 			++mapDoneCounts[m];
 			
-			if (mapDoneCounts[m] == threadPool.totalThreads())
+			if (mapDoneCounts[m] == threadPool.totalThreads()) {
 				writeThreads.push_back(std::thread(&Kmap::consolidateTmpMap, this, m));
+				std::cout<<"consolidating map: "<<+m<<std::endl;
+			}
 		}
 		++i;
 	}
