@@ -380,12 +380,17 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 	uint64 *data;
 	uint64 offset, hash;
 	uint32_t totalThreads = threadPool.totalThreads();
-	uint8_t m = 0;
+	uint8_t i = 0;
 	
-	while (m < mapCount) {
+	std::vector<uint64_t> fileSizes;
+	for (uint16_t m = 0; m<mapCount; ++m) // compute size of map files
+		fileSizes.push_back(fileSize(userInput.prefix + "/.buf." + std::to_string(m) + ".bin"));
+	std::vector<uint32_t> idx = sortedIndex(fileSizes, true); // sort by largest
+	
+	for(uint32_t m : idx) {
 		{
 			std::unique_lock<std::mutex> lck(hashMtx);
-			hashMutexCondition.wait(lck, [this,m] {
+			hashMutexCondition.wait(lck, [this,m,i] {
 				
 				if (seqBuf[m].data == NULL) {
 					loadBuffer(m);
@@ -393,7 +398,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 					tmpMaps32[m].resize(threadPool.totalThreads());
 					++mapReady;
 				}
-				return mapReady > m;
+				return mapReady > i;
 			});
 		}
 		hashMutexCondition.notify_all();
@@ -422,14 +427,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 					
 					Key key(offset);
 					TYPE1 &count = map[key];
-					bool overflow = (count >= 254 ? true : false);
-					
-					if (!overflow)
+					if (count < 254)
 						++count; // increase kmer coverage
 					else {
-						
 						TYPE2 &count32 = map32[key];
-						
 						if (count32 == 0) { // first time we add the kmer
 							count32 = count;
 							count = 255; // invalidates int8 kmer
@@ -450,7 +451,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			if (mapDoneCounts[m] == threadPool.totalThreads())
 				writeThreads.push_back(std::thread(&Kmap::consolidateTmpMap, this, m));
 		}
-		++m;
+		++i;
 	}
 	return true;
 }
