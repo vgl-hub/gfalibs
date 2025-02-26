@@ -1,6 +1,7 @@
 #ifndef KMER_H
 #define KMER_H
 
+#include <random>
 #include "parallel-hashmap/phmap.h"
 #include "parallel-hashmap/phmap_dump.h"
 
@@ -168,7 +169,7 @@ protected: // they are protected, so that they can be further specialized by inh
 	std::queue<std::string*> readBatches;
 	std::queue<Sequences*> sequenceBatches;
 	
-	uint8_t mapReady = 0, toDelete = 0, deleted = 0;
+	uint8_t toDelete = 0, deleted = 0;
 	std::array<uint16_t,mapCount> hashBufferDone{}, mapDoneCounts{};
 	
 	std::mutex readMtx, hashMtx, summaryMtx;
@@ -376,7 +377,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 	uint64 *data;
 	uint64 offset, hash;
 	uint32_t totalThreads = threadPool.totalThreads();
-	uint8_t i = 0;
 	
 	std::vector<uint64_t> fileSizes;
 	for (uint16_t m = 0; m<mapCount; ++m) // compute size of map files
@@ -384,17 +384,29 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 	std::vector<uint32_t> idx = sortedIndex(fileSizes, true); // sort by largest
 	
 	for(uint32_t m : idx) {
+		
+		std::vector<int> threads(totalThreads);
+		std::iota(threads.begin(), threads.end(), 0);
+		shuffle(threads.begin(), threads.end(), std::default_random_engine(m));
+		threads.resize(4);
+		phmap::flat_hash_map<int, int> threadsMap;
+
+		for (size_t i = 0; i < threads.size(); ++i)
+			threadsMap[threads[i]] = i;
+		
+		if (threadsMap.find(t) == threadsMap.end())
+			continue;
+		
 		{
 			std::unique_lock<std::mutex> lck(hashMtx);
-			hashMutexCondition.wait(lck, [this,m,i] {
+			hashMutexCondition.wait(lck, [this,m] {
 				
 				if (seqBuf[m].data == NULL) {
 					loadBuffer(m);
-					tmpMaps[m].resize(threadPool.totalThreads());
-					tmpMaps32[m].resize(threadPool.totalThreads());
-					++mapReady;
+					tmpMaps[m].resize(4);
+					tmpMaps32[m].resize(4);
 				}
-				return mapReady > i;
+				return seqBuf[m].data != NULL;
 			});
 		}
 		hashMutexCondition.notify_all();
@@ -403,12 +415,12 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 
 		Scan_Bundle *bundle = Begin_Supermer_Scan(data, seqBuf[m].len);
 		
-		tmpMaps[m][t] = new ParallelMap(0, KeyHasher(data), KeyEqualTo(data, k));
+		tmpMaps[m][threadsMap[t]] = new ParallelMap(0, KeyHasher(data), KeyEqualTo(data, k));
 		//tmpMaps[m][t]->reserve(seqBuf[m].len);
-		tmpMaps32[m][t] = new ParallelMap32(0, KeyHasher(data), KeyEqualTo(data, k));
+		tmpMaps32[m][threadsMap[t]] = new ParallelMap32(0, KeyHasher(data), KeyEqualTo(data, k));
 		
-		ParallelMap &map = *tmpMaps[m][t];
-		ParallelMap32 &map32 = *tmpMaps32[m][t];
+		ParallelMap &map = *tmpMaps[m][threadsMap[t]];
+		ParallelMap32 &map32 = *tmpMaps32[m][threadsMap[t]];
 		int shift = (32-k)*2;
 
 		while ((count = Get_Kmer_Count(bundle))) {
@@ -419,7 +431,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 				
 				Get_Hash(&hash, data, offset);
 				
-				if ((hash >> shift) % totalThreads == t) {
+				if ((hash >> shift) % 4 == threadsMap[t]) {
 					
 					Key key(offset);
 					TYPE1 &count = map[key];
@@ -444,12 +456,9 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			std::lock_guard<std::mutex> lck(summaryMtx);
 			++mapDoneCounts[m];
 			
-			if (mapDoneCounts[m] == threadPool.totalThreads()) {
+			if (mapDoneCounts[m] == 4)
 				writeThreads.push_back(std::thread(&Kmap::consolidateTmpMap, this, m));
-				std::cout<<"consolidating map: "<<+m<<std::endl;
-			}
 		}
-		++i;
 	}
 	return true;
 }
@@ -474,7 +483,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	summary(m);
 	delete seqBuf[m].data;
 	dumpMap(userInput.prefix, m);
-	std::cout<<"map: "<<+m<<" done"<<std::endl;
 	return true;
 }
 
