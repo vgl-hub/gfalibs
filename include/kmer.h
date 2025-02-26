@@ -395,7 +395,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 		phmap::flat_hash_map<uint32_t, uint32_t> threadsMap;
 
 		for (size_t i = 0; i < threadSubset.size(); ++i)
-			threadsMap[threads[i]] = i;
+			threadsMap[threadSubset[i]] = i;
 		
 		if (threadsMap.find(t) == threadsMap.end())
 			continue;
