@@ -186,8 +186,8 @@ public:
 		
 		DBextension = "kc";
 		
-		maps.reserve(mapCount);
-		maps32.reserve(mapCount);
+		maps.resize(mapCount);
+		maps32.resize(mapCount);
 		
 		if (userInput.kmerDB.size() == 0) { // if we are not reading an existing db
 			lg.verbose("Deleting any tmp file");
@@ -470,14 +470,10 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // 
 	std::string prefix = userInput.prefix; // loads the first map
 	std::string firstFile = prefix + "/.map." + std::to_string(m) + ".0.tmp.bin";
 	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-	phmap::BinaryInputArchive ar_in(firstFile.c_str());
-	maps[m]->phmap_load(ar_in);
-	if (!userInput.keepTmp)
-		remove(firstFile.c_str());
 	
 	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
 	
-	uint8_t fileNum = 1;
+	uint8_t fileNum = 0;
 	while (fileExists(prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin")) { // for additional map loads the map and merges it
 		std::string nextFile = prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin"; // loads the next map
 		ParallelMap *nextMap = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
