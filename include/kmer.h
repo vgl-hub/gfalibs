@@ -462,7 +462,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			++mapDoneCounts[m];
 			
 			if (mapDoneCounts[m] == hThreads)
-				writeThreads.push_back(std::thread(&Kmap::consolidateTmpMap, this, m));
+				consolidateTmpMap(m);
 		}
 	}
 	return true;
