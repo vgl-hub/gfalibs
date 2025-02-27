@@ -124,15 +124,19 @@ protected: // they are protected, so that they can be further specialized by inh
 	
 	const uint64_t moduloMap = (uint64_t) pow(4,k) / mapCount; // this value allows to assign any kmer to a map based on its hashed value
 	
-	using ParallelMap = phmap::flat_hash_map<KEY, TYPE1,
+	using ParallelMap = phmap::parallel_flat_hash_map<KEY, TYPE1,
 											  KeyHasher,
 											  KeyEqualTo,
-											  std::allocator<std::pair<const KEY, TYPE1>>>;
-	
-	using ParallelMap32 = phmap::flat_hash_map<KEY, TYPE2,
+											  std::allocator<std::pair<const KEY, TYPE1>>,
+											  8,
+											  phmap::NullMutex>;
+
+	using ParallelMap32 = phmap::parallel_flat_hash_map<KEY, TYPE2,
 											  KeyHasher,
 											  KeyEqualTo,
-											  std::allocator<std::pair<const KEY, TYPE2>>>;
+											  std::allocator<std::pair<const KEY, TYPE2>>,
+											  8,
+											  phmap::NullMutex>;
 	
 	std::vector<ParallelMap*> maps; // all hash maps where TYPE1 are stored
 	std::vector<ParallelMap32*> maps32; // all hash maps where TYPE2 are stored
