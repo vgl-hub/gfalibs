@@ -186,7 +186,7 @@ protected: // they are protected, so that they can be further specialized by inh
 	std::vector<std::thread> writeThreads;
 	std::queue<std::pair<uint8_t,uint8_t>> buffersQueue;
 	std::queue<uint8_t> finalMapsQueue;
-	uint8_t totalMapsDone = 0, bufferProcessed = 0;
+	uint8_t totalMapsDone = 0, bufferProcessed = 0, lastBuffer = 0;
 	
 public:
 	
@@ -387,33 +387,35 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 	const int hThreads = userInput.hashThreads;
 	uint64 *data;
 	uint64 offset, hash, mapSizeCount;
-	uint8_t mapN;
+	uint8_t m, mapN;
 	
 	std::vector<uint64_t> fileSizes;
 	for (uint16_t m = 0; m<mapCount; ++m) // compute size of map files
 		fileSizes.push_back(fileSize(userInput.prefix + "/.buf." + std::to_string(m) + ".bin"));
-	std::vector<uint32_t> idx = sortedIndex(fileSizes, true); // sort by largest
+	std::vector<uint32_t> sorted = sortedIndex(fileSizes, true); // sort by largest
 	
-	for(uint32_t m : idx) {
+	while (true) {
 		
 		{
 			std::unique_lock<std::mutex> lck(hashMtx);
-			hashMutexCondition.wait(lck, [this,m,hThreads] {
+			hashMutexCondition.wait(lck, [this,sorted,hThreads] {
 				
-				if (seqBuf[m].data == NULL) {
-					loadBuffer(m);
-					tmpMaps32[m].resize(hThreads);
+				if (!buffersQueue.size() && lastBuffer < mapCount) {
+					uint8_t idx = lastBuffer++;
+					loadBuffer(idx);
+					tmpMaps32[idx].resize(hThreads);
 					
 					for (int32_t i = 0; i < hThreads; ++i)
-						buffersQueue.push(std::make_pair(m, i));
+						buffersQueue.push(std::make_pair(idx, i));
 				}
-				return (seqBuf[m].data != NULL && buffersQueue.size()) || (bufferProcessed == mapCount);
+				return (buffersQueue.size() || (bufferProcessed == mapCount));
 			});
 			if (bufferProcessed == mapCount)
 				break;
 			std::pair<uint8_t, uint8_t> buf = buffersQueue.front();
 			m = buf.first;
 			mapN = buf.second;
+			std::cout << +m << " " << +mapN << std::endl;
 			buffersQueue.pop();
 		}
 		hashMutexCondition.notify_all();
