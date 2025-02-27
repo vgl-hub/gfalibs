@@ -173,16 +173,17 @@ protected: // they are protected, so that they can be further specialized by inh
 	std::queue<Sequences*> sequenceBatches;
 	
 	uint8_t toDelete = 0, deleted = 0;
-	std::array<uint16_t,mapCount> hashBufferDone{}, mapDoneCounts{};
+	std::array<int16_t,mapCount> mapDoneCounts{};
 	
 	std::mutex readMtx, hashMtx, summaryMtx;
-	std::condition_variable readMutexCondition, hashMutexCondition;
+	std::condition_variable readMutexCondition, hashMutexCondition, summaryMutexCondition;
 	uint16_t bufferDone = 0;
 	
 	int bufferFiles[mapCount];
 	SeqBuf seqBuf[mapCount];
 	
 	std::vector<std::thread> writeThreads;
+	uint8_t totalMapsDone = 0;
 	
 public:
 	
@@ -229,7 +230,7 @@ public:
 	
 	bool hashBuffer(uint16_t thisThread);
 	
-	bool consolidateTmpMap(uint16_t m);
+	bool consolidateTmpMaps();
 	
 	bool dumpTmpMap(std::string prefix, uint8_t m, ParallelMap *map, uint8_t fileNum);
 	
@@ -371,6 +372,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 	for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
 		jobs.push_back([this, t] { return static_cast<DERIVED*>(this)->hashBuffer(t); });
 	threadPool.queueJobs(jobs);
+	
+	for (uint8_t t = 0; t < userInput.writeThreads; ++t)
+		writeThreads.push_back(std::thread(&Kmap::consolidateTmpMaps, this));
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -462,38 +466,61 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			++mapDoneCounts[m];
 			
 			if (mapDoneCounts[m] == hThreads)
-				writeThreads.push_back(std::thread(&Kmap::consolidateTmpMap, this, m));
+				summaryMutexCondition.notify_all();
 		}
 	}
+	summaryMutexCondition.notify_all();
 	return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMap(uint16_t m){ // concurrent merging of the maps that store the same hashes
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMaps(){ // concurrent merging of the maps that store the same hashes
 	
-	std::string prefix = userInput.prefix; // loads the first map
-	std::string firstFile = prefix + "/.map." + std::to_string(m) + ".0.tmp.bin";
-	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-	
-	maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-	
-	uint8_t fileNum = 0;
-	while (fileExists(prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin")) { // for additional map loads the map and merges it
-		std::string nextFile = prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin"; // loads the next map
-		ParallelMap *nextMap = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
-		phmap::BinaryInputArchive ar_in(nextFile.c_str());
-		nextMap->phmap_load(ar_in);
-		if (!userInput.keepTmp)
-			remove(nextFile.c_str());
-		maps[m]->insert(nextMap->begin(), nextMap->end());
-		delete nextMap;
-		maps32[m]->insert(tmpMaps32[m][fileNum]->begin(), tmpMaps32[m][fileNum]->end());
-		delete tmpMaps32[m][fileNum];
-		++fileNum;
+	while (totalMapsDone < mapCount) {
+		
+		uint8_t m;
+		
+		{
+			std::unique_lock<std::mutex> lck(summaryMtx);
+			summaryMutexCondition.wait(lck, [this,&m] {
+				
+				for (size_t i = 0; i < mapDoneCounts.size(); ++i) {
+					
+					if (mapDoneCounts[i] == (int)userInput.hashThreads) {
+						m = i;
+						++totalMapsDone;
+						mapDoneCounts[i] = -1;
+						return true;
+					}
+				}
+				return false;
+			});
+		}
+		std::string prefix = userInput.prefix; // loads the first map
+		std::string firstFile = prefix + "/.map." + std::to_string(m) + ".0.tmp.bin";
+		maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+		
+		maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+		
+		uint8_t fileNum = 0;
+		while (fileExists(prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin")) { // for additional map loads the map and merges it
+			std::string nextFile = prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin"; // loads the next map
+			ParallelMap *nextMap = new ParallelMap(0, KeyHasher(seqBuf[m].data), KeyEqualTo(seqBuf[m].data, k));
+			phmap::BinaryInputArchive ar_in(nextFile.c_str());
+			nextMap->phmap_load(ar_in);
+			if (!userInput.keepTmp)
+				remove(nextFile.c_str());
+			maps[m]->insert(nextMap->begin(), nextMap->end());
+			delete nextMap;
+			maps32[m]->insert(tmpMaps32[m][fileNum]->begin(), tmpMaps32[m][fileNum]->end());
+			delete tmpMaps32[m][fileNum];
+			++fileNum;
+		}
+		summary(m);
+		delete seqBuf[m].data;
+		dumpMap(userInput.prefix, m);
+		
 	}
-	summary(m);
-	delete seqBuf[m].data;
-	dumpMap(userInput.prefix, m);
 	return true;
 }
 
