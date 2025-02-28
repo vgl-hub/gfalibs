@@ -63,10 +63,44 @@ struct KeyEqualTo {
 	
 	uint32_t k;
 	uint64 *data;
+	uint64 *kmer1 = nullptr, *kmer2 = nullptr;
 	
 	KeyEqualTo() {}
 	
-	KeyEqualTo(uint64 *data, uint32_t k) : k(k), data(data) {}
+	KeyEqualTo(uint64 *data, uint32_t k) : k(k), data(data) {
+		kmer1 = New_Supermer_Buffer();
+		kmer2 = New_Supermer_Buffer();
+	}
+	
+	~KeyEqualTo(){
+		if (kmer1 != nullptr)
+			free(kmer1);
+		if (kmer2 != nullptr)
+			free(kmer2);
+	}
+	
+	KeyEqualTo(const KeyEqualTo& other) : data(new uint64(*other.data)) {} // Copy Constructor
+
+	KeyEqualTo& operator=(const KeyEqualTo& other) { // Copy Assignment Operator
+		if (this != &other) {
+			delete data;
+			data = new uint64(*other.data);
+		}
+		return *this;
+	}
+
+	KeyEqualTo(KeyEqualTo&& other) : data(other.data) { // Move Constructor
+		other.data = nullptr;
+	}
+
+	KeyEqualTo& operator=(KeyEqualTo&& other) { // Move Assignment Operator
+		if (this != &other) {
+			delete data;
+			data = other.data;
+			other.data = nullptr;
+		}
+		return *this;
+	}
 	
 	bool operator()(const Key& key1, const Key& key2) const {
 		
@@ -79,8 +113,6 @@ struct KeyEqualTo {
 		else if (hash1 != hash2)
 			return false;
 		
-		uint64 *kmer1 = New_Supermer_Buffer(), *kmer2 = New_Supermer_Buffer();
-		
 		Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getOffset());
 		Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getOffset());
 		
@@ -88,8 +120,9 @@ struct KeyEqualTo {
 		int x = 62;
 		for (uint32_t i = 33; i < k; i++) {
 			
-		if (((kmer1[w]>>x)&0x3llu) != ((kmer2[w]>>x)&0x3llu))
+			if (((kmer1[w]>>x)&0x3llu) != ((kmer2[w]>>x)&0x3llu)) {
 				return false;
+			}
 			
 			if (x == 0)
 				{ w += 1;
@@ -97,10 +130,6 @@ struct KeyEqualTo {
 			  }
 			x -= 2;
 		}
-		
-		delete kmer1;
-		delete kmer2;
-		
 		return true;
 	}
 };
@@ -415,7 +444,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
 			std::pair<uint8_t, uint8_t> buf = buffersQueue.front();
 			m = buf.first;
 			mapN = buf.second;
-			std::cout << +m << " " << +mapN << std::endl;
+			//std::cout << +m << " " << +mapN << std::endl;
 			buffersQueue.pop();
 		}
 		hashMutexCondition.notify_all();
