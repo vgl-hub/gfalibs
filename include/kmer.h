@@ -62,7 +62,7 @@ struct KeyHasher {
 struct KeyEqualTo {
 	
 	uint32_t k;
-	uint64 *data;
+	uint64 *data = nullptr;
 	uint64 *kmer1 = nullptr, *kmer2 = nullptr;
 	
 	KeyEqualTo() {}
@@ -73,33 +73,10 @@ struct KeyEqualTo {
 	}
 	
 	~KeyEqualTo(){
-		if (kmer1 != nullptr)
-			free(kmer1);
-		if (kmer2 != nullptr)
-			free(kmer2);
-	}
-	
-	KeyEqualTo(const KeyEqualTo& other) : data(new uint64(*other.data)) {} // Copy Constructor
-
-	KeyEqualTo& operator=(const KeyEqualTo& other) { // Copy Assignment Operator
-		if (this != &other) {
-			delete data;
-			data = new uint64(*other.data);
-		}
-		return *this;
-	}
-
-	KeyEqualTo(KeyEqualTo&& other) : data(other.data) { // Move Constructor
-		other.data = nullptr;
-	}
-
-	KeyEqualTo& operator=(KeyEqualTo&& other) { // Move Assignment Operator
-		if (this != &other) {
-			delete data;
-			data = other.data;
-			other.data = nullptr;
-		}
-		return *this;
+//		if (kmer1 != nullptr)
+//			free(kmer1);
+//		if (kmer2 != nullptr)
+//			free(kmer2);
 	}
 	
 	bool operator()(const Key& key1, const Key& key2) const {
