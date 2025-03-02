@@ -72,7 +72,7 @@ struct KeyEqualTo {
 		kmer2 = New_Supermer_Buffer();
 	}
 	
-	~KeyEqualTo(){
+	~KeyEqualTo(){ // need to follow rule of three
 //		if (kmer1 != nullptr)
 //			free(kmer1);
 //		if (kmer2 != nullptr)
@@ -84,27 +84,24 @@ struct KeyEqualTo {
 		uint64 hash1, hash2;
 		int dir1 = Get_Hash(&hash1, data, key1.getOffset());
 		int dir2 = Get_Hash(&hash2, data, key2.getOffset());
-		
 		if (k <= 32)
 			return hash1 == hash2;
-		else if (hash1 != hash2)
-			return false;
+//		else if (hash1 != hash2)
+//			return false;
 		
 		Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getOffset());
 		Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getOffset());
-		
 		int w = 0;
 		int x = 62;
-		for (uint32_t i = 33; i < k; i++) {
-			
-			if (((kmer1[w]>>x)&0x3llu) != ((kmer2[w]>>x)&0x3llu)) {
+		for (uint32_t i = 0; i < k; ++i) {
+
+			if (((kmer1[w]>>x)&0x3llu) != ((kmer2[w]>>x)&0x3llu))
 				return false;
+
+			if (x == 0) {
+				++w;
+				x = 64;
 			}
-			
-			if (x == 0)
-				{ w += 1;
-				  x = 64;
-			  }
 			x -= 2;
 		}
 		return true;
@@ -307,23 +304,17 @@ public:
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::memoryOk() {
-	
 	return get_mem_inuse(3) < maxMem;
-	
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::memoryOk(int64_t delta) {
-	
 	return get_mem_inuse(3) + convert_memory(delta, 3) < maxMem;
-	
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapSize(ParallelMap& m) {
-	
    return m.capacity() * (sizeof(typename ParallelMap::value_type) + 1) + sizeof(ParallelMap);
-	
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
