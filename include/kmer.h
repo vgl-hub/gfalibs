@@ -86,8 +86,8 @@ struct KeyEqualTo {
 		int dir2 = Get_Hash(&hash2, data, key2.getOffset());
 		if (k <= 32)
 			return hash1 == hash2;
-//		else if (hash1 != hash2)
-//			return false;
+		else if (hash1 != hash2)
+			return false;
 		
 		Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getOffset());
 		Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getOffset());
