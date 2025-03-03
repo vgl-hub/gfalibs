@@ -180,7 +180,7 @@ protected: // they are protected, so that they can be further specialized by inh
 	std::array<uint64_t,mapCount> mapSizeCounts{};
 	
 	std::mutex readMtx, hashMtx, summaryMtx;
-	std::condition_variable readMutexCondition, hashMutexCondition, summaryMutexCondition;
+	std::condition_variable readMutexCondition, processBufferMutexCondition, hashMutexCondition, summaryMutexCondition;
 	uint16_t bufferDone = 0;
 	
 	int bufferFiles[mapCount];
@@ -330,16 +330,21 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
 		{
 			std::unique_lock<std::mutex> lck(readMtx);
 			
-			if (readingDone && readBatches.size() == 0) {
-				End_Distribution(bundle);
-				++bufferDone;
-				readMutexCondition.notify_all();
-				return true;
+			if (readBatches.size() == 0) {
+				
+				if (readingDone) {
+					End_Distribution(bundle);
+					++bufferDone;
+					readMutexCondition.notify_one();
+					return true;
+				}else{
+					processBufferMutexCondition.wait(lck, [this] {
+						return (readBatches.size() != 0 || readingDone);
+					});
+				}
 			}
-
 			if (readBatches.size() == 0)
 				continue;
-			
 			readBatch = readBatches.front();
 			readBatches.pop();
 			len = readBatch->size();
@@ -895,6 +900,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(std::string* readB
 	{
 		std::lock_guard<std::mutex> lck(readMtx);
 		readBatches.push(readBatch);
+		processBufferMutexCondition.notify_one();
 	}
 	return true;
 }
@@ -919,6 +925,7 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
 	if (userInput.kmerDB.size() == 0) {
 		readingDone = true;
+		processBufferMutexCondition.notify_all();
 		{
 			std::unique_lock<std::mutex> lck(readMtx);
 			readMutexCondition.wait(lck, [&] {
