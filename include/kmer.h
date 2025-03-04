@@ -350,7 +350,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(std::string* readB
 		readDataThreads = 0;
 	}
 	processBufferMutexCondition.notify_all();
-	std::cout<<"master "<<readData<<" "<<readingDone<<std::endl;
 	return true;
 }
 
@@ -413,7 +412,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(uint16_t t) {
 		{
 			std::lock_guard<std::mutex> lck(readMtx);
 			++readDataThreads;
-			std::cout<<+readDataThreads<<std::endl;
 		}
 		readMutexCondition.notify_one();
 		{
@@ -423,7 +421,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(uint16_t t) {
 			});
 		}
 		Distribute_Sequence(const_cast<char*>(readBatch.data()), readBatch.size(), bundle);
-		std::cout<<readData<<" "<<readingDone<<std::endl;
 	}
 	return true;
 }
@@ -431,7 +428,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(uint16_t t) {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
 	if (userInput.kmerDB.size() == 0) {
-		std::cout<<"done "<<readData<<" "<<readingDone<<std::endl;
 		readingDone = true;
 		processBufferMutexCondition.notify_all();
 		{
