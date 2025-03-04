@@ -172,8 +172,9 @@ protected: // they are protected, so that they can be further specialized by inh
 	const uint8_t itoc[4] = {'A', 'C', 'G', 'T'}; // 0123>ACGT
 	
 	std::chrono::high_resolution_clock::time_point past;
-	std::queue<std::string*> readBatches;
-	std::queue<Sequences*> sequenceBatches;
+	std::string* readBatches;
+	bool readData = false;
+	uint32_t readDataThreads = 0;
 	
 	uint8_t toDelete = 0, deleted = 0;
 	std::array<int16_t,mapCount> mapDoneCounts{};
@@ -181,7 +182,7 @@ protected: // they are protected, so that they can be further specialized by inh
 	
 	std::mutex readMtx, hashMtx, summaryMtx;
 	std::condition_variable readMutexCondition, processBufferMutexCondition, hashMutexCondition, summaryMutexCondition;
-	uint16_t bufferDone = 0;
+	uint16_t buffersDone = 0;
 	
 	int bufferFiles[mapCount];
 	SeqBuf seqBuf[mapCount];
@@ -223,7 +224,6 @@ public:
 	
 	uint64_t mapSize(ParallelMap& m);
 
-	
 	bool memoryOk();
 	
 	bool memoryOk(int64_t delta);
@@ -256,9 +256,7 @@ public:
 	
 	bool unionSum(ParallelMap* map1, ParallelMap* map2, uint16_t m);
 	
-	bool traverseInReads(std::string* readBatch);
-	
-	bool traverseInReads(Sequences* readBatch);
+	bool traverseInReads(std::string* readBatches);
 	
 	inline uint64_t hash(Buf2bit<> *kmerPtr, uint64_t p, bool* isFw = NULL);
 	
@@ -266,7 +264,11 @@ public:
 	
 	inline std::string reverseHash(uint64_t hash);
 	
-	bool generateBuffers();
+	bool generateBuffers(uint16_t t);
+	
+	void getData(std::string *readBatches, std::string &readBatch, uint16_t t);
+	
+	uint64_t findNextSequence(const std::string *readBatches, const uint64_t quota, const uint16_t t);
 	
 	void consolidate();
 	
@@ -318,56 +320,130 @@ uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapSize(ParallelMap& m) {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers() {
-	//   Log threadLog;
-	std::string *readBatch;
-	uint64_t len = 0;
-
-	Distribution_Bundle* bundle = Begin_Distribution(bufferFiles);
-	
-	while (true) {
-			
-		{
-			std::unique_lock<std::mutex> lck(readMtx);
-			
-			if (readBatches.size() == 0) {
-				
-				if (readingDone) {
-					End_Distribution(bundle);
-					++bufferDone;
-					readMutexCondition.notify_one();
-					return true;
-				}else{
-					processBufferMutexCondition.wait(lck, [this] {
-						return (readBatches.size() != 0 || readingDone);
-					});
-				}
-			}
-			if (readBatches.size() == 0)
-				continue;
-			readBatch = readBatches.front();
-			readBatches.pop();
-			len = readBatch->size();
-		}
-		
-		Distribute_Sequence(const_cast<char*>(readBatch->data()), len, bundle);
-		
-		delete readBatch;
-		freed += len * sizeof(char);
-	}
-	return true;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
 	
 	Init_Genes_Package(k, sLen);
 	
 	std::vector<std::function<bool()>> jobs;
 	for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
-		jobs.push_back([this] { return static_cast<DERIVED*>(this)->generateBuffers(); });
+		jobs.push_back([this, t] { return static_cast<DERIVED*>(this)->generateBuffers(t); });
 	
 	threadPool.queueJobs(jobs);
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(std::string* readBatches) { // specialized for string objects
+	
+	while(freeMemory) {status();}
+	{
+		std::lock_guard<std::mutex> lck(readMtx);
+		this->readBatches = readBatches;
+		readData = true;
+	}
+	processBufferMutexCondition.notify_all();
+	{
+		std::unique_lock<std::mutex> lck(readMtx);
+		readMutexCondition.wait(lck, [this] {
+			return (readDataThreads == threadPool.totalThreads());
+		});
+		readData = false;
+		readDataThreads = 0;
+	}
+	processBufferMutexCondition.notify_all();
+	std::cout<<"master "<<readData<<" "<<readingDone<<std::endl;
+	return true;
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
+	status();
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::findNextSequence(const std::string *readBatches, const uint64_t quota, const uint16_t t) {
+
+	if (t == 0)
+		return 0;
+	
+	uint32_t end = std::min((uint64_t)readBatches->size(), quota*(t+1));
+	
+	for (uint64_t i = quota*t; i < end; ++i) {
+		if (readBatches->at(i) == 'N')
+			return i+1;
+	}
+	fprintf(stderr, "Missing terminal 'N'. Terminating.\n");
+	exit(EXIT_FAILURE);
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::getData(std::string *readBatches, std::string &readBatch, uint16_t t) {
+	
+	uint64_t quota = readBatches->size() / threadPool.totalThreads();
+	uint64_t start = findNextSequence(readBatches, quota, t), end = findNextSequence(readBatches, quota, t+1)-1;
+	{
+		std::unique_lock<std::mutex> lck(readMtx);
+		//std::cout<<+t<<" "<<start<<" "<<+(end-start+1)<<std::endl;
+	}
+	readBatch = readBatches->substr(start, end-start+1);
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(uint16_t t) {
+	//   Log threadLog;
+	std::string readBatch;
+	Distribution_Bundle* bundle = Begin_Distribution(bufferFiles);
+	
+	while (true) {
+			
+		{
+			std::unique_lock<std::mutex> lck(readMtx);
+			if (!readData && readingDone) {
+				End_Distribution(bundle);
+				++buffersDone;
+				readMutexCondition.notify_one();
+				return true;
+			}
+			processBufferMutexCondition.wait(lck, [this] {
+				return (readData || readingDone);
+			});
+		}
+		if (!readData)
+			continue;
+		getData(readBatches, readBatch, t);
+		{
+			std::lock_guard<std::mutex> lck(readMtx);
+			++readDataThreads;
+			std::cout<<+readDataThreads<<std::endl;
+		}
+		readMutexCondition.notify_one();
+		{
+			std::unique_lock<std::mutex> lck(readMtx);
+			processBufferMutexCondition.wait(lck, [this] {
+				return (!readDataThreads);
+			});
+		}
+		Distribute_Sequence(const_cast<char*>(readBatch.data()), readBatch.size(), bundle);
+		std::cout<<readData<<" "<<readingDone<<std::endl;
+	}
+	return true;
+}
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
+	if (userInput.kmerDB.size() == 0) {
+		std::cout<<"done "<<readData<<" "<<readingDone<<std::endl;
+		readingDone = true;
+		processBufferMutexCondition.notify_all();
+		{
+			std::unique_lock<std::mutex> lck(readMtx);
+			readMutexCondition.wait(lck, [&] {
+				status();
+				return buffersDone == threadPool.totalThreads();
+			});
+		}
+		lg.verbose("Converting buffers to maps");
+		static_cast<DERIVED*>(this)->buffersToMaps();
+	}
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -653,7 +729,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::status() {
 	std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - past;
 	
 	if (elapsed.count() > 0.1) {
-		lg.verbose("Read batches: " + std::to_string(readBatches.size() + sequenceBatches.size()) + ". Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
+		lg.verbose("Memory in use/allocated/total: " + std::to_string(get_mem_inuse(3)) + "/" + std::to_string(get_mem_usage(3)) + "/" + std::to_string(get_mem_total(3)) + " " + memUnit[3], true);
 	
 		past = std::chrono::high_resolution_clock::now();
 	}
@@ -890,51 +966,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::report() { // generates the output
 			std::cout<<"Unrecognized format (."<<ext<<")."<<std::endl;
 			exit(EXIT_FAILURE);
 		}
-	}
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(std::string* readBatch) { // specialized for string objects
-	
-	while(freeMemory) {status();}
-	{
-		std::lock_guard<std::mutex> lck(readMtx);
-		readBatches.push(readBatch);
-		processBufferMutexCondition.notify_one();
-	}
-	return true;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(Sequences* sequenceBatch) { // specialized for sequence objects
-	
-	while(freeMemory) {status();}
-	{
-		std::lock_guard<std::mutex> lck(readMtx);
-		sequenceBatches.push(sequenceBatch);
-	}
-	return true;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
-	status();
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
-	if (userInput.kmerDB.size() == 0) {
-		readingDone = true;
-		processBufferMutexCondition.notify_all();
-		{
-			std::unique_lock<std::mutex> lck(readMtx);
-			readMutexCondition.wait(lck, [&] {
-				status();
-				return bufferDone == threadPool.totalThreads();
-			});
-		}
-		lg.verbose("Converting buffers to maps");
-		static_cast<DERIVED*>(this)->buffersToMaps();
 	}
 }
 
