@@ -410,7 +410,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<st
 		}
 		std::stringstream ss(readBatch);
 		getKmers(ss, kmerBatch, readBatch.size());
-		Distribute_Sequence(const_cast<char*>(readBatch.data()), kmerBatch.size(), bundle);
+		Distribute_Sequence(const_cast<char*>(kmerBatch.data()), kmerBatch.size(), bundle);
 	}
 	return true;
 }
