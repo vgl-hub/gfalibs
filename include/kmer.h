@@ -456,7 +456,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer() {
 			hashMutexCondition.wait(lck, [this,sorted,hThreads] {
 				
 				if (!buffersQueue.size() && lastBuffer < mapCount) {
-					uint8_t idx = sorted[lastBuffer++];
+					uint8_t idx = lastBuffer++;
 					loadBuffer(idx);
 					tmpMaps32[idx].resize(hThreads);
 					
