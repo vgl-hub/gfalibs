@@ -124,7 +124,6 @@ protected: // they are protected, so that they can be further specialized by inh
 	uint8_t sLen; // smer length
 	uint32_t k; // kmer length
 	uint64_t tot = 0, totUnique = 0, totDistinct = 0; // summary statistics
-	std::atomic<bool> readingDone{false};
 	std::string DBextension;
 	
 	const static uint16_t mapCount = 128; // number of maps to store the kmers, the longer the kmers, the higher number of maps to increase efficiency
@@ -179,8 +178,7 @@ protected: // they are protected, so that they can be further specialized by inh
 	std::array<uint64_t,mapCount> mapSizeCounts{};
 	
 	std::mutex readMtx, hashMtx, summaryMtx;
-	std::condition_variable readMutexCondition, processBufferMutexCondition, hashMutexCondition, summaryMutexCondition;
-	uint16_t buffersDone = 0;
+	std::condition_variable processBufferMutexCondition, hashMutexCondition, summaryMutexCondition;
 	
 	int bufferFiles[mapCount];
 	SeqBuf seqBuf[mapCount];
@@ -406,8 +404,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<st
 			std::lock_guard<std::mutex> lck(readMtx);
 			if (!*stream) {
 				End_Distribution(bundle);
-				++buffersDone;
-				readMutexCondition.notify_one();
 				return true;
 			}
 			readFastqStream(stream, readBatch);
@@ -422,15 +418,6 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<st
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
 	if (userInput.kmerDB.size() == 0) {
-		readingDone = true;
-		processBufferMutexCondition.notify_all();
-		{
-			std::unique_lock<std::mutex> lck(readMtx);
-			readMutexCondition.wait(lck, [&] {
-				status();
-				return buffersDone == threadPool.totalThreads();
-			});
-		}
 		lg.verbose("Converting buffers to maps");
 		static_cast<DERIVED*>(this)->buffersToMaps();
 	}
@@ -469,7 +456,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer() {
 			hashMutexCondition.wait(lck, [this,sorted,hThreads] {
 				
 				if (!buffersQueue.size() && lastBuffer < mapCount) {
-					uint8_t idx = lastBuffer++;
+					uint8_t idx = sorted[lastBuffer++];
 					loadBuffer(idx);
 					tmpMaps32[idx].resize(hThreads);
 					
