@@ -410,7 +410,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<st
 		}
 		std::stringstream ss(readBatch);
 		getKmers(ss, kmerBatch, readBatch.size());
-		Distribute_Sequence(const_cast<char*>(readBatch.data()), readBatch.size(), bundle);
+		Distribute_Sequence(const_cast<char*>(readBatch.data()), kmerBatch.size(), bundle);
 	}
 	return true;
 }
@@ -456,7 +456,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer() {
 			hashMutexCondition.wait(lck, [this,sorted,hThreads] {
 				
 				if (!buffersQueue.size() && lastBuffer < mapCount) {
-					uint8_t idx = lastBuffer++;
+					uint8_t idx = sorted[lastBuffer++];
 					loadBuffer(idx);
 					tmpMaps32[idx].resize(hThreads);
 					
