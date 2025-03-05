@@ -173,8 +173,6 @@ protected: // they are protected, so that they can be further specialized by inh
 	
 	std::chrono::high_resolution_clock::time_point past;
 	std::string* readBatches;
-	bool readData = false;
-	uint32_t readDataThreads = 0;
 	
 	uint8_t toDelete = 0, deleted = 0;
 	std::array<int16_t,mapCount> mapDoneCounts{};
@@ -234,7 +232,7 @@ public:
 	
 	void initHashing();
 	
-	bool hashBuffer(uint16_t thisThread);
+	bool hashBuffer();
 	
 	bool consolidateTmpMaps();
 	
@@ -264,7 +262,9 @@ public:
 	
 	inline std::string reverseHash(uint64_t hash);
 	
-	bool generateBuffers(uint16_t t);
+	void readFastqStream(std::shared_ptr<std::istream> input, std::string &buffer);
+	
+	bool generateBuffers(std::shared_ptr<std::istream> stream);
 	
 	void getData(std::string *readBatches, std::string &readBatch, uint16_t t);
 	
@@ -324,33 +324,30 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
 	
 	Init_Genes_Package(k, sLen);
 	
-	std::vector<std::function<bool()>> jobs;
-	for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
-		jobs.push_back([this, t] { return static_cast<DERIVED*>(this)->generateBuffers(t); });
-	
-	threadPool.queueJobs(jobs);
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::traverseInReads(std::string* readBatches) { // specialized for string objects
-	
-	while(freeMemory) {status();}
-	{
-		std::lock_guard<std::mutex> lck(readMtx);
-		this->readBatches = readBatches;
-		readData = true;
+	if (userInput.inFiles.size() > 0) {
+		
+		lg.verbose("Loading input sequences");
+		unsigned int numFiles = userInput.inFiles.size();
+		
+		for (unsigned int i = 0; i < numFiles; ++i) { // for each input read file
+			
+			//stream objects
+			StreamObj streamObj;
+			std::shared_ptr<std::istream> stream = streamObj.openStream(userInput, 'r', i);
+			
+			std::vector<std::function<bool()>> jobs;
+			for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
+				jobs.push_back([this, stream] { return static_cast<DERIVED*>(this)->generateBuffers(stream); });
+			
+			threadPool.queueJobs(jobs);
+			jobWait(threadPool);
+		}
+		lg.verbose("Reads loaded.");
+		finalize();
+	}else{
+		fprintf(stderr, "Reads not provided. Exiting.\n");
+		exit(EXIT_FAILURE);
 	}
-	processBufferMutexCondition.notify_all();
-	{
-		std::unique_lock<std::mutex> lck(readMtx);
-		readMutexCondition.wait(lck, [this] {
-			return (readDataThreads == threadPool.totalThreads());
-		});
-		readData = false;
-		readDataThreads = 0;
-	}
-	processBufferMutexCondition.notify_all();
-	return true;
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
@@ -358,68 +355,65 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memor
 	status();
 }
 
+#define INITIAL_READ_SIZE 1048576  // 1MB
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::findNextSequence(const std::string *readBatches, const uint64_t quota, const uint16_t t) {
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::readFastqStream(std::shared_ptr<std::istream> input, std::string &buffer) {
 
-	if (t == 0)
-		return 0;
+	// Read the first 1MB
+	buffer.resize(INITIAL_READ_SIZE);
+	input->read(&buffer[0], INITIAL_READ_SIZE);
+	std::streamsize bytesRead = input->gcount();
+	buffer.resize(bytesRead);  // Resize to actual bytes read
+	std::string line;
+
+	while (true) {
 	
-	uint32_t end = std::min((uint64_t)readBatches->size(), quota*(t+1));
-	
-	for (uint64_t i = quota*t; i < end; ++i) {
-		if (readBatches->at(i) == 'N')
-			return i+1;
+		std::streampos pos = input->tellg();
+		std::getline(*input, line);
+		if (!*input)
+			break;
+		
+		// Check if the new line starts a FASTQ record (valid header)
+		if (!line.empty() && line[0] == '@') { // it could be a new fastq record
+		
+			int c = input->peek();  // peek character
+			
+			if (c == '@') { // this was indeed the end of a quality line
+				buffer.insert(buffer.end(), line.begin(), line.end());
+				buffer.push_back('\n');
+			}else{ // put the line back in the buffer
+				input->seekg(pos);
+			}
+			break;  // Stop reading at the start of the next record
+		}
+		buffer.insert(buffer.end(), line.begin(), line.end());
+		buffer.push_back('\n');
 	}
-	fprintf(stderr, "Missing terminal 'N'. Terminating.\n");
-	exit(EXIT_FAILURE);
 }
 
+#define BUFFER_RESERVE_SIZE 2097152 // 2MB preallocation for efficiency
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::getData(std::string *readBatches, std::string &readBatch, uint16_t t) {
-	
-	uint64_t quota = readBatches->size() / threadPool.totalThreads();
-	uint64_t start = findNextSequence(readBatches, quota, t), end = findNextSequence(readBatches, quota, t+1)-1;
-	{
-		std::unique_lock<std::mutex> lck(readMtx);
-		//std::cout<<+t<<" "<<start<<" "<<+(end-start+1)<<std::endl;
-	}
-	readBatch = readBatches->substr(start, end-start+1);
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(uint16_t t) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<std::istream> stream) {
 	//   Log threadLog;
-	std::string readBatch;
+	
+	std::string readBatch, kmerBatch;
+	readBatch.reserve(BUFFER_RESERVE_SIZE); // Preallocate memory for efficiency
 	Distribution_Bundle* bundle = Begin_Distribution(bufferFiles);
 	
 	while (true) {
 			
 		{
-			std::unique_lock<std::mutex> lck(readMtx);
-			if (!readData && readingDone) {
+			std::lock_guard<std::mutex> lck(readMtx);
+			if (!*stream) {
 				End_Distribution(bundle);
 				++buffersDone;
 				readMutexCondition.notify_one();
 				return true;
 			}
-			processBufferMutexCondition.wait(lck, [this] {
-				return (readData || readingDone);
-			});
+			readFastqStream(stream, readBatch);
 		}
-		if (!readData)
-			continue;
-		getData(readBatches, readBatch, t);
-		{
-			std::lock_guard<std::mutex> lck(readMtx);
-			++readDataThreads;
-		}
-		readMutexCondition.notify_one();
-		{
-			std::unique_lock<std::mutex> lck(readMtx);
-			processBufferMutexCondition.wait(lck, [this] {
-				return (!readDataThreads);
-			});
-		}
+		std::stringstream ss(readBatch);
+		getKmers(ss, kmerBatch, readBatch.size());
 		Distribute_Sequence(const_cast<char*>(readBatch.data()), readBatch.size(), bundle);
 	}
 	return true;
@@ -447,7 +441,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 	
 	std::vector<std::function<bool()>> jobs;
 	for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
-		jobs.push_back([this, t] { return static_cast<DERIVED*>(this)->hashBuffer(t); });
+		jobs.push_back([this] { return static_cast<DERIVED*>(this)->hashBuffer(); });
 	threadPool.queueJobs(jobs);
 	
 	for (uint8_t t = 0; t < userInput.writeThreads; ++t)
@@ -455,7 +449,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer(uint16_t t) {
+bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer() {
 	
 	int count;
 	const int hThreads = userInput.hashThreads;
