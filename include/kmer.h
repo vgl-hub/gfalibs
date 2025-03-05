@@ -91,18 +91,10 @@ struct KeyEqualTo {
 		
 		Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getOffset());
 		Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getOffset());
-		int w = 0;
-		int x = 62;
-		for (uint32_t i = 0; i < k; ++i) {
 
-			if (((kmer1[w]>>x)&0x3llu) != ((kmer2[w]>>x)&0x3llu))
+		for (uint32_t c = 1; c < (k+31)/32; ++c) {
+			if (kmer1[c] != kmer2[c])
 				return false;
-
-			if (x == 0) {
-				++w;
-				x = 64;
-			}
-			x -= 2;
 		}
 		return true;
 	}
