@@ -888,9 +888,9 @@ int Get_Canonical_Kmer(uint64 *super, int dir, uint64 hash, uint64 *finger, uint
 	}
   ptr += 1;
 
-  i = 0;
+  i = 2;
   if (dir == 0)
-	{ for (i = 0; i < KWords; i++)
+	{ for (; i < KWords; i++)
 		{ n = get_norm64(rem,ptr++);
 		  c = get_comp64(cem,ctr--);
 		  if (c < n)
@@ -923,12 +923,12 @@ int Get_Canonical_Kmer(uint64 *super, int dir, uint64 hash, uint64 *finger, uint
   if (dir < 0)
 	{ for ( ; i < KWords; i++)
 		*super++ = get_comp64(cem,ctr--);
-	  *super = get_comp64(cem,ctr) & KMask;
+	  *super = (get_comp64(cem,ctr) & KMask);
 	  return (-1);
 	}
 
   for ( ; i < KWords; i++)
 	*super++ = get_norm64(rem,ptr++);
-  *super = get_norm64(rem,ptr) & KMask;
+  *super = (get_norm64(rem,ptr) & KMask);
   return (1);
 }
