@@ -14,12 +14,15 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if defined(__linux__) || defined(__APPLE__)
 #include <sys/uio.h>
+#include <sys/resource.h>
+#endif
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>
 #include <pthread.h>
-#include <sys/resource.h>
+
 
 #include "MinScan.h"
 
