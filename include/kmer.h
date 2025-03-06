@@ -2,6 +2,7 @@
 #define KMER_H
 
 #include <random>
+#include <cmath>
 #include "parallel-hashmap/phmap.h"
 #include "parallel-hashmap/phmap_dump.h"
 
@@ -971,8 +972,11 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::DBstats() {
 	std::cout<<"DB Summary statistics:\n"
 			 <<"Total kmers: "<<tot<<"\n"
 			 <<"Unique kmers: "<<totUnique<<"\n"
-			 <<"Distinct kmers: "<<totDistinct<<"\n"
-			 <<"Missing kmers: "<<missing<<"\n";
+			 <<"Distinct kmers: "<<totDistinct<<"\n";
+	if (k<=32)
+		std::cout<<"Missing kmers: "<<missing<<"\n";
+	else
+		std::cout<<"Possible kmers: "<<"10E+"<<k*std::log10(4.0)<<"\n";
 	
 }
 
