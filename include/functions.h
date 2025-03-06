@@ -134,7 +134,6 @@ static inline std::istream& getline(std::istream& is, std::string& str) {
     
     while (true)
     {
-
         i = is.rdbuf()->sbumpc();
         if (i == EOF) {
             err |= std::ios_base::eofbit;

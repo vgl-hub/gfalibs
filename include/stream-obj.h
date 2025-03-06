@@ -20,6 +20,7 @@ class membuf : public std::streambuf {
     std::mutex semMtx;
     std::condition_variable semaphore;
     std::thread *decompressor;
+	std::streampos pos;
     
 public:
     
@@ -27,9 +28,32 @@ public:
     
     void wait();
     
-    int uflow();
+    int uflow() override;
     
     bool decompressBuf();
+	
+	std::streampos seekoff(std::streamoff off, std::ios_base::seekdir dir, std::ios_base::openmode) override {
+		auto pos = gptr();
+		if (dir == std::ios_base::cur)
+			pos += off;
+		else if (dir == std::ios_base::end)
+			pos = egptr() + off;
+		else if (dir == std::ios_base::beg)
+			pos = eback() + off;
+
+		//check bunds
+		if (pos < eback())
+			return std::streambuf::pos_type(-1);
+		else if (pos > egptr())
+			return std::streambuf::pos_type(-1);
+
+		setg(eback(), pos, egptr());
+		return gptr() - eback();
+	}
+
+	std::streampos seekpos(std::streampos sp, std::ios_base::openmode which) override {
+		return seekoff(std::streamoff(sp), std::ios_base::beg, which);
+	}
     
 };
 

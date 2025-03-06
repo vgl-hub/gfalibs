@@ -54,18 +54,13 @@ int membuf::uflow() {
         }
     }
     semaphore.notify_one();
-
-    if (sgetc() == EOF) {
-        if (decompressor != NULL && decompressor->joinable()) {
-            decompressor->join();
-            delete decompressor;
-            decompressor = NULL;
-        }
-        return EOF;
-    }
-    gbump(1);
-    return gptr()[-1];
-    
+	
+	if (this->gptr() < this->egptr()) {
+		typename std::char_traits<char>::int_type ch = std::char_traits<char>::to_int_type(*this->gptr()); // Read the character
+		this->gbump(1); // Move the read pointer forward
+		return ch;
+	}
+	return this->underflow() == std::char_traits<char>::eof() ? std::char_traits<char>::eof() : this->uflow();
 }
 
 bool membuf::decompressBuf() {

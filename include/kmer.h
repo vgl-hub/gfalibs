@@ -356,12 +356,12 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::readFastqStream(std::shared_ptr<st
 	std::streamsize bytesRead = input->gcount();
 	buffer.resize(bytesRead);  // Resize to actual bytes read
 	std::string line;
-
+	
 	while (true) {
 	
 		std::streampos pos = input->tellg();
 		std::getline(*input, line);
-		if (!*input)
+		if (input->eof())
 			break;
 		
 		// Check if the new line starts a FASTQ record (valid header)
@@ -395,7 +395,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<st
 			
 		{
 			std::lock_guard<std::mutex> lck(readMtx);
-			if (!*stream) {
+			if (stream->eof()) {
 				End_Distribution(bundle);
 				return true;
 			}
@@ -976,7 +976,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::DBstats() {
 	if (k<=32)
 		std::cout<<"Missing kmers: "<<missing<<"\n";
 	else
-		std::cout<<"Possible kmers: "<<"10E+"<<k*std::log10(4.0)<<"\n";
+		std::cout<<"Possible kmers: "<<"10E+"<<k*std::log10(4.0)<<"\n"; // b*log(a) = log(a*b), log10(x) = y, 10^y = x
 	
 }
 
