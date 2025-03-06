@@ -27,7 +27,7 @@ private:
     std::vector<bool> threadStates;
     std::queue<JobWrapper<T>> jobs;
     std::mutex queueMutex;
-    std::condition_variable mutexCondition;
+    std::condition_variable workersMtxCondition, masterMtxCondition;
     bool done = false;
     uint32_t uid = 1;
     std::chrono::high_resolution_clock::time_point past;
@@ -48,7 +48,9 @@ public:
     short unsigned int totalThreads();
     void execJob();
     void status();
-    std::condition_variable& getMutexCondition();
+	std::mutex& getMutex();
+    std::condition_variable& getWorkersMtxCondition();
+	std::condition_variable& getMasterMtxCondition();
     void notify_all();
     
 };
@@ -68,41 +70,33 @@ void ThreadPool<T>::threadLoop(int threadN) {
 #endif
             threadStates[threadN] = true;
             
-            mutexCondition.wait(lock, [this] {
+			workersMtxCondition.wait(lock, [this] {
                 return !jobs.empty() || done;
             });
-            if (done) {
+			masterMtxCondition.notify_one();
+            if (done)
                 return;
-            }
-            
         }
-        
         while (true) {
-            
-            {
-                
-                std::lock_guard<std::mutex> lock(queueMutex);
-                
-                queueJids[jid] = false; // set the job as executed
-                
-                if (jobs.empty()) // return to wait if no more jobs available
-                    break;
-                
+			{
+				std::lock_guard<std::mutex> lock(queueMutex);
+				queueJids[jid] = false; // set the job as executed
+				if (jobs.empty()) { // return to wait if no more jobs available
+					masterMtxCondition.notify_one();
+					break;
+				}
                 threadStates[threadN] = false; // thread unavailable
-                
                 JobWrapper<T> jobWrapper = jobs.front(); // get the job
                 job = jobWrapper.job;
                 jid = jobWrapper.jid;
                 jobs.pop();
-                
             }
             job(); // execute the job
 #ifdef DEBUG
             std::cout<<"Thread "<<std::to_string(threadN)<<" done (thread state: "<<threadStates[threadN]<<")"<<std::endl;
 #endif
-            
+			masterMtxCondition.notify_one();
         }
-
     }
 }
 
@@ -136,7 +130,7 @@ uint32_t ThreadPool<T>::queueJob(const T& job) {
         jobs.push(jobWrapper);
         queueJids[jid] = true;
     }
-    mutexCondition.notify_one();
+	workersMtxCondition.notify_one();
     
     return jid;
 }
@@ -159,7 +153,7 @@ std::vector<uint32_t> ThreadPool<T>::queueJobs(const std::vector<T> &newJobs) {
             
         }
     }
-    mutexCondition.notify_all();
+	workersMtxCondition.notify_all();
     
     return jids;
 }
@@ -168,7 +162,7 @@ template<class T>
 bool ThreadPool<T>::empty() {
     
     if (!jobs.empty())
-        mutexCondition.notify_all();
+        workersMtxCondition.notify_all();
     
     return jobs.empty();
     
@@ -212,7 +206,7 @@ void ThreadPool<T>::join() {
         std::lock_guard<std::mutex> lock(queueMutex);
         done = true;
     }
-    mutexCondition.notify_all();
+    workersMtxCondition.notify_all();
     for(std::thread& activeThread : threads) {
         activeThread.join();
     }
@@ -261,13 +255,23 @@ void ThreadPool<T>::status() {
 }
 
 template<class T>
-std::condition_variable& ThreadPool<T>::getMutexCondition() {
-    return mutexCondition;
+std::mutex& ThreadPool<T>::getMutex() {
+	return queueMutex;
+}
+
+template<class T>
+std::condition_variable& ThreadPool<T>::getWorkersMtxCondition() {
+    return workersMtxCondition;
+}
+
+template<class T>
+std::condition_variable& ThreadPool<T>::getMasterMtxCondition() {
+	return masterMtxCondition;
 }
 
 template<class T>
 void ThreadPool<T>::notify_all() {
-    mutexCondition.notify_all();
+    workersMtxCondition.notify_all();
 }
 
 inline void flushLogs() {
@@ -280,7 +284,7 @@ inline void flushLogs() {
 }
 
 template<class T>
-void jobWait(ThreadPool<T>& threadPool, bool master = false) {
+void jobWait(ThreadPool<T>& threadPool) {
     
     uint32_t jobNumber = threadPool.queueSize();
     
@@ -290,24 +294,25 @@ void jobWait(ThreadPool<T>& threadPool, bool master = false) {
             flushLogs();
             jobNumber = threadPool.queueSize();
         }
-
         threadPool.status();
         
-        if (threadPool.empty() && threadPool.jobsDone()) {
-            flushLogs();
-            lg.verbose("\n", true);
-            break;
-        }
-        
-        if (master)
-            threadPool.execJob(); // have the master thread contribute
-        
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+		if (!threadPool.empty() || !threadPool.jobsDone()) {
+			std::mutex &queueMutex = threadPool.getMutex();
+			std::condition_variable& masterMtxCondition = threadPool.getMasterMtxCondition();
+			std::unique_lock<std::mutex> lock(queueMutex);
+			masterMtxCondition.wait(lock, [&threadPool] {
+				return !threadPool.queueSize();
+			});
+		}else if (threadPool.empty() && threadPool.jobsDone()) {
+			flushLogs();
+			lg.verbose("\n", true);
+			break;
+		}
     }
 }
 
 template<class T>
-void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, bool master = false) {
+void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies) {
     
     bool end = false;
     phmap::flat_hash_map<uint32_t, bool>::const_iterator got;
@@ -321,13 +326,6 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, boo
             flushLogs();
             jobNumber = threadPool.queueSize();
         }
-
-        if (threadPool.empty() && threadPool.jobsDone()) {
-            flushLogs();
-            lg.verbose("\n", true);
-            break;
-        }
-        
         for (uint32_t dependency : dependencies) {
             
             got = threadPool.queueJids.find(dependency);
@@ -352,14 +350,19 @@ void jobWait(ThreadPool<T>& threadPool, std::vector<uint32_t>& dependencies, boo
             break;
         }
         
-        if (master)
-            threadPool.execJob(); // have the master thread contribute
-        
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-        
-        threadPool.notify_all();
+		if (!threadPool.empty() || !threadPool.jobsDone()) {
+			std::mutex &queueMutex = threadPool.getMutex();
+			std::condition_variable& masterMtxCondition = threadPool.getMasterMtxCondition();
+			std::unique_lock<std::mutex> lock(queueMutex);
+			masterMtxCondition.wait(lock, [&threadPool] {
+				return !threadPool.queueSize();
+			});
+		}else if (threadPool.empty() && threadPool.jobsDone()) {
+			flushLogs();
+			lg.verbose("\n", true);
+			break;
+		}
     }
-    
 }
 
 #endif //THREADPOOL
