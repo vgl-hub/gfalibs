@@ -360,7 +360,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::readFastqStream(std::shared_ptr<st
 	while (true) {
 	
 		std::streampos pos = input->tellg();
-		std::getline(*input, line);
+		getline(*input, line);
 		if (input->eof())
 			break;
 		
