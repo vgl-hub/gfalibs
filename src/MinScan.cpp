@@ -14,7 +14,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if defined(__linux__) || defined(__APPLE__)
 #include <sys/uio.h>
+#endif
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>
