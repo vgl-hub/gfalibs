@@ -60,7 +60,19 @@ int membuf::uflow() {
 		this->gbump(1); // Move the read pointer forward
 		return ch;
 	}
-	return this->underflow() == std::char_traits<char>::eof() ? std::char_traits<char>::eof() : this->uflow();
+	
+	typename std::char_traits<char>::int_type ch = this->underflow();
+	
+	if (ch == std::char_traits<char>::eof()) {
+		if (decompressor != NULL && decompressor->joinable()) {
+			decompressor->join();
+			delete decompressor;
+			decompressor = NULL;
+		}
+		return ch;
+	}else{
+		return this->uflow();
+	}
 }
 
 bool membuf::decompressBuf() {
