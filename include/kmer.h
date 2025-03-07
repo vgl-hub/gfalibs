@@ -357,12 +357,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::readFastqStream(std::shared_ptr<st
 	buffer.resize(bytesRead);  // Resize to actual bytes read
 	std::string line;
 	
-	while (true) {
-	
-		std::streampos pos = input->tellg();
+	while (!input->eof()) {
 		getline(*input, line);
-		if (input->eof())
-			break;
 		
 		// Check if the new line starts a FASTQ record (valid header)
 		if (!line.empty() && line[0] == '@') { // it could be a new fastq record
@@ -372,13 +368,16 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::readFastqStream(std::shared_ptr<st
 			if (c == '@') { // this was indeed the end of a quality line
 				buffer.insert(buffer.end(), line.begin(), line.end());
 				buffer.push_back('\n');
-			}else{ // put the line back in the buffer
-				input->seekg(pos);
+			}else{ // add the extra record
+				buffer.append(line).push_back('\n');
+				for (int i = 0; i < 3; ++i) {  // Read the next 3 lines in one go
+					if (!getline(*input, line)) break;
+					buffer.append(line).push_back('\n');
+				}
 			}
 			break;  // Stop reading at the start of the next record
 		}
-		buffer.insert(buffer.end(), line.begin(), line.end());
-		buffer.push_back('\n');
+		buffer.append(line).push_back('\n');
 	}
 }
 

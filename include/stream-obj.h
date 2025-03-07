@@ -9,7 +9,7 @@ class membuf : public std::streambuf {
 #ifdef _WIN32
     static const unsigned int bufSize = 500000;
 #else
-    static const unsigned int bufSize = 1000000;
+    static const unsigned int bufSize = 1048576;
 #endif
     unsigned int size1 = bufSize, size2 = 0;
     unsigned int* size = &size1;
@@ -41,7 +41,7 @@ public:
 		else if (dir == std::ios_base::beg)
 			pos = eback() + off;
 
-		//check bunds
+		//check bounds
 		if (pos < eback())
 			return std::streambuf::pos_type(-1);
 		else if (pos > egptr())
