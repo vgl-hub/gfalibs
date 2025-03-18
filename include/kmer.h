@@ -60,6 +60,46 @@ struct KeyHasher {
 	}
 };
 
+struct KeyComparator {
+	
+	uint32_t k;
+	uint64 *data = nullptr;
+	uint64 *kmer1 = nullptr, *kmer2 = nullptr;
+	
+	KeyComparator() {}
+	
+	KeyComparator(uint64 *data, uint32_t k) : k(k), data(data) {
+		kmer1 = New_Supermer_Buffer();
+		kmer2 = New_Supermer_Buffer();
+	}
+	
+	~KeyComparator(){ // need to follow rule of three
+//		if (kmer1 != nullptr)
+//			free(kmer1);
+//		if (kmer2 != nullptr)
+//			free(kmer2);
+	}
+	
+	bool operator()(const std::pair<Key,uint8_t> &pair1, const std::pair<Key,uint8_t> &pair2) const {
+		
+		uint64 hash1, hash2;
+		Key key1 = pair1.first, key2 = pair2.first;
+		int dir1 = Get_Hash(&hash1, data, key1.getOffset());
+		int dir2 = Get_Hash(&hash2, data, key2.getOffset());
+		if (k <= 32)
+			return hash1 < hash2;
+		
+		Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getOffset());
+		Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getOffset());
+
+		for (uint32_t c = 1; c < (k+31)/32; ++c) {
+			if (kmer1[c] != kmer2[c])
+				return kmer1[c] < kmer2[c];
+		}
+		return true;
+	}
+};
+
 struct KeyEqualTo {
 	
 	uint32_t k;
@@ -134,6 +174,7 @@ protected: // they are protected, so that they can be further specialized by inh
 											  std::allocator<std::pair<const KEY, TYPE2>>>;
 	
 	std::vector<ParallelMap*> maps; // all hash maps where TYPE1 are stored
+	std::vector<std::vector<std::pair<KEY,TYPE1>>> vecs; // all sorted vecs where TYPE1 are stored
 	std::vector<ParallelMap32*> maps32; // all hash maps where TYPE2 are stored
 	
 	std::vector<ParallelMap32*> tmpMaps32[mapCount];
@@ -188,6 +229,7 @@ public:
 		DBextension = "kc";
 		
 		maps.resize(mapCount);
+		vecs.resize(mapCount);
 		maps32.resize(mapCount);
 		
 		if (userInput.kmerDB.size() == 0) { // if we are not reading an existing db
@@ -233,17 +275,11 @@ public:
 	
 	void dumpHighCopyKmers();
 	
-	bool mergeTmpMaps(uint16_t m);
-	
 	void status();
 	
 	void status2(uint8_t buffers);
 	
 	void kunion();
-	
-	bool mergeSubMaps(ParallelMap* map1, ParallelMap* map2, uint8_t subMapIndex, uint16_t m);
-	
-	bool unionSum(ParallelMap* map1, ParallelMap* map2, uint16_t m);
 	
 	bool traverseInReads(std::string* readBatches);
 	
@@ -548,29 +584,36 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidateTmpMaps(){ // concurren
 		}
 		loadBuffer(m);
 		std::string prefix = userInput.prefix; // loads the first map
-		std::string firstFile = prefix + "/.map." + std::to_string(m) + ".0.tmp.bin";
-		maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data, k), KeyEqualTo(seqBuf[m].data, k));
-		maps[m]->reserve((uint64_t)(mapSizeCounts[m]*2.5));
-		//std::cout<<maps[m]->bucket_count()<<std::endl;
 		maps32[m] = new ParallelMap32(0, KeyHasher(seqBuf[m].data, k), KeyEqualTo(seqBuf[m].data, k));
 		
 		uint8_t fileNum = 0;
-		while (fileExists(prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin")) { // for additional map loads the map and merges it
-			std::string nextFile = prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin"; // loads the next map
-			ParallelMap *nextMap = new ParallelMap(0, KeyHasher(seqBuf[m].data, k), KeyEqualTo(seqBuf[m].data, k));
-			phmap::BinaryInputArchive ar_in(nextFile.c_str());
-			nextMap->phmap_load(ar_in);
+		while (fileExists(prefix + "/.vec." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin")) { // for additional map loads the map and merges it
+			std::string nextFile = prefix + "/.vec." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin"; // loads the next map
+			
+			std::ifstream in(nextFile, std::ios::binary);
+			in.seekg(0, std::ios::end);
+			std::streamsize file_size = in.tellg();
+			in.seekg(0, std::ios::beg);
+
+			size_t num_elements = file_size / sizeof(std::pair<KEY, TYPE1>);
+			std::vector<std::pair<KEY, TYPE1>> vec(num_elements);
+			in.read(reinterpret_cast<char*>(vec.data()), file_size);
 			if (!userInput.keepTmp)
 				remove(nextFile.c_str());
-			maps[m]->insert(nextMap->begin(), nextMap->end());
-			delete nextMap;
+
+			std::vector<std::pair<KEY, TYPE1>> dst(vec.size() + vecs[m].size());
+			std::merge(vec.begin(), vec.end(), vecs[m].begin(), vecs[m].end(), dst.begin(), KeyComparator(seqBuf[m].data, k));
+			std::swap(vecs[m],dst);
+
 			maps32[m]->insert(tmpMaps32[m][fileNum]->begin(), tmpMaps32[m][fileNum]->end());
 			delete tmpMaps32[m][fileNum];
 			++fileNum;
 		}
 		summary(m);
 		delete seqBuf[m].data;
-		dumpMap(userInput.prefix, m);
+		std::ofstream out(prefix + "/.vec." + std::to_string(m) + ".bin", std::ios::binary);
+		out.write(reinterpret_cast<char*>(vecs[m].data()), vecs[m].size() * sizeof(std::pair<KEY, TYPE1>));
+		out.close();
 	}
 	return true;
 }
@@ -611,45 +654,15 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 }
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeTmpMaps(uint16_t m) { // a single job merging maps with the same hashes
-	
-	std::string prefix = userInput.prefix; // loads the first map
-	std::string firstFile = prefix + "/.map." + std::to_string(m) + ".0.tmp.bin";
-	
-	if (!fileExists(prefix + "/.map." + std::to_string(m) + ".1.tmp.bin")) {
-		std::rename(firstFile.c_str(), (prefix + "/.map." + std::to_string(m) + ".bin").c_str());
-		return true;
-	}
-	
-	uint8_t fileNum = 0;
-	
-	while (fileExists(prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin")) { // for additional map loads the map and merges it
-		std::string nextFile = prefix + "/.map." + std::to_string(m) + "." + std::to_string(fileNum++) + ".tmp.bin"; // loads the next map
-		ParallelMap* nextMap = new ParallelMap;
-		phmap::BinaryInputArchive ar_in(nextFile.c_str());
-		nextMap->phmap_load(ar_in);
-		uint64_t map_size1 = mapSize(*nextMap);
-		alloc += map_size1;
-		
-		uint64_t map_size2 = mapSize(*maps[m]);
-		unionSum(nextMap, maps[m], m); // unionSum operation between the existing map and the next map
-		
-		alloc += mapSize(*maps[m]) - map_size2;
-		remove(nextFile.c_str());
-		delete nextMap;
-		freed += map_size1;
-		
-	}
-	dumpMap(userInput.prefix, m);
-	return true;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpTmpMap(std::string prefix, uint8_t m, ParallelMap *map, uint8_t fileNum) {
+
+	std::vector<std::pair<Key, uint8_t>> vec(map->begin(), map->end());
+	std::sort(vec.begin(), vec.end(), KeyComparator(seqBuf[m].data, k));
+
+	std::ofstream out(prefix + "/.vec." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin", std::ios::binary);
+	out.write(reinterpret_cast<char*>(vec.data()), vec.size() * sizeof(std::pair<KEY, TYPE1>));
+	out.close();
 	
-	prefix.append("/.map." + std::to_string(m) + "." + std::to_string(fileNum) +  ".tmp.bin");
-	phmap::BinaryOutputArchive ar_out(prefix.c_str());
-	map->phmap_dump(ar_out);
 	delete map;
 	return true;
 }
@@ -720,11 +733,15 @@ template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::loadMap(std::string prefix, uint16_t m) { // loads a specific map
 	
 	loadBuffer(m);
-	prefix.append("/.map." + std::to_string(m) + ".bin");
-	phmap::BinaryInputArchive ar_in(prefix.c_str());
-	maps[m] = new ParallelMap(0, KeyHasher(seqBuf[m].data, k), KeyEqualTo(seqBuf[m].data, k));
-	maps[m]->phmap_load(ar_in);
-	alloc += mapSize(*maps[m]);
+	prefix.append("/.vec." + std::to_string(m) + ".bin");
+	std::ifstream in(prefix, std::ios::binary);
+	in.seekg(0, std::ios::end);
+	std::streamsize file_size = in.tellg();
+	in.seekg(0, std::ios::beg);
+
+	size_t num_elements = file_size / sizeof(std::pair<KEY, TYPE1>);
+	vecs[m].resize(num_elements);
+	in.read(reinterpret_cast<char*>(vecs[m].data()), file_size);
 	
 	std::ifstream bufFile = std::ifstream(userInput.prefix + "/.hc.bin", std::ios::in | std::ios::binary);
 	
@@ -943,7 +960,7 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeStats() {
 	
 	lg.verbose("Computing summary statistics");
 	
-	Init_Genes_Package(k, sLen);
+	Init_Genes_Package(k, sLen); //??
 	
 	std::vector<std::function<bool()>> jobs;
 	std::array<uint16_t, 2> mapRange = {0,0};
@@ -959,7 +976,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeStats() {
 		threadPool.queueJobs(jobs);
 		jobWait(threadPool);
 		jobs.clear();
-		deleteMapRange(mapRange);
 	}
 }
 
@@ -985,7 +1001,7 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::summary(uint16_t m) {
 	uint64_t unique = 0, distinct = 0;
 	phmap::parallel_flat_hash_map<uint64_t, uint64_t> hist;
 	
-	for (auto pair : *maps[m]) {
+	for (auto pair : vecs[m]) {
 		
 		if (pair.second == 255) // check the large table
 			continue;
@@ -1023,81 +1039,6 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::printHist(std::unique_ptr<std::ost
 
 }
 
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mergeSubMaps(ParallelMap* map1, ParallelMap* map2, uint8_t subMapIndex, uint16_t m) {
-	
-	auto& inner = map1->get_inner(subMapIndex);   // to retrieve the submap at given index
-	auto& submap1 = inner.set_;        // can be a set or a map, depending on the type of map1
-	auto& inner2 = map2->get_inner(subMapIndex);
-	auto& submap2 = inner2.set_;
-	ParallelMap32& map32 = *maps32[m];
-	
-	for (auto pair : submap1) { // for each element in map1, find it in map2 and increase its value
-		
-		bool overflow = false;
-		
-		if (pair.second == 255) // already added to int32 map
-			continue;
-		
-		auto got = map32.find(pair.first); // check if this is already a high-copy kmer
-		if (got != map32.end()) {
-			overflow = true;
-		}else{
-			
-			auto got = submap2.find(pair.first); // insert or find this kmer in the hash table
-			if (got == submap2.end()) {
-				submap2.emplace(pair);
-			}else{
-				
-				TYPE1& count = got->second;
-					
-				if (255 - count <= pair.second)
-					overflow = true;
-				
-				if (!overflow)
-					count += pair.second; // increase kmer coverage
-			}
-		}
-		
-		if (overflow) {
-			
-			TYPE2& count32 = map32[pair.first];
-			
-			if (count32 == 0) { // first time we add the kmer
-				auto got = submap2.find(pair.first);
-				TYPE1& count = got->second;
-				count32 = count;
-				count = 255; // invalidates int8 kmer
-			}
-			
-			if (LARGEST - count32 >= pair.second)
-				count32 += pair.second; // increase kmer coverage
-			else
-				count32 = LARGEST;
-		}
-	}
-	return true;
-}
-
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::unionSum(ParallelMap* map1, ParallelMap* map2, uint16_t m) {
-	
-	std::vector<std::function<bool()>> jobs;
-	
-	if (map1->subcnt() != map2->subcnt()) {
-		fprintf(stderr, "Maps don't have the same numbers of submaps (%zu != %zu). Terminating.\n", map1->subcnt(), map2->subcnt());
-		exit(EXIT_FAILURE);
-	}
-	
-	for(std::size_t subMapIndex = 0; subMapIndex < map1->subcnt(); ++subMapIndex)
-		jobs.push_back([this, map1, map2, subMapIndex, m] { return static_cast<DERIVED*>(this)->mergeSubMaps(map1, map2, subMapIndex, m); });
-	
-	threadPool.queueJobs(jobs);
-	jobWait(threadPool);
-	
-	return true;
-	
-}
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 std::array<uint16_t, 2> Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeMapRange(std::array<uint16_t, 2> mapRange) {
@@ -1108,7 +1049,7 @@ std::array<uint16_t, 2> Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::computeMapRange
 	for (uint16_t m = mapRange[0]; m<mapCount; ++m) {
 		
 		max += fileSize(userInput.prefix + "/.buf." + std::to_string(m) + ".bin");
-		max += fileSize(userInput.prefix + "/.map." + std::to_string(m) + ".bin");
+		max += fileSize(userInput.prefix + "/.vec." + std::to_string(m) + ".bin");
 		if(!memoryOk(max))
 			break;
 		mapRange[1] = m + 1;

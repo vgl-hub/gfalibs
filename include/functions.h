@@ -262,16 +262,11 @@ static inline bool isDash(char * optarg) { // check if user input is dash (subst
 static inline bool ifFileExists(const char * optarg) { // check if file exists
     
     if (!access (optarg, F_OK)) {
-        
         return optarg;
-        
     }else{
-        
         std::cout<<"Error - file does not exist: "<<optarg<<std::endl;
         exit(1);
-        
     }
-    
 }
 
 static inline void textWrap(std::string input, std::ostream& output, uint32_t width) { // generic text wrapper (useful for fasta output)
