@@ -24,6 +24,7 @@
 #include <tuple>
 
 #ifdef EVP
+#include <openssl/opensslv.h>
 #include <openssl/evp.h>
 #endif
 
@@ -729,7 +730,11 @@ static inline bool computeMd5(const std::string file, std::string &md5) {
     EVP_MD_CTX*   context = EVP_MD_CTX_new();
     const EVP_MD* md = EVP_md5();
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_DigestInit_ex2(context, md, NULL);
+#else
+    EVP_DigestInit_ex(context, md, NULL);
+#endif
 
     const int bufSize = 1024;
     char buffer[bufSize];
