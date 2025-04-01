@@ -218,6 +218,7 @@ void Report::writeToStream(InSequences &inSequences, std::string file, UserInput
                 *stream << std::endl;
                 
                 pathComponents = inPath.getComponents();
+				uint64_t ovlLen = 0;
                 
                 for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
                     
@@ -226,25 +227,29 @@ void Report::writeToStream(InSequences &inSequences, std::string file, UserInput
                     if (component->componentType == SEGMENT) {
                         
                         auto sId = find_if(inSegments->begin(), inSegments->end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
-                        if (sId == inSegments->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
+                        if (sId == inSegments->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(1);} // gives us the segment index
                         
-                        if (component->orientation == '+')
-                            inSeq += (*sId)->getInSequence(component->start, component->end);
-                        else
-                            inSeq += revCom((*sId)->getInSequence(component->start, component->end));
+                        if ((*sId)->getInSequencePtr() == NULL) {std::cout<<"Error: Fasta output not possible without segment sequence. Terminating."<<std::endl; exit(0);}
+						else if (component->orientation == '+' && (component->end-component->start >= ovlLen || component->end-component->start == 0))
+							inSeq += (*sId)->getInSequence(component->start, component->end).substr(ovlLen);
+                        else if (component->end-component->start >= ovlLen || component->end-component->start == 0)
+                            inSeq += revCom((*sId)->getInSequence(component->start, component->end)).substr(ovlLen);
+						else {std::cout<<"Error: overlap longer than component. Terminating."<<std::endl; exit(1);}
                         
                     }else if(component->componentType == EDGE){ // this is just a prototype, need to handle cigar
                         
                         auto edge = find_if(inEdges->begin(), inEdges->end(), [uId](InEdge& obj) {return obj.geteUId() == uId;}); // given a node Uid, find it
+                        if (edge == inEdges->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(0);} // gives us the edge index
                         
-                        if (edge == inEdges->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
-                        
-                    }else{
+						ovlLen = parseCigar(edge->getCigar());
+                    }else if(component->componentType == GAP) {
                         
                         auto gap = find_if(inGaps->begin(), inGaps->end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
-                        if (gap == inGaps->end()) {std::cout<<"Error: cannot find path component"<<std::endl; exit(1);} // gives us the segment index
+                        if (gap == inGaps->end()) {std::cout<<"Error: cannot find path component. Terminating."<<std::endl; exit(1);} // gives us the gap index
                         inSeq += std::string(gap->getDist(component->start, component->end), 'N');
-                    }
+					}else{
+						std::cout<<"Error: Unrecognized component type. Terminating."<<std::endl; exit(1);
+					}
                 }
                 if (userInput.splitLength != 0)
                     textWrap(inSeq, *stream, userInput.splitLength); // wrapping text at user-specified line length

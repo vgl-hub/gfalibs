@@ -1,6 +1,8 @@
 #ifndef STRUCT
 #define STRUCT
 
+#include "memory.h"
+
 struct UserInput { // a container for user input
 
     // memory
@@ -29,7 +31,9 @@ struct UserInput { // a container for user input
 
     std::vector<std::string> kmerDB; // a database of kmers (or DBG)
     std::string prefix = ".", outFile = "";
-    uint8_t kmerLen = 21;
+    
+    uint32_t kLen = 21;
+    uint8_t sLen = 8;
     
     uint64_t gSize = 0; // expected genome size, with 0 statistics are not computed
     
@@ -111,6 +115,58 @@ struct DBGpath {
     std::string sequence;
     double score = 0;
     
+};
+
+template<typename TYPE = uint8_t> // this is a generic buffer, TYPE is the type of the elements we wish to store in it. Usually each hashed kmer becomes part of a buffer specified by its hash value
+struct Buf {
+    uint64_t pos = 0, size = 0; // pos keeps track of the position reached filling the buffer, initialized to contain up to size elements
+    TYPE *seq = NULL;
+    
+    Buf() : size(pow(2,8)){
+        alloc += size*sizeof(TYPE);
+        seq = new TYPE[size](); // the actual container, parentheses ensure bits are set to 0
+    }
+    Buf(uint64_t size) : size(size){
+        alloc += size*sizeof(TYPE);
+        seq = new TYPE[size](); // the actual container, parentheses ensure bits are set to 0
+    }
+    Buf(const Buf& buf) {
+        pos = buf.pos;
+        size = buf.size;
+        seq = buf.seq;
+    }
+    Buf(Buf&& buf) {
+        pos = std::move(buf.pos);
+        size = std::move(buf.size);
+        seq = std::move(buf.seq);
+        buf.seq = NULL;
+    }
+    ~Buf(){
+        if (seq != NULL) {
+            delete[] seq;
+            freed += size*sizeof(TYPE);
+        }
+    }
+    
+    uint64_t newPos(uint64_t add) {
+        
+        if (pos + add > size) {
+            
+            uint64_t newSize = (pos + add)*2;
+            
+            alloc += newSize*sizeof(TYPE);
+            TYPE* seqNew = new TYPE[newSize](); // parentheses ensure bits are set to 0
+            
+            memcpy(seqNew, seq, size*sizeof(TYPE));
+            
+            delete[] seq;
+            freed += size*sizeof(TYPE);
+            size = newSize;
+            seq = seqNew;
+            
+        }
+        return pos += add;
+    }
 };
 
 #endif //STRUCT

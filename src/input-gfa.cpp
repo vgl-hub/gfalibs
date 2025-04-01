@@ -660,7 +660,6 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                     inSequences.uId.next();
                     std::vector<char> delimiters {';', ','};
                     components = readDelimitedArr(arguments[2], delimiters, "", true);
-                    
                     for (auto it = std::begin(components); it != std::end(components); ++it) {
                         
                         std::string component;
@@ -677,21 +676,16 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                             }else{
                                 sId1 = got->second;
                             }
-                            
                             std::vector<InGap>* inGaps = inSequences.getInGaps();
                             std::vector<InEdge>* inEdges = inSequences.getEdges();
                             
                             if (edgeType == 'L') {
-                                
                                 auto edge = find_if(inEdges->begin(), inEdges->end(), [sId1,sId2](InEdge& obj) {return (obj.getsId1() == sId1 && obj.getsId2() == sId2) || (obj.getsId1() == sId2 && obj.getsId2() == sId1);}); // given a uId, find it in edges
-                                
                                 if (edge != inEdges->end()) {
                                     path.add(EDGE, edge->geteUId(), '0', start, end);
                                     lg.verbose("Adding edge to path with id:" + std::to_string(edge->geteUId()));
                                 }
-                                
                             }else{
-                                
                                 auto gap = find_if(inGaps->begin(), inGaps->end(), [sId1](InGap& obj) {return obj.getsId1() == sId1 && obj.getsId2() == sId1;}); // given a uId, find it in gaps
                                 if (gap != inGaps->end()) {
                                     path.add(GAP, gap->getuId(), '0', start, end);
@@ -711,19 +705,16 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                             
                             startS = component.substr(component.find("(") + 1, component.find(":") - component.find("(") - 1);
                             endS = component.substr(component.find(":") + 1, component.find(")") - component.find(":") - 1);
-                            
                             start = std::stoi(startS);
                             end = std::stoi(endS);
-
                             component = component.substr(0, component.find("("));
-                            
                         }else{
                             start = 0;
                             end = 0;
                         }
                         if (end != 0)
                             lg.verbose("Adding only coordinates " + std::to_string(start) + ":" + std::to_string(end) + "(" + component + ")");
-                    
+
                         hash = inSequences.getHash1();
                         got = hash->find(component); // get the headers to uIds table (remove sequence orientation in the gap first)
                         
@@ -754,11 +745,9 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                                 
                                 if (got == hash->end()) { // this is the first time we see this segment
                                     fprintf(stderr, "Error: cannot find next component in path (%s). Terminating.\n", component.c_str()); exit(1);
-                                    
                                 }else{
                                     sId2 = got->second;
                                 }
-                                
                                 if (edgeType == 'L') {
                                     
                                     auto edge = find_if(inEdges->begin(), inEdges->end(), [sId1,sId2](InEdge& obj) {return (obj.getsId1() == sId1 && obj.getsId2() == sId2) || (obj.getsId1() == sId2 && obj.getsId2() == sId1);}); // given a uId, find it in edges
@@ -769,9 +758,7 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                                         lg.verbose("Adding edge to path with id:" + std::to_string(edge->geteUId()));
                                     }
                                 }else{
-                                    
                                     auto gId = find_if(inGaps->begin(), inGaps->end(), [sId1,sId2](InGap& obj) {return (obj.getsId1() == sId1 && obj.getsId2() == sId2) || (obj.getsId1() == sId2 && obj.getsId2() == sId1);}); // given a uId, find it in gaps
-                                    
                                     if (gId != inGaps->end()) {
                                         
                                         path.add(GAP, gId->getuId(), '0', start, end);

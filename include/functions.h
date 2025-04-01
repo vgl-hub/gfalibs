@@ -24,6 +24,7 @@
 #include <tuple>
 
 #ifdef EVP
+#include <openssl/opensslv.h>
 #include <openssl/evp.h>
 #endif
 
@@ -716,6 +717,11 @@ static inline std::tuple<std::string, uint64_t, uint64_t> parseCoordinate(std::s
     return std::make_tuple(header, cBeginNumeric, cEndNumeric);
 }
 
+static inline uint64_t parseCigar(std::string cigar) { // only works with M (identity)
+	uint64_t pos = cigar.find_first_of('M');
+	return stoi(cigar.substr(0, pos));
+}
+
 #ifdef EVP
 static inline bool computeMd5(const std::string file, std::string &md5) {
     unsigned char md_value[EVP_MAX_MD_SIZE];
@@ -724,7 +730,11 @@ static inline bool computeMd5(const std::string file, std::string &md5) {
     EVP_MD_CTX*   context = EVP_MD_CTX_new();
     const EVP_MD* md = EVP_md5();
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_DigestInit_ex2(context, md, NULL);
+#else
+    EVP_DigestInit_ex(context, md, NULL);
+#endif
 
     const int bufSize = 1024;
     char buffer[bufSize];

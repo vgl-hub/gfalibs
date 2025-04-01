@@ -11,6 +11,7 @@
 #include "threadpool.h"
 #include "bed.h"
 #include "struct.h"
+#include "bit-packing.h"
 
 //global time
 extern std::chrono::high_resolution_clock::time_point start;
