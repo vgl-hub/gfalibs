@@ -346,6 +346,7 @@ uint64_t Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::mapSize(ParallelMap& m) {
    return m.capacity() * (sizeof(typename ParallelMap::value_type) + 1) + sizeof(ParallelMap);
 }
 
+/*
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
 	
@@ -376,47 +377,9 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initBuffering(){
 		exit(EXIT_FAILURE);
 	}
 }
+*/
 
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
-	status();
-}
-
-#define INITIAL_READ_SIZE 1048576  // 1MB
-template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
-void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::readFastqStream(std::shared_ptr<std::istream> input, std::string &buffer) {
-
-	// Read the first 1MB
-	buffer.resize(INITIAL_READ_SIZE);
-	input->read(&buffer[0], INITIAL_READ_SIZE);
-	std::streamsize bytesRead = input->gcount();
-	buffer.resize(bytesRead);  // Resize to actual bytes read
-	std::string line;
-	
-	while (!input->eof()) {
-		getline(*input, line);
-		
-		// Check if the new line starts a FASTQ record (valid header)
-		if (!line.empty() && line[0] == '@') { // it could be a new fastq record
-		
-			int c = input->peek();  // peek character
-			
-			if (c == '@') { // this was indeed the end of a quality line
-				buffer.insert(buffer.end(), line.begin(), line.end());
-				buffer.push_back('\n');
-			}else{ // add the extra record
-				buffer.append(line).push_back('\n');
-				for (int i = 0; i < 3; ++i) {  // Read the next 3 lines in one go
-					if (!getline(*input, line)) break;
-					buffer.append(line).push_back('\n');
-				}
-			}
-			break;  // Stop reading at the start of the next record
-		}
-		buffer.append(line).push_back('\n');
-	}
-}
-
+/*
 #define BUFFER_RESERVE_SIZE 2097152 // 2MB preallocation for efficiency
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<std::istream> stream) {
@@ -442,6 +405,47 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::generateBuffers(std::shared_ptr<st
 	}
 	return true;
 }
+*/
+
+template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::consolidate() { // to reduce memory footprint we consolidate the buffers as we go
+	status();
+}
+
+//#define INITIAL_READ_SIZE 1048576  // 1MB
+//template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
+//void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::readFastqStream(std::shared_ptr<std::istream> input, std::string &buffer) {
+//
+//	// Read the first 1MB
+//	buffer.resize(INITIAL_READ_SIZE);
+//	input->read(&buffer[0], INITIAL_READ_SIZE);
+//	std::streamsize bytesRead = input->gcount();
+//	buffer.resize(bytesRead);  // Resize to actual bytes read
+//	std::string line;
+//	
+//	while (!input->eof()) {
+//		getline(*input, line);
+//		
+//		// Check if the new line starts a FASTQ record (valid header)
+//		if (!line.empty() && line[0] == '@') { // it could be a new fastq record
+//		
+//			int c = input->peek();  // peek character
+//			
+//			if (c == '@') { // this was indeed the end of a quality line
+//				buffer.insert(buffer.end(), line.begin(), line.end());
+//				buffer.push_back('\n');
+//			}else{ // add the extra record
+//				buffer.append(line).push_back('\n');
+//				for (int i = 0; i < 3; ++i) {  // Read the next 3 lines in one go
+//					if (!getline(*input, line)) break;
+//					buffer.append(line).push_back('\n');
+//				}
+//			}
+//			break;  // Stop reading at the start of the next record
+//		}
+//		buffer.append(line).push_back('\n');
+//	}
+//}
 
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count all residual buffers
