@@ -105,6 +105,25 @@ bool membuf::decompressBuf() {
     return eof;
 }
 
+void membuf::close() {
+	{
+		std::unique_lock<std::mutex> lock(semMtx);
+		eof = true;  // Signal to thread that it should exit
+		semaphore.notify_all();
+	}
+
+	if (decompressor && decompressor->joinable()) {
+		decompressor->join();
+		delete decompressor;
+		decompressor = nullptr;
+	}
+
+	if (fi) {
+		gzclose(fi);
+		fi = nullptr;
+	}
+}
+
 std::string StreamObj::type() {
     
     std::string type;
@@ -155,8 +174,8 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 
 void StreamObj::closeStream() {
 
-    if (gzip) {
-    }
+    if (gzip)
+		sbuf.close();
     ifs.close();
     lg.verbose("File stream closed");
 }

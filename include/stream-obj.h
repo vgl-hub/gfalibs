@@ -30,6 +30,8 @@ public:
     int uflow();
     
     bool decompressBuf();
+	
+	void close();
     
 };
 
