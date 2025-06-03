@@ -112,11 +112,11 @@ void membuf::close() {
 		semaphore.notify_all();
 	}
 
-//	if (decompressor && decompressor->joinable()) {
-//		decompressor->join();
-//		delete decompressor;
-//		decompressor = nullptr;
-//	}
+	if (decompressor && decompressor->joinable()) {
+		decompressor->join();
+		delete decompressor;
+		decompressor = nullptr;
+	}
 //
 //	if (fi) {
 //		gzclose(fi);
