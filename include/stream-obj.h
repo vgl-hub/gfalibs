@@ -31,7 +31,7 @@ public:
     
     bool decompressBuf();
 	
-	void close();
+	void gzClose();
     
 };
 

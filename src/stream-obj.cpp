@@ -100,12 +100,11 @@ bool membuf::decompressBuf() {
     
     eof = true;
     semaphore.notify_one();
-    gzclose(fi);
 //    std::cout<<"D:decompression completed"<<std::endl;
     return eof;
 }
 
-void membuf::close() {
+void membuf::gzClose() {
 	{
 		std::unique_lock<std::mutex> lock(semMtx);
 		eof = true;  // Signal to thread that it should exit
@@ -117,10 +116,15 @@ void membuf::close() {
 		delete decompressor;
 		decompressor = nullptr;
 	}
-
+	
+	int gzcloseResult = -1;
 	if (fi) {
-		gzclose(fi);
-//		fi = nullptr;
+		gzcloseResult = gzclose(fi);
+		fi = nullptr;
+	}
+	if (gzcloseResult != Z_OK) {
+		fprintf(stderr, "gzclose failed with error code: %d\n", gzcloseResult);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -175,7 +179,7 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 void StreamObj::closeStream() {
 
     if (gzip)
-		sbuf.close();
+		sbuf.gzClose();
     ifs.close();
     lg.verbose("File stream closed");
 }
