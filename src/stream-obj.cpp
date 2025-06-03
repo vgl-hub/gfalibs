@@ -174,8 +174,8 @@ std::shared_ptr<std::istream> StreamObj::openStream(UserInput& userInput, char t
 
 void StreamObj::closeStream() {
 
-    if (gzip)
-		sbuf.close();
+//    if (gzip)
+//		sbuf.close();
     ifs.close();
     lg.verbose("File stream closed");
 }
