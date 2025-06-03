@@ -117,11 +117,11 @@ void membuf::close() {
 		delete decompressor;
 		decompressor = nullptr;
 	}
-//
-//	if (fi) {
-//		gzclose(fi);
+
+	if (fi) {
+		gzclose(fi);
 //		fi = nullptr;
-//	}
+	}
 }
 
 std::string StreamObj::type() {
