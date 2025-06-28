@@ -22,7 +22,6 @@ extern Log lg;
 extern std::vector<Log> logs; // log storage for verbose output. Each log in the vector comes from a separate job
 extern int tabular_flag;
 
-extern int maxThreads;
 extern std::mutex mtx;
 extern ThreadPool<std::function<bool()>> threadPool;
 
