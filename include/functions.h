@@ -209,7 +209,15 @@ static inline bool checkTag(const char tag1[2], std::string tag2) {
 }
 
 static inline bool isInt(const std::string &str) {
-    return !str.empty() && str.find_first_not_of("0123456789") == std::string::npos;
+	if (str.empty()) return false;
+
+	size_t start = 0;
+	if (str[0] == '-' || str[0] == '+') {
+		if (str.size() == 1) return false; // Only a sign, no digits
+		start = 1;
+	}
+
+	return str.find_first_not_of("0123456789", start) == std::string::npos;
 }
 
 static inline double gfa_round(double d, uint32_t to=2) {
