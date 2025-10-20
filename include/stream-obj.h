@@ -32,6 +32,8 @@ public:
     
     bool decompressBuf();
 	
+	void gzClose();
+	
 	std::streampos seekoff(std::streamoff off, std::ios_base::seekdir dir, std::ios_base::openmode) override {
 		auto pos = gptr();
 		if (dir == std::ios_base::cur)
