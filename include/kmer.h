@@ -3,6 +3,7 @@
 
 #include <random>
 #include <cmath>
+#include <algorithm>
 #include "parallel-hashmap/phmap.h"
 #include "parallel-hashmap/phmap_dump.h"
 
@@ -81,14 +82,14 @@ struct KeyComparator {
 	}
 	
 	bool operator()(const std::pair<Key,uint8_t> &pair1, const std::pair<Key,uint8_t> &pair2) const {
-		
+
 		uint64 hash1, hash2;
 		Key key1 = pair1.first, key2 = pair2.first;
 		int dir1 = Get_Hash(&hash1, data, key1.getOffset());
 		int dir2 = Get_Hash(&hash2, data, key2.getOffset());
 		if (k <= 32)
 			return hash1 < hash2;
-		
+	
 		Get_Canonical_Kmer(kmer1,dir1,hash1,data,key1.getOffset());
 		Get_Canonical_Kmer(kmer2,dir2,hash2,data,key2.getOffset());
 
@@ -518,12 +519,9 @@ bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::hashBuffer() {
 		
 		ParallelMap &map = *ptr;
 		ParallelMap32 &map32 = *tmpMaps32[m][mapN];
-		int shift = (32-k)*2;
-		if (shift < 0)
-			shift = 0;
+		int shift = (32-std::min(static_cast<int32_t>(k),32))*2;
 
 		while ((count = Get_Kmer_Count(bundle))) {
-			
 			offset = Current_Offset(data, bundle);
 			
 			for (int c = 0; c<count; ++c) {
@@ -662,8 +660,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::buffersToMaps() {
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 bool Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::dumpTmpMap(std::string prefix, uint8_t m, ParallelMap *map, uint8_t fileNum) {
 
-	std::vector<std::pair<Key, uint8_t>> vec(map->begin(), map->end());
-	std::sort(vec.begin(), vec.end(), KeyComparator(seqBuf[m].data, k));
+	std::vector<std::pair<Key, TYPE1>> vec(map->begin(), map->end());
+	//std::sort(vec.begin(), vec.end(), KeyComparator(seqBuf[m].data, k)); // doesn't seem to work?
 
 	std::ofstream out(prefix + "/.vec." + std::to_string(m) + "." + std::to_string(fileNum) + ".tmp.bin", std::ios::binary);
 	out.write(reinterpret_cast<char*>(vec.data()), vec.size() * sizeof(std::pair<KEY, TYPE1>));

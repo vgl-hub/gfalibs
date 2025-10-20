@@ -33,7 +33,7 @@ struct UserInput { // a container for user input
     std::string prefix = ".", outFile = "";
     
     uint32_t kLen = 21;
-    uint8_t sLen = 8;
+    uint8_t sLen = 0;
     
     uint64_t gSize = 0; // expected genome size, with 0 statistics are not computed
     
