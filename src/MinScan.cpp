@@ -14,15 +14,12 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#if defined(__linux__) || defined(__APPLE__)
 #include <sys/uio.h>
-#include <sys/resource.h>
-#endif
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>
 #include <pthread.h>
-
+#include <sys/resource.h>
 
 #include "MinScan.h"
 
@@ -32,16 +29,38 @@
 #undef    DEBUG_RECIEVE
 #undef    DEBUG_COMPRESSION
 
-typedef unsigned char      uint8;
-typedef unsigned long long uint64;
+#if defined(DEBUG_SETUP) || defined(DEBUG_SCAN)
 
-#define BUFFER_LEN  262144  // Size of individual output buffers in uint64's (128 of these)
-							//   => 256MB altogether
+static char dna[4] = { 'a', 'c', 'g', 't' };
+
+static char *fmer[256], _fmer[1280];
+
+static void setup_fmer_table()
+{ char *t;
+  int   i, l3, l2, l1, l0;
+
+  i = 0;
+  t = _fmer;
+  for (l3 = 0; l3 < 4; l3++)
+   for (l2 = 0; l2 < 4; l2++)
+	for (l1 = 0; l1 < 4; l1++)
+	 for (l0 = 0; l0 < 4; l0++)
+	   { fmer[i] = t;
+		 *t++ = dna[l3];
+		 *t++ = dna[l2];
+		 *t++ = dna[l1];
+		 *t++ = dna[l0];
+		 *t++ = 0;
+		 i += 1;
+	   }
+}
+
+#endif
 
 
 /*******************************************************************************************
  *
- *  Initialization (non-threaded) of the package
+ *  Initialization and training (non-threaded) of the package
  *
  *******************************************************************************************/
 
@@ -64,12 +83,13 @@ static char Tran[128] =
 	4, 4, 4, 4, 4, 4, 4, 4,
   };
 
+static char Invert[5] = { 'a', 'c', 'g', 't', 'n' };
+
 static uint64  Comp[256];   //  DNA complement of packed byte
 
 static int     Kmer;
 static int     Mmer;
 
-static uint64  CHigh[4];
 static uint64  NMask;
 static int     MaxSuper;
 static int     MSWords;
@@ -81,18 +101,12 @@ static int     SBits;
 static uint64  SMask;
 static int     PShift;
 
-static pthread_mutex_t BMutex[128];
-
 void Init_Genes_Package(int kmer, int mmer)
 { int i, x;
 
   Kmer = kmer;
   Mmer = mmer;
 
-  CHigh[0] = 0x3llu<<(2*(mmer-1));
-  CHigh[1] = 0x2llu<<(2*(mmer-1));
-  CHigh[2] = 0x1llu<<(2*(mmer-1));
-  CHigh[3] = 0;
   if (mmer == 32)
 	NMask = 0xffffffffffffffffllu;
   else
@@ -122,9 +136,6 @@ void Init_Genes_Package(int kmer, int mmer)
 	}
   SMask = (0x1llu << SBits)-1;
 
-  for (i = 0; i < 128; i++)
-	pthread_mutex_init(BMutex+i,NULL);
-
   { int l0, l1, l2, l3;   //  Compute byte complement table
 
 	i = 0;
@@ -136,6 +147,7 @@ void Init_Genes_Package(int kmer, int mmer)
   }
 
 #ifdef DEBUG_SETUP
+  printf("\n");
   printf("Kmer     = %d\n",Kmer);
   printf("KBits    = %d\n",KBits);
   printf("KWords   = %d\n",KWords);
@@ -146,13 +158,590 @@ void Init_Genes_Package(int kmer, int mmer)
   printf("SBits    = %d\n",SBits);
   printf("SMask    = %016llx\n",SMask);
   printf("NMask    = %016llx\n",NMask);
-  printf("CHigh[0] = %016llx\n",CHigh[0]);
-  printf("CHigh[1] = %016llx\n",CHigh[1]);
-  printf("CHigh[2] = %016llx\n",CHigh[2]);
-  printf("CHigh[3] = %016llx\n",CHigh[3]);
   printf("ModMask  = %08x\n",ModMask);
   printf("PShift   = %d\n",PShift);
 #endif
+}
+
+
+/*******************************************************************************************
+ *
+ *  Training phase: a single call to Train_Genes_Package
+ *
+ *******************************************************************************************/
+
+static int              Fnum;        // # of buckets
+static pthread_mutex_t *BMutex;      // Array of Fnum Mutex's for each bucket's IO
+static int              Buffer_Len;  // Size of individual output buffers in uint64's
+									 //   so that 1GB is used altogether.
+static uint64           TMap[256];   // Map 4-tuples to code/value
+static uint64           CMap[256];   // Map 4-tuple code to code of complement high-order part
+static int64           *Count;       // Trimmed bucket mapping tree
+
+static int FREQ[256];
+
+static int FSORT(const void *l, const void *r)
+{ int x = *((int *) l);
+  int y = *((int *) r);
+  return (FREQ[x] - FREQ[y]);
+}
+
+#undef DEBUG_SCAN1
+
+static int Test_Mmer_Choice(char *reads, int rlen, int64 *all)
+{ int     kmer1 = Kmer-1;
+
+  int     beg, end, len;
+  uint8  *seq, *s;
+  int     i, j, last, ohang;
+  uint64  x, n, c, N[4], C[4];
+  uint64  mz, mb, *mzr;
+  int     mi;
+  int64   hzero, hall;
+
+  mzr = (uint64 *) malloc((ModMask+1)*sizeof(uint64));
+
+#ifdef DEBUG_SCAN1
+  setup_fmer_table();
+#endif
+
+  seq = (uint8 *) reads;
+  hzero = hall = 0;
+  beg = 0;
+  for (end = 0; end < rlen; end++)
+	{ x = seq[end];
+	  if (x < 4)
+		continue;
+	  len = end-beg;
+	  if (len < Kmer)
+		{ beg = end+1;
+		  continue;
+		}
+
+	  s = seq+beg;
+
+	  last = kmer1;
+	  mb = mi = NMask;
+	  for (j = 0; j < 4; j++)
+		N[j] = C[j] = 0;
+	  x = (s[0] << 4) | (s[1] << 2) | s[2];
+	  for (i = 3; i < Mmer-1; i++)
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  N[j] = (N[j]<<8) | TMap[x];
+		  C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN1
+		  printf(" %4d: %s %0*llx %0*llx\n",i,fmer[x],Mmer/2,N[j],Mmer/2,C[j]);
+#endif
+		}
+	  for (i = Mmer-1; i < Kmer; i++)
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  n = N[j] = ((N[j]<<8) & NMask) | TMap[x];
+		  c = C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN1
+		  printf(" %4d: %s %0*llx %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c);
+#endif
+		  if (n < c)
+			mz = n;
+		  else
+			mz = c;
+		  mzr[i] = mz;
+		  if (mz <= mb)
+			{ mi = i;
+			  mb = mz;
+			}
+		}
+	  for (i = Kmer; i < len; i++)
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  n = N[j] = ((N[j]<<8) & NMask) | TMap[x];
+		  c = C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN1
+		  printf(" %4d: %s %0*llx %0*llx :: %4d %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c,mi,Mmer/2,mb);
+#endif
+		  if (n < c)
+			mz = n;
+		  else
+			mz = c;
+		  mzr[i&ModMask] = mz;
+#ifdef DEBUG_SCAN1
+		  printf(" %4d: %s %0*llx %0*llx :: %4d %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c,mi,Mmer/2,mb);
+#endif
+		  if (i > mi+MaxSuper)
+			{ ohang = (i-last)-1;
+			  if (mb == 0)
+				hzero += Kmer+ohang;
+			  hall += Kmer+ohang;
+			  last = i;
+
+			  mb = NMask;
+			  j  = mi+1;
+			  for (mi = -1; j <= i; j++)
+				{ mz = mzr[j&ModMask];
+				  if (mz <= mb)
+					{ mi = j;
+					  mb = mz;
+					}
+				}
+#ifdef DEBUG_SCAN1
+			  printf("%*s:: %4d %0*llx  Forced\n",4*Mmer+11,"",mi,Mmer/2,mb);
+#endif
+			}
+		  else if (mz < mb)
+			{ ohang = (i-last)-1;
+			  if (mb == 0)
+				hzero += Kmer+ohang;
+			  hall += Kmer+ohang;
+			  last = i;
+			  mi = i;
+			  mb = mz;
+#ifdef DEBUG_SCAN1
+			  printf("%*s:: %4d %0*llx  New Min\n",4*Mmer+11,"",mi,Mmer/2,mb);
+#endif
+			}
+		}
+	  ohang = (len-last)-1;
+	  if (mb == 0)
+		hzero += Kmer+ohang;
+	  hall += Kmer+ohang;
+  
+	  beg = end+1;
+	}
+
+  free(mzr);
+
+#ifdef DEBUG_SETUP
+  printf("\nTesting mmer = %d: %lld / %lld = %d\n",Mmer,hall,hzero,(int) (hall/hzero));
+#endif
+
+  *all = hall;
+  return ((int) (hall/hzero));
+}
+
+#undef DEBUG_SCAN2
+
+static void Count_Map_Tree(char *reads, int rlen, int64 *count)
+{ int     kmer1 = Kmer-1;
+  int     pad   = 2*(Mmer-5);
+
+  int     beg, end, len;
+  uint8  *seq, *s;
+  int     i, j, last, ohang;
+  uint64  x, n, c, N[4], C[4];
+  uint64  mz, mb, *mzr;
+  int     mi;
+  int     y, p, v;
+
+  mzr = (uint64 *) malloc((ModMask+1)*sizeof(uint64));
+
+#ifdef DEBUG_SCAN2
+  setup_fmer_table();
+#endif
+
+  seq = (uint8 *) reads;
+  beg = 0;
+  for (end = 0; end < rlen; end++)
+	{ x = seq[end];
+	  if (x < 4)
+		continue;
+	  len = end-beg;
+	  if (len < Kmer)
+		{ beg = end+1;
+		  continue;
+		}
+
+	  s = seq+beg;
+
+	  last = kmer1;
+	  mb = mi = NMask;
+	  for (j = 0; j < 4; j++)
+		N[j] = C[j] = 0;
+	  x = (s[0] << 4) | (s[1] << 2) | s[2];
+	  for (i = 3; i < Mmer-1; i++)
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  N[j] = (N[j]<<8) | TMap[x];
+		  C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN2
+		  printf(" %4d: %s %0*llx %0*llx\n",i,fmer[x],Mmer/2,N[j],Mmer/2,C[j]);
+#endif
+		}
+	  for (i = Mmer-1; i < Kmer; i++)
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  n = N[j] = ((N[j]<<8) & NMask) | TMap[x];
+		  c = C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN2
+		  printf(" %4d: %s %0*llx %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c);
+#endif
+		  if (n < c)
+			mz = n;
+		  else
+			mz = c;
+		  mzr[i] = mz;
+		  if (mz <= mb)
+			{ mi = i;
+			  mb = mz;
+			}
+		}
+	  for (i = Kmer; i < len; i++)
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  n = N[j] = ((N[j]<<8) & NMask) | TMap[x];
+		  c = C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN2
+		  printf(" %4d: %s %0*llx %0*llx :: %4d %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c,mi,Mmer/2,mb);
+#endif
+		  if (n < c)
+			mz = n;
+		  else
+			mz = c;
+		  mzr[i&ModMask] = mz;
+		  if (i > mi+MaxSuper)
+			{ ohang = (i-last)-1;
+
+			  p = pad;
+			  y = (mb >> p);
+			  v = count[y];
+			  while (v < 0)
+				{ p -= 2;
+				  y  = ((mb >> p) & 0x3) - v;
+				  v  = count[y];
+				}
+			  count[y] += Kmer+ohang;
+
+			  last = i;
+
+			  mb = NMask;
+			  j  = mi+1;
+			  for (mi = -1; j <= i; j++)
+				{ mz = mzr[j&ModMask];
+				  if (mz <= mb)
+					{ mi = j;
+					  mb = mz;
+					}
+				}
+#ifdef DEBUG_SCAN2
+			  printf("%*s:: %4d %0*llx  Forced\n",4*Mmer+11,"",mi,Mmer/2,mb);
+#endif
+			}
+		  else if (mz < mb)
+			{ ohang = (i-last)-1;
+
+			  p = pad;
+			  y = (mb >> p);
+			  v = count[y];
+			  while (v < 0)
+				{ p -= 2;
+				  y  = ((mb >> p) & 0x3) - v;
+				  v  = count[y];
+				}
+			  count[y] += Kmer+ohang;
+
+			  last = i;
+			  mi = i;
+			  mb = mz;
+#ifdef DEBUG_SCAN2
+			  printf("%*s:: %4d %0*llx  New Min\n",4*Mmer+11,"",mi,Mmer/2,mb);
+#endif
+			}
+		}
+	  ohang = (len-last)-1;
+
+	  p = pad;
+	  y = (mb >> p);
+	  v = count[y];
+	  while (v < 0)
+		{ p -= 2;
+		  y  = ((mb >> p) & 0x3) - v;
+		  v  = count[y];
+		}
+	  count[y] += Kmer+ohang;
+  
+	  beg = end+1;
+	}
+
+  free(mzr);
+}
+
+#ifdef DEBUG_SETUP
+
+static void _print_count_tree(int lev, int i, int64 ktot, int64 *count)
+{ int j, a;
+
+  if (count[i] >= 0)
+	printf(" %10lld %.3f%% (%d)\n",count[i],(100.*count[i])/ktot,lev);
+  else
+	{ printf("\n");
+	  j = -count[i];
+	  for (a = 0; a < 4; a++)
+		{ printf("%*s -> %d:",2*lev,"",a);
+		  _print_count_tree(lev+1,j+a,ktot,count);
+		}
+	}
+}
+
+static void print_count_tree(int64 ktot, int64 *count)
+{ int i;
+
+  printf("\nCount Tree:\n");
+  for (i = 0; i < 1024; i++)
+	{ printf(" %5d:",i);
+	  _print_count_tree(0,i,ktot,count);
+	}
+  fflush(stdout);
+}
+
+static void _print_assign_tree(int lev, int i, int64 *count)
+{ int j, a;
+
+  if (count[i] >= 0)
+	printf(" %10lld (%d)\n",count[i],lev);
+  else
+	{ printf("\n");
+	  j = -count[i];
+	  for (a = 0; a < 4; a++)
+		{ printf("%*s -> %d:",2*lev,"",a);
+		  _print_assign_tree(lev+1,j+a,count);
+		}
+	}
+}
+
+static void print_assign_tree(int64 *count)
+{ int i;
+
+  printf("\nAssign Tree:\n");
+  for (i = 0; i < 1024; i++)
+	{ printf(" %5d:",i);
+	  _print_assign_tree(0,i,count);
+	}
+  fflush(stdout);
+}
+
+#endif
+
+static int CSORT(const void *l, const void *r)
+{ int64 x = Count[*((int*) l)];
+  int64 y = Count[*((int*) r)];
+  
+  if (x > y)
+	return (-1);
+  else
+	return (1);
+}
+
+static void Map_Assignment(int csize, int64 *count, int64 cthresh)
+{ int64 *buck;
+  int   *perm;
+  int    i, j, n, x;
+  int64  p;
+
+  perm = (int *) malloc(sizeof(int)*csize);
+  buck = (int64 *) malloc(sizeof(int64)*Fnum);
+
+  for (i = 0; i < csize; i++)
+	perm[i] = i;
+
+  qsort(perm,csize,sizeof(int),CSORT);
+
+#ifdef DEBUG_SETUP
+  printf("\nPieces %d:\n",csize);
+  for (i = 0; i < csize; i++)
+	if (count[perm[i]] > 0)
+	  printf("  %5d: %7lld -> %5.2f%%\n",perm[i],count[perm[i]],(100.*count[perm[i]])/cthresh);
+  fflush(stdout);
+#endif
+
+  for (i = 0; i < Fnum; i++)
+	{ x = perm[i];
+	  buck[i]  = count[x];
+	  count[x] = i;
+	}
+  for (i = Fnum; i < csize; i++)
+	{ x = perm[i];
+	  p = count[x];
+	  if (p < 0)      //  only interior nodes remain
+		break;
+	  if (p == 0)
+		{ count[x] = (int) (drand48() * Fnum);   //  never seen?: place at random
+		  continue;
+		}
+	  for (j = 0; j < Fnum; j++)       // place in first bucket it fits in
+		if (buck[j] + p <= cthresh)
+		  { buck[j] += p;
+			count[x] = j;
+			break;
+		  }
+	  if (j >= Fnum)    //  if none, then place in the emptiest bucket
+		{ n = 0;
+		  for (j = 1; j < Fnum; j++)
+			if (buck[j] < buck[n])
+			  n = j;
+		  buck[n] += p;
+		  count[x] = n;
+		}
+	}
+
+#ifdef DEBUG_SETUP
+  { int64 bmax, bmin;
+
+	printf("\nPacking:\n");
+	bmax = bmin = buck[0];
+	for (i = 0; i < Fnum; i++)
+	  { printf("  %7llu -> %5.2f%%\n",buck[i],(100.*buck[i])/cthresh);
+		if (bmax < buck[i])
+		  bmax = buck[i];
+		else if (bmin > buck[i])
+		  bmin = buck[i];
+	  }
+	printf("  Range %lld - %lld => %g%% diff\n",bmin,bmax,(100.*(bmax-bmin))/cthresh);
+	fflush(stdout);
+  }
+#endif
+
+  free(buck);
+  free(perm);
+}
+
+  //  To start tell the package the kmer size and the number of files the supermers should be
+  //    distributed over.  Also give it an initial cache of data of length clen to train
+  //    on.  Based on this segment the routine will select a minimizer size to use and develop
+  //    a mapping scheme, as per the one used in FastK.  The routine returns 0 if it could
+  //    not produce a scheme (should never happen basically) and otherwise the size of the
+  //    minimizer it will use.
+
+int Train_Genes_Package(int kmer, int fnum, char *cache, int clen)
+{ int     n, x;
+  uint8  *seq;
+  int     fmr, fln;
+  int     perm[256];
+  int     csize;
+  int64   cthresh, total;
+
+  Fnum       = fnum;
+  Buffer_Len = 0x40000000llu / (fnum*sizeof(uint64));
+  BMutex     = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t)*fnum);
+  for (n = 0; n < fnum; n++)
+	pthread_mutex_init(BMutex+n,NULL);
+
+  for (n = 0; n < 128; n++)
+	FREQ[n] = 0;
+
+  seq = (uint8 *) cache;
+  fmr = 0;
+  fln = 0;
+  for (n = 0; n < clen; n++)
+	{ x = seq[n] = Tran[seq[n]];
+	  if (x == 4)
+		{ fmr = 0;
+		  fln = 0;
+		}
+	  else
+		{ fmr = ((fmr << 2) | x) & 0xff;
+		  fln += 1;
+		  if (fln >= 4)
+			FREQ[fmr] += 1;
+		}
+	}
+
+  for (n = 0; n < 256; n++)
+	perm[n] = n;
+
+  qsort(perm,256,sizeof(int),FSORT);
+
+#ifdef DEBUG_SETUP
+  setup_fmer_table();
+
+  printf("\n4-mer training frequencies in order\n");
+  for (n = 0; n < 256; n++)
+	printf(" %02x: %s: %d\n",n,fmer[perm[n]],FREQ[perm[n]]);
+#endif
+
+  for (n = 0; n < 256; n++)
+	TMap[perm[n]] = n;
+
+#ifdef DEBUG_SETUP
+  printf("\n4-mer forward map\n");
+  for (n = 0; n < 256; n++)
+	printf(" %s -> %02llx\n",fmer[n],TMap[n]);
+#endif
+
+  Init_Genes_Package(kmer,8);
+  for (n = 0; n < 256; n++)
+	CMap[n] = (TMap[Comp[n]] << 8);
+
+#ifdef DEBUG_SETUP
+  printf("\n4-mer complement map\n");
+  for (n = 0; n < 256; n++)
+	printf(" %s -> %016llx\n",fmer[n],CMap[n]);
+#endif
+
+  for (n = 8; n < 32; n += 4)
+	{ if (Test_Mmer_Choice(cache,clen,&total) >= 2*Fnum)
+		break;
+	  Init_Genes_Package(kmer,n+4);
+	  for (x = 0; x < 256; x++)
+		CMap[x] = (TMap[Comp[x]] << (2*n));
+	}
+  if (n >= 32)
+	return (0);
+
+  csize   = 1024;
+  Count   = (int64 *) malloc(sizeof(int64)*csize);
+  cthresh = total / (2*Fnum);
+
+#ifdef DEBUG_SETUP
+  printf("Threshold = %lld\n",cthresh);
+#endif
+
+  for (n = 0; n < csize; n++)
+	Count[n] = 0;
+
+  while (1)
+	{ int expand;
+
+	  Count_Map_Tree(cache,clen,Count);
+
+#ifdef DEBUG_SETUP
+	  print_count_tree(total,Count);
+#endif
+ 
+	  expand = csize;
+	  for (n = 0; n < csize; n++)
+		if (Count[n] > cthresh)
+		  expand += 4;
+
+	  if (expand == csize)
+		break;
+
+	  Count = (int64 *) realloc(Count,sizeof(int64)*expand);
+
+	  expand = csize;
+	  for (n = 0; n < csize; n++)
+		{ if (Count[n] < 0)
+			continue;
+		  if (Count[n] > cthresh)
+			{ Count[n] = -expand;
+			  for (x = 0; x < 4; x++)
+				Count[expand++] = 0;
+			}
+		  else
+			Count[n] = 0;
+		}
+	  csize = expand;
+	}
+
+  Map_Assignment(csize,Count,total/Fnum);
+
+#ifdef DEBUG_SETUP
+  print_assign_tree(Count);
+#endif
+
+  for (n = 0; n < clen; n++)
+	cache[n] = Invert[seq[n]];
+
+  return (Mmer);
 }
 
 
@@ -175,7 +764,7 @@ typedef struct
   } Packet;
 
 typedef struct
-  { Packet  packs[128];  //  distribution buffers
+  { Packet *packs;       //  distribution buffers
 	uint64 *mzr;         //  minimizer queue of size ModMask+1
   } D_Bundle;
 
@@ -189,22 +778,23 @@ Distribution_Bundle *Begin_Distribution(int *fids)
   int       i;
 
   bundle = (D_Bundle *) malloc(sizeof(D_Bundle));
-  if (bundle == NULL)
+  packs  = (Packet *) malloc(sizeof(Packet)*Fnum);
+  if (bundle == NULL || packs == NULL)
 	return (NULL);
+  bundle->packs = packs;
 
-  packs = bundle->packs;
-  packs[0].buf = (uint64 *) malloc(128*BUFFER_LEN*sizeof(uint64));
+  packs[0].buf = (uint64 *) malloc(Fnum*Buffer_Len*sizeof(uint64));
   if (packs[0].buf == NULL)
 	{ free(bundle);
 	  return (NULL);
 	}
   maxentry = ((Kmer+MaxSuper)*2+SBits-1)/64 + 1;
-  for (i = 0; i < 128; i++)
-	{ packs[i].buf = packs[0].buf+i*BUFFER_LEN;
+  for (i = 0; i < Fnum; i++)
+	{ packs[i].buf = packs[0].buf+i*Buffer_Len;
 	  packs[i].ptr = packs[i].buf+1;
 	  *packs[i].ptr = 0;
 	  packs[i].rem = 64;
-	  packs[i].end = packs[i].buf + (BUFFER_LEN-maxentry);
+	  packs[i].end = packs[i].buf + (Buffer_Len-maxentry);
 	  packs[i].fid = fids[i];
 	}
 
@@ -230,7 +820,7 @@ void End_Distribution(Distribution_Bundle *_bundle)
   int       i;
 
   packs = bundle->packs;
-  for (i = 0; i < 128; i++)
+  for (i = 0; i < Fnum; i++)
 	if (packs[i].ptr > packs[i].buf+1 || packs[i].rem < 64)
 	  { packs[i].buf[0] = ((packs[i].ptr-packs[i].buf)<<6)+(64-packs[i].rem);
 
@@ -253,6 +843,7 @@ void End_Distribution(Distribution_Bundle *_bundle)
 
   free(bundle->mzr);
   free(bundle->packs[0].buf);
+  free(bundle->packs);
   free(bundle);
 }
 
@@ -374,7 +965,7 @@ static void transmit(int buck, Packet *pack, uint8 *seq, int ohang)
 }
 
   //  Decompose sequences in buffer reads of length rlen into supermers and distribute
-  //    to one of 128 files.  The sequences are assumed to be over [acgtACGT] separated
+  //    to one of Fnum files.  The sequences are assumed to be over [acgtACGT] separated
   //    by a single [nN].  Note carefully the last sequences must be followed also by
   //    an [Nn].  The routine does modify the contents of reads mapping, [acgt] to [0123]
   //    to make computing minimizers easier.
@@ -384,17 +975,24 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
   Packet *packs    = bundle->packs;
   uint64 *mzr      = bundle->mzr;
   int     kmer1    = Kmer-1;
+  int     pad      = 2*(Mmer-5);
 
   int     beg, end, len;
   uint8  *seq, *s, *r;
   int     i, j, last, ohang;
-  uint64  x, n, c;
+  uint64  x, n, c, N[4], C[4];
   uint64  mz, mb;
   int     mi;
+  int     y, p, v;
+
+#ifdef DEBUG_SCAN
+  setup_fmer_table();
+  print_assign_tree(Count);
+#endif
 
   seq = (uint8 *) reads;
   if (Tran[seq[rlen-1]] != 4)
-	{ fprintf(stderr,"String does not end with an N\n");
+	{ fprintf(stderr,"Read buffer does not end with an N\n");
 	  exit (1);
 	}
   beg = 0;
@@ -413,19 +1011,26 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
 
 	  last = kmer1;
 	  mb = mi = NMask;
-	  c = n = 0;
-	  for (i = 0; i < Mmer-1; i++)
-		{ x = s[i];
-		  n = (n<<2) | x;
-		  c = (c>>2) | CHigh[x];
+	  for (j = 0; j < 4; j++)
+		N[j] = C[j] = 0;
+	  x = (s[0] << 4) | (s[1] << 2) | s[2];
+	  for (i = 3; i < Mmer-1; i++)
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  N[j] = (N[j]<<8) | TMap[x];
+		  C[j] = (C[j]>>8) | CMap[x];
 #ifdef DEBUG_SCAN
-		  printf(" %4d: %1lld %0*llx %0*llx\n",i,x,2*Mmer,n,2*Mmer,c);
+		  printf(" %4d: %s %0*llx %0*llx\n",i,fmer[x],Mmer/2,N[j],Mmer/2,C[j]);
 #endif
 		}
 	  for (i = Mmer-1; i < Kmer; i++)
-		{ x = s[i];
-		  n = ((n<<2) & NMask) | x;
-		  c = (c>>2) | CHigh[x];
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  n = N[j] = ((N[j]<<8) & NMask) | TMap[x];
+		  c = C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN
+		  printf(" %4d: %s %0*llx %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c);
+#endif
 		  if (n < c)
 			mz = n;
 		  else
@@ -435,28 +1040,41 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
 			{ mi = i;
 			  mb = mz;
 			}
-#ifdef DEBUG_SCAN
-		  printf(" %4d: %1lld %0*llx %0*llx :: %4d %0*llx\n",i,x,2*Mmer,n,2*Mmer,c,mi,2*Mmer,mb);
-#endif
 		}
 	  for (i = Kmer; i < len; i++)
-		{ x = s[i];
-		  n = ((n<<2) & NMask) | x;
-		  c = (c>>2) | CHigh[x];
+		{ x = ((x<<2) | s[i]) & 0xff;
+		  j = (i & 0x3);
+		  n = N[j] = ((N[j]<<8) & NMask) | TMap[x];
+		  c = C[j] = (C[j]>>8) | CMap[x];
+#ifdef DEBUG_SCAN
+		  printf(" %4d: %s %0*llx %0*llx :: %4d %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c,mi,Mmer/2,mb);
+#endif
 		  if (n < c)
 			mz = n;
 		  else
 			mz = c;
 		  mzr[i&ModMask] = mz;
 #ifdef DEBUG_SCAN
-		  printf(" %4d: %1lld %0*llx %0*llx :: %4d %0*llx\n",i,x,2*Mmer,n,2*Mmer,c,mi,2*Mmer,mb);
+		  printf(" %4d: %s %0*llx %0*llx :: %4d %0*llx\n",i,fmer[x],Mmer/2,n,Mmer/2,c,mi,Mmer/2,mb);
 #endif
 		  if (i > mi+MaxSuper)
 			{ ohang = (i-last)-1;
-			  transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
+
+			  p = pad;
+			  y = (mb >> p);
+			  v = Count[y];
+			  while (v < 0)
+				{ p -= 2;
+				  y  = ((mb >> p) & 0x3) - v;
+				  v  = Count[y];
+				}
+
+			  transmit(v,packs,r+last,ohang); // Super-mer to i-1;
 			  last = i;
-			  mb = mzr[(++mi)&ModMask];
-			  for (j = mi+1; j <= i; j++)
+
+			  mb = NMask;
+			  j  = mi+1;
+			  for (mi = -1; j <= i; j++)
 				{ mz = mzr[j&ModMask];
 				  if (mz <= mb)
 					{ mi = j;
@@ -464,22 +1082,42 @@ void Distribute_Sequence(char *reads, int rlen, Distribution_Bundle *_bundle)
 					}
 				}
 #ifdef DEBUG_SCAN
-			  printf("%*s:: %4d %0*llx  Forced\n",4*Mmer+11,"",mi,2*Mmer,mb);
+			  printf("%*s:: %4d %0*llx  Forced\n",4*Mmer+11,"",mi,Mmer/2,mb);
 #endif
 			}
 		  else if (mz < mb)
 			{ ohang = (i-last)-1;
-			  transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
+
+			  p = pad;
+			  y = (mb >> p);
+			  v = Count[y];
+			  while (v < 0)
+				{ p -= 2;
+				  y  = ((mb >> p) & 0x3) - v;
+				  v  = Count[y];
+				}
+
+			  transmit(v,packs,r+last,ohang); // Super-mer to i-1;
 			  last = i;
 			  mi = i;
 			  mb = mz;
 #ifdef DEBUG_SCAN
-			  printf("%*s:: %4d %0*llx  New Min\n",4*Mmer+11,"",mi,2*Mmer,mb);
+			  printf("%*s:: %4d %0*llx  New Min\n",4*Mmer+11,"",mi,Mmer/2,mb);
 #endif
 			}
 		}
 	  ohang = (len-last)-1;
-	  transmit((int) (mb&0x7fllu),packs,r+last,ohang); // Super-mer to i-1;
+
+	  p = pad;
+	  y = (mb >> p);
+	  v = Count[y];
+	  while (v < 0)
+		{ p -= 2;
+		  y  = ((mb >> p) & 0x3) - v;
+		  v  = Count[y];
+		}
+
+	  transmit(v,packs,r+last,ohang); // Super-mer to i-1;
   
 	  beg = end+1;
 	}

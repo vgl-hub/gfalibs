@@ -458,6 +458,8 @@ void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::finalize() { // ensure we count al
 template<class DERIVED, class INPUT, typename KEY, typename TYPE1, typename TYPE2>
 void Kmap<DERIVED, INPUT, KEY, TYPE1, TYPE2>::initHashing(){
 	
+	Init_Genes_Package(k, sLen);
+	
 	std::vector<std::function<bool()>> jobs;
 	for (uint8_t t = 0; t < threadPool.totalThreads(); ++t)
 		jobs.push_back([this] { return static_cast<DERIVED*>(this)->hashBuffer(); });
