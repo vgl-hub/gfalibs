@@ -55,7 +55,7 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         if(nextLines.size() > 0) {
             line = nextLines.front();
             nextLines.pop();
-        } else if(!getline(*stream, line)) {
+        }else if(!getline(*stream, line)) {
             break;
         }
         
@@ -71,91 +71,61 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
         
         if (arguments[4] == "W") { // this is an old path
             
-            if (!userInput.discoverPaths_flag) {
-            
+            if (!userInput.discoverPaths_flag)
                 pHeader1 = arguments[5];
-            
-            }else{
-                
+            else
                 pHeader1 = arguments[5] + "_path";
-            }
             
             pId1Or = arguments[8][0];
-            
             hash = inSequences.getHash1();
-            
             got = hash->find(pHeader1); // get the headers to uIds table
-            
+			
             if (got != hash->end()) { // this is not the first time we see this path
-                
                 pUId1 = got->second;
-                
             }else{
-                
                 fprintf(stderr, "Warning: sequence missing from the path set (%s). Skipping.\n", pHeader1.c_str()); // sequence not found
-                
                 continue;
-                
             }
-            
             pathLen = inSequences.pathLen(pUId1);
-            
             start1 = stoi(arguments[6]);
             end1 = stoi(arguments[7]);
-            
             seqLen = end1 - start1 + 1;
             
             if(seqLen != pathLen) {
-
                 fprintf(stderr, "Warning: sequence length (%u) differs from path length (%u). Subsetting (%s).\n", seqLen, pathLen, pHeader1.c_str());
 
             }else{
-                
                 start1 = 0;
                 end1 = 0;
-                
             }
             
-            if(getline(*stream, line))
+			bool reading = static_cast<bool>(std::getline(*stream, line));
+			
+			if (reading)
                 nextLines.push(line);
-            else
-                break;
             
             arguments = readDelimited(line, "\t", "#"); // read the next sequence
             
             if(pHeaderNew != arguments[0]) { // if this path does not need to be joined to anything that follows, we create a new path
                 
                 InPath path;
-                
                 pUId = inSequences.getuId();
-                
                 path.newPath(pUId, pHeaderNew);
-                
                 std::vector<PathComponent> pathComponents = inSequences.getInPath(pUId1).getComponents();
-                
                 path.append({std::begin(pathComponents), std::end(pathComponents)});
-                
                 inSequences.insertHash(pHeaderNew, pUId);
-                
                 inSequences.uId.next();
-                
                 inSequences.addPath(path);
                 
-                if(seqLen != pathLen) { // if it also needs to be trimmed
-                    
+                if(seqLen != pathLen) // if it also needs to be trimmed
                     inSequences.trimPathByUId(pUId, start1, end1);
-                    
-                }
-                
-                if(pId1Or == '-') {
-                    
+
+                if(pId1Or == '-')
                     inSequences.revComPath(pUId);
-                    
-                }
-                
             }
-        
-            
+			if (!reading)
+				break;
+			
         }else if(arguments[4] == "N" || arguments[4] == "U"){
             
             if (pHeaderPrev == "" || (pHeaderNew != pHeaderPrev)) { // skip initial gap
@@ -266,30 +236,23 @@ void readAgp(InSequences& inSequences, UserInput& userInput) {
                 fprintf(stderr, "Warning: sequence length (%u) differs from path length (%u). Subsetting (%s).\n", seqLen, pathLen, pHeader2.c_str());
 
             }else{
-                
                 start2 = 0;
                 end2 = 0;
-                
             }
             
             SAK sak;
-            
             coord1 = start1 != 0 ? "(" + std::to_string(start1) + ":" + std::to_string(end1) + ")" : "";
             coord2 = start2 != 0 ? "(" + std::to_string(start2) + ":" + std::to_string(end2) + ")" : "";
-            
             instruction = "JOIN\t" + pHeader1 + coord1 + pId1Or + "\t" + pHeader2 + coord2 + pId2Or + "\t" + std::to_string(dist) + "\t" + gHeader + "\t" + pHeaderNew + "\t" + std::to_string(gUId);
             
             fprintf(stderr, "%s\n", instruction.c_str());
-            
             sak.executeInstruction(inSequences, sak.readInstruction(instruction));
-            
+
             pHeader1 = pHeaderNew;
             start1 = 0;
             end1 = 0;
             pId1Or = '+';
-
         }
-        
     }
         
     for (unsigned int pUId : oldPaths) { // remove paths left

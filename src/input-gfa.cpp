@@ -695,14 +695,12 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                             ++it;
                         }
                         component = *it;
-                        
                         if (std::next(it) != std::end(components)) {
                             edgeType = component.back() == ',' ? 'L' : 'J';
                             component.pop_back(); // remove separator
                         }
                         sId1Or = component.back(); // get sequence orientation
                         component.pop_back();
-                        
                         if (component.find("(") != std::string::npos && component.find(":") != std::string::npos && component.find(")") != std::string::npos) {
                             
                             startS = component.substr(component.find("(") + 1, component.find(":") - component.find("(") - 1);
@@ -714,11 +712,9 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                             start = 0;
                             end = 0;
                         }
-                        if (end != 0) {
-                        
+                        if (end != 0)
                             lg.verbose("Adding only coordinates " + std::to_string(start) + ":" + std::to_string(end) + "(" + component + ")");
-                            
-                        }
+
                         hash = inSequences.getHash1();
                         got = hash->find(component); // get the headers to uIds table (remove sequence orientation in the gap first)
                         
@@ -734,7 +730,6 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                         std::vector<InGap>* inGaps = inSequences.getInGaps();
                         std::vector<InEdge>* inEdges = inSequences.getEdges();
                         path.add(SEGMENT, sId1, sId1Or, start, end);
-                        
                         if (std::next(it, 1) != std::end(components)){
                             
                             component = *(std::next(it, 1));
@@ -742,7 +737,6 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                             if (component != "") {
                                 
                                 if (std::next(it, 2) != std::end(components)) {
-                                    
                                     edgeType = component.back() == ',' ? 'L' : 'J';
                                     component.pop_back(); // remove separator
                                 }
@@ -750,7 +744,6 @@ void readGFA(InSequences& inSequences, UserInput& userInput, std::shared_ptr<std
                                 got = hash->find(component); // get the headers to uIds table (remove sequence orientation in the gap first)
                                 
                                 if (got == hash->end()) { // this is the first time we see this segment
-                                    
                                     fprintf(stderr, "Error: cannot find next component in path (%s). Terminating.\n", component.c_str()); exit(1);
                                 }else{
                                     sId2 = got->second;
