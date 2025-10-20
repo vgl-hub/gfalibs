@@ -135,7 +135,6 @@ static inline std::istream& getline(std::istream& is, std::string& str) {
     
     while (true)
     {
-
         i = is.rdbuf()->sbumpc();
         if (i == EOF) {
             err |= std::ios_base::eofbit;
@@ -272,16 +271,11 @@ static inline bool isDash(char * optarg) { // check if user input is dash (subst
 static inline bool ifFileExists(const char * optarg) { // check if file exists
     
     if (!access (optarg, F_OK)) {
-        
         return optarg;
-        
     }else{
-        
         std::cout<<"Error - file does not exist: "<<optarg<<std::endl;
         exit(1);
-        
     }
-    
 }
 
 static inline void textWrap(std::string input, std::ostream& output, uint32_t width) { // generic text wrapper (useful for fasta output)
@@ -331,13 +325,9 @@ static inline std::string getFileExt(std::string fileName) { // utility to get f
     if(fileName.find_last_of(".") != std::string::npos) {
         
         if(fileName.substr(fileName.find_last_of(".")+1) == "gz") {
-            
             fileName = rmFileExt(fileName);
-            
             return getFileExt(fileName) + ".gz";
-            
         }
-        
         return fileName.substr(fileName.find_last_of(".")+1);
     }
     return "";
