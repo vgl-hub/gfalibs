@@ -63,6 +63,61 @@ struct Sequences { // a collection of sequences
     
 };
 
+struct Sequence2 {
+	std::string header, comment;
+	std::unique_ptr<std::string> sequence;        // replace raw
+	std::unique_ptr<std::string> sequenceQuality; // replace raw
+	unsigned int seqPos = 0;
+	// deleteSequence() no longer needed
+	Sequence2() {}
+	Sequence2(std::string h, std::string c, std::unique_ptr<std::string> s)
+	  : header(std::move(h)), comment(std::move(c)), sequence(std::move(s)) {}
+	Sequence2(std::string h, std::string c, std::unique_ptr<std::string> s, std::unique_ptr<std::string> q)
+	  : header(std::move(h)), comment(std::move(c)), sequence(std::move(s)), sequenceQuality(std::move(q)) {}
+	
+	void set(std::string h, std::string c,
+			 std::unique_ptr<std::string> s,
+			 std::unique_ptr<std::string> q = nullptr,
+			 unsigned int p = 0) {
+		header  = std::move(h);
+		comment = std::move(c);
+		sequence = std::move(s);
+		sequenceQuality = std::move(q);
+		seqPos = p;
+	}
+};
+
+struct Sequences2 {
+	std::vector<std::unique_ptr<Sequence2>> sequences; // replace raw
+	uint32_t batchN = 0;
+	
+	void recycle_keep_capacity() {
+		for (auto& up : sequences) {
+			if (!up) continue;                 // slot is empty (nullptr)
+			Sequence2& s = *up;
+			s.header.clear();                  // keep capacity
+			s.comment.clear();
+			if (s.sequence)        s.sequence->clear();         // keep capacity
+			if (s.sequenceQuality) s.sequenceQuality->clear();  // keep capacity
+			s.seqPos = 0;
+		}
+		sequences.resize(0);
+	}
+	
+	void add(uint32_t seqPos, uint32_t batchCounter, std::string seqHeader, std::string seqComment, std::unique_ptr<std::string> inSequence, std::unique_ptr<std::string> inSequenceQuality = std::unique_ptr<std::string>()) {
+		if (sequences.size() <= batchCounter)
+			sequences.emplace_back(std::make_unique<Sequence2>());
+
+		sequences[batchCounter]->set(
+			std::move(seqHeader),
+			std::move(seqComment),
+			std::move(inSequence),
+			std::move(inSequenceQuality),
+			seqPos
+		);
+	}
+};
+
 struct Tag {
     
     char type, label[3] = "";
