@@ -11,10 +11,12 @@ class membuf : public std::streambuf {
 #else
     static const unsigned int bufSize = 1048576;
 #endif
+
     unsigned int size1 = bufSize, size2 = 0;
     unsigned int* size = &size1;
-    char bufContent1[bufSize], bufContent2[bufSize];
-    char* bufContent = bufContent1;
+	std::unique_ptr<char[]> bufContent1{ new char[bufSize] };
+	std::unique_ptr<char[]> bufContent2{ new char[bufSize] };
+    char* bufContent = nullptr;
     gzFile fi;
     bool decompressed1 = false, decompressed2 = false, start = false, eof = false, whichBuf = 0;
     std::mutex semMtx;
@@ -23,6 +25,8 @@ class membuf : public std::streambuf {
 	std::streampos pos;
     
 public:
+	
+	membuf() { bufContent = bufContent1.get(); }
     
     void openFile(std::string file);
     
