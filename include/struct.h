@@ -89,7 +89,7 @@ struct Sequence2 {
 
 struct Sequences2 {
 	std::vector<std::unique_ptr<Sequence2>> sequences; // replace raw
-	uint32_t batchN = 0;
+	uint32_t batchN = 0, fileN = 0;
 	
 	void recycle_keep_capacity() {
 		for (auto& up : sequences) {
