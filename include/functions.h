@@ -320,6 +320,14 @@ static inline std::string rmFileExt(const std::string path) { // utility to stri
     return path;
 }
 
+static inline std::string stripKnownExt(const std::string& fname, const std::string& ext) {
+	if (fname.size() >= ext.size() + 1 &&  // +1 ensures something before ext
+		fname.compare(fname.size() - ext.size(), ext.size(), ext) == 0) {
+		return fname.substr(0, fname.size() - ext.size() - 1);
+	}
+	return fname; // no change if no match
+}
+
 static inline std::string getFileExt(std::string fileName) { // utility to get file extension
 
     if(fileName.find_last_of(".") != std::string::npos) {
