@@ -50,34 +50,43 @@ template<class T>
 class MpmcRing {
 public:
 	explicit MpmcRing(size_t capacity) {
-		n_ = 1; while (n_ < capacity) n_ <<= 1;
+		n_ = 1;
+		while (n_ < capacity) n_ <<= 1;
 		mask_ = n_ - 1;
-		slots_.resize(n_);  // requires Slot to be MoveInsertable in libc++
+		slots_.resize(n_);
 		for (size_t i = 0; i < n_; ++i)
 			slots_[i].seq.store(i, std::memory_order_relaxed);
 		head_.store(0, std::memory_order_relaxed);
 		tail_.store(0, std::memory_order_relaxed);
 	}
 
+	// NOTE: rvalue ref here
 	bool try_enqueue(T&& v) {
 		size_t pos = tail_.load(std::memory_order_relaxed);
 		for (;;) {
 			Slot& s = slots_[pos & mask_];
 			size_t seq = s.seq.load(std::memory_order_acquire);
-			std::intptr_t diff = static_cast<std::intptr_t>(seq) -
-								 static_cast<std::intptr_t>(pos);
+			std::intptr_t diff =
+				static_cast<std::intptr_t>(seq) -
+				static_cast<std::intptr_t>(pos);
+
 			if (diff == 0) {
+				// slot is ready for us
 				if (tail_.compare_exchange_weak(
 						pos, pos + 1,
 						std::memory_order_relaxed,
 						std::memory_order_relaxed)) {
+					// OWNERSHIP ACQUIRED → now it's safe to move
 					s.val = std::move(v);
 					s.seq.store(pos + 1, std::memory_order_release);
 					return true;
 				}
+				// CAS failed => someone else claimed it; retry with new pos
 			} else if (diff < 0) {
-				return false; // full
+				// queue is full
+				return false;
 			} else {
+				// another producer moved tail forward; reload
 				pos = tail_.load(std::memory_order_relaxed);
 			}
 		}
@@ -88,8 +97,10 @@ public:
 		for (;;) {
 			Slot& s = slots_[pos & mask_];
 			size_t seq = s.seq.load(std::memory_order_acquire);
-			std::intptr_t diff = static_cast<std::intptr_t>(seq) -
-								 static_cast<std::intptr_t>(pos + 1);
+			std::intptr_t diff =
+				static_cast<std::intptr_t>(seq) -
+				static_cast<std::intptr_t>(pos + 1);
+
 			if (diff == 0) {
 				if (head_.compare_exchange_weak(
 						pos, pos + 1,
@@ -100,7 +111,8 @@ public:
 					return true;
 				}
 			} else if (diff < 0) {
-				return false; // empty
+				// empty
+				return false;
 			} else {
 				pos = head_.load(std::memory_order_relaxed);
 			}
@@ -111,10 +123,8 @@ public:
 
 private:
 	struct Slot {
-		// Default construct
 		Slot() : seq(0), val() {}
 
-		// Explicitly movable to satisfy libc++ vector
 		Slot(Slot&& other) noexcept
 			: seq(0), val(std::move(other.val)) {
 			size_t s = other.seq.load(std::memory_order_relaxed);
@@ -129,7 +139,6 @@ private:
 			return *this;
 		}
 
-		// Non-copyable
 		Slot(const Slot&) = delete;
 		Slot& operator=(const Slot&) = delete;
 
@@ -141,6 +150,7 @@ private:
 	size_t              n_{0}, mask_{0};
 	std::atomic<size_t> head_{0}, tail_{0};
 };
+
 
 // ---------------------------------------
 // Blocking wrapper: sleep only when needed
@@ -154,32 +164,69 @@ public:
 		  items_(0) {}
 
 	void push(T v) {
-		if (ring_.try_enqueue(std::move(v))) { items_.release(); return; }
-		slots_.acquire(); // wait for space
-		while (!ring_.try_enqueue(std::move(v))) std::this_thread::yield();
+		// acquire a free slot (fast path: try_acquire)
+		if (!slots_.try_acquire()) {
+			slots_.acquire();
+		}
+
+		// we logically own one slot now; enqueue must eventually succeed
+		while (!ring_.try_enqueue(std::move(v))) {
+			// contention in ring CAS, but capacity is guaranteed
+			std::this_thread::yield();
+		}
+
+		// new item is now visible
 		items_.release();
 	}
 
 	T pop() {
+		// acquire an item
+		if (!items_.try_acquire()) {
+			items_.acquire();
+		}
+
 		T out;
-		if (ring_.try_dequeue(out)) { slots_.release(); return out; }
-		items_.acquire(); // wait for item
-		while (!ring_.try_dequeue(out)) std::this_thread::yield();
+		while (!ring_.try_dequeue(out)) {
+			// someone else got there first; but we *know* an item exists
+			std::this_thread::yield();
+		}
+
+		// freed one slot
 		slots_.release();
 		return out;
 	}
 
 	bool try_push(T v) {
-		if (!ring_.try_enqueue(std::move(v))) return false;
-		items_.release(); return true;
+		if (!slots_.try_acquire())
+			return false;
+
+		if (!ring_.try_enqueue(std::move(v))) {
+			// logically took a slot but failed ring insert → undo
+			slots_.release();
+			return false;
+		}
+		items_.release();
+		return true;
 	}
+
 	bool try_pop(T& out) {
-		if (!ring_.try_dequeue(out)) return false;
-		slots_.release(); return true;
+		if (!items_.try_acquire())
+			return false;
+
+		if (!ring_.try_dequeue(out)) {
+			// undo logical item take
+			items_.release();
+			return false;
+		}
+		slots_.release();
+		return true;
 	}
+
+	size_t capacity() const { return ring_.capacity(); }
 
 private:
 	MpmcRing<T>          ring_;
 	LightweightSemaphore slots_; // free capacity
 	LightweightSemaphore items_; // items available
 };
+
