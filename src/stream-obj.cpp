@@ -41,31 +41,38 @@ int membuf::uflow() {
     
         if(decompressed1 && whichBuf) {
 //            std::cout<<"R:setting internal buffer to buffer 1"<<std::endl;
-            setg(bufContent1, bufContent1, bufContent1 + sizeof(char)*size1);
+            setg(bufContent1.get(), bufContent1.get(), bufContent1.get() + sizeof(char)*size1);
             decompressed1 = false;
             whichBuf = 0;
         }
         
         if (decompressed2 && !whichBuf){
 //            std::cout<<"R:setting internal buffer to buffer 2"<<std::endl;
-            setg(bufContent2, bufContent2, bufContent2 + sizeof(char)*size2);
+            setg(bufContent2.get(), bufContent2.get(), bufContent2.get() + sizeof(char)*size2);
             decompressed2 = false;
             whichBuf = 1;
         }
     }
     semaphore.notify_one();
-
-    if (sgetc() == EOF) {
-        if (decompressor != NULL && decompressor->joinable()) {
-            decompressor->join();
-            delete decompressor;
-            decompressor = NULL;
-        }
-        return EOF;
-    }
-    gbump(1);
-    return gptr()[-1];
-    
+	
+	if (this->gptr() < this->egptr()) {
+		typename std::char_traits<char>::int_type ch = std::char_traits<char>::to_int_type(*this->gptr()); // Read the character
+		this->gbump(1); // Move the read pointer forward
+		return ch;
+	}
+	
+	typename std::char_traits<char>::int_type ch = this->underflow();
+	
+	if (ch == std::char_traits<char>::eof()) {
+		if (decompressor != NULL && decompressor->joinable()) {
+			decompressor->join();
+			delete decompressor;
+			decompressor = NULL;
+		}
+		return ch;
+	}else{
+		return this->uflow();
+	}
 }
 
 bool membuf::decompressBuf() {
@@ -78,14 +85,14 @@ bool membuf::decompressBuf() {
     
     while(*size==bufSize) {
          
-        bufContent = (bufContent == bufContent1) ? bufContent2 : bufContent1;
-        size = (bufContent == bufContent1) ? &size1 : &size2;
+        bufContent = (bufContent == bufContent1.get()) ? bufContent2.get() : bufContent1.get();
+        size = (bufContent == bufContent1.get()) ? &size1 : &size2;
 //        std::cout<<"D:buffer swapped"<<std::endl;
         *size = gzread(fi, bufContent, sizeof(char)*bufSize);
         
         {
             std::unique_lock<std::mutex> lck(semMtx);
-            (bufContent == bufContent1) ? decompressed1 = true : decompressed2 = true;
+            (bufContent == bufContent1.get()) ? decompressed1 = true : decompressed2 = true;
         }
         semaphore.notify_one();
 //        std::cout<<"D:extracted bases: "<<*size<<std::endl;
@@ -93,7 +100,7 @@ bool membuf::decompressBuf() {
 //            std::cout<<"D:waiting for buffer being read"<<std::endl;
             std::unique_lock<std::mutex> lck(semMtx);
             semaphore.wait(lck, [this] {
-                return (bufContent == bufContent1) ? !whichBuf : whichBuf;
+                return (bufContent == bufContent1.get()) ? !whichBuf : whichBuf;
             });
         }
     };

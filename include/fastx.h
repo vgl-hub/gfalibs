@@ -105,15 +105,16 @@ bool loadKmers(UserInput userInput, OBJECT& object, char type, uint16_t fileNum)
                 
             case '@': {
                 
-                std::string* readBatch;
-                
+                std::string* readBatches = new std::string;
+				allocMemory(batchSize * sizeof(char));
+				
                 while (*stream) { // file input
-                    allocMemory(batchSize * sizeof(char));
-                    readBatch = new std::string;
-                    getKmers(*stream, *readBatch, batchSize);
-                    object.traverseInReads(readBatch);
+                    
+                    getKmers(*stream, *readBatches, batchSize);
+                    object.traverseInReads(readBatches);
                     object.consolidate();
                 }
+				delete readBatches;
                 break;
             }
         }
