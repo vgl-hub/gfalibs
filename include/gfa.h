@@ -109,7 +109,7 @@ public:
     
     uint64_t getTotSegmentLen();
     
-    void changeTotGapLen(unsigned int gapLen);
+    void changeTotGapLen(int64_t gapLen);
     
     unsigned int getGapNScaffold();
     
@@ -121,7 +121,7 @@ public:
     
     void recordScaffLen(uint64_t seqLen);
     
-    void recordGapLen(unsigned int gapLen);
+    void recordGapLen(uint64_t gapLen);
     
     void evalNstars(char type, uint64_t gSize = 0);
     
@@ -173,7 +173,7 @@ public:
     
     unsigned int getSegmentN();
     
-    unsigned int getContigN50();
+	uint64_t getContigN50();
     
     unsigned int getContigNG50();
     
@@ -267,9 +267,9 @@ public:
     
     std::vector<std::vector<Edge>>& getAdjEdgeList();
 
-    void dfsEdges(unsigned int v, unsigned int* componentLength);
+    void dfsEdges(unsigned int v, uint64_t* componentLength);
     
-    void dfsScaffolds(unsigned int v, unsigned int* scaffSize, unsigned int* A, unsigned int* C, unsigned int* G, unsigned int* T, unsigned int* lowerCount); // Depth First Search to explore graph connectivity
+    void dfsScaffolds(unsigned int v, uint64_t* scaffSize, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount); // Depth First Search to explore graph connectivity
     
     std::vector<std::vector<Gap>> getAdjListFW();
     
@@ -329,11 +329,11 @@ public:
 
     void trimPathByRef(std::vector<PathComponent>& pathComponents, unsigned int start, unsigned int end);
 
-    void trimPath(std::vector<PathComponent>* pathComponents, unsigned int start, unsigned int end);
+    void trimPath(std::vector<PathComponent>* pathComponents, uint64_t start, uint64_t end);
     
     void trimComponent(PathComponent& component, int start, int end);
     
-    int getComponentSize(PathComponent& component, bool original);
+	uint64_t getComponentSize(PathComponent& component, bool original);
     
     unsigned int pathLen(unsigned int pUId);
     
