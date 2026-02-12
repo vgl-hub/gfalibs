@@ -167,16 +167,10 @@ unsigned int InSegment::getSeqPos() {
 
 uint64_t InSegment::getSegmentLen(uint64_t start, uint64_t end) {
     
-    if (inSequence == NULL) {
-        
+    if (inSequence == NULL)
         return lowerCount;
-        
-    }else{
-    
-        return start != 0 || end != 0 ? end-start+1 : inSequence->size(); // need to sum long long int to prevent size() overflow
-        
-    }
-    
+    else
+        return start != 0 || end != 0 ? end-start+1 : inSequence->size();
 }
 
 unsigned int InSegment::getuId() { // absolute id
