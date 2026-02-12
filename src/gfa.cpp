@@ -99,13 +99,13 @@ bool InSequences::traverseInSequence(Sequence* sequence, int hc_cutoff) { // tra
     hc_index=0, // used with homopolymer compression
     A = 0, C = 0, G = 0, T = 0,
     dist = 0, // gap size
-    lowerCount = 0;
+    lowerCount = 0,
+	sStart = 0, sEnd = 0, // segment start and end
+	count = 1; // hc;
+	
     unsigned int
     currId = 0, nextId = 0, // temporarily store the id of a segment to connect gaps
-
-    iId = 1, // scaffold feature internal identifier
-    sStart = 0, sEnd = 0, // segment start and end
-    count = 1; // hc
+	iId = 1; // scaffold feature internal identifier
     char sign = '+';
     bool wasN = false;
     
@@ -419,10 +419,8 @@ uint64_t InSequences::getTotSegmentLen() {
     
 }
 
-void InSequences::changeTotGapLen(unsigned int gapLen) {
-    
+void InSequences::changeTotGapLen(int64_t gapLen) {
     totGapLen += gapLen;
-    
 }
 
 unsigned int InSequences::getGapNScaffold() {
@@ -455,10 +453,8 @@ void InSequences::recordScaffLen(uint64_t seqLen) {
     
 }
 
-void InSequences::recordGapLen(unsigned int gapLen) {
-    
+void InSequences::recordGapLen(uint64_t gapLen) {
     gapLens.push_back(gapLen);
-    
 }
 
 void InSequences::evalNstars(char type, uint64_t gSize) { // switch between scaffold, contig, gap while computing N* statistics
@@ -672,7 +668,7 @@ unsigned int InSequences::getSegmentN() {
     
 }
 
-unsigned int InSequences::getContigN50() {
+uint64_t InSequences::getContigN50() {
     
     return contigNstars[4]; // middle value
     
@@ -756,14 +752,10 @@ uint64_t InSequences::getTotContigLen () {
     
     totContigLen = 0;
     
-    for (std::vector<uint64_t>::iterator contigLen = contigLens.begin(); contigLen != contigLens.end(); contigLen++) {
-        
+    for (std::vector<uint64_t>::iterator contigLen = contigLens.begin(); contigLen != contigLens.end(); contigLen++)
         totContigLen += *contigLen;
-        
-    }
-    
+
     return totContigLen;
-    
 }
 
 double InSequences::computeAvgContigLen() {
@@ -962,7 +954,8 @@ void InSequences::sortPathsBySize(bool largest){
     
         std::vector<PathComponent> pathComponents;
         
-        unsigned int uId = 0, sIdx = 0, gIdx = 0, size1 = 0, size2 = 0;
+		unsigned int uId = 0, sIdx = 0, gIdx = 0;
+		uint64_t size1 = 0, size2 = 0;
             
         pathComponents = one.getComponents();
         
@@ -1100,7 +1093,7 @@ std::vector<std::vector<Edge>>& InSequences::getAdjEdgeList() {
     return adjEdgeList;
 }
 
-void InSequences::dfsEdges(unsigned int v, unsigned int* componentLength) { // Depth First Search to explore graph connectivity
+void InSequences::dfsEdges(unsigned int v, uint64_t* componentLength) { // Depth First Search to explore graph connectivity
 
    visited[v] = true; // mark the current node as visited
    unsigned int sIdx = 0;
@@ -1145,7 +1138,7 @@ void InSequences::dfsEdges(unsigned int v, unsigned int* componentLength) { // D
     }
 }
 
-void InSequences::dfsScaffolds(unsigned int v, unsigned int* scaffSize, unsigned int* A, unsigned int* C, unsigned int* G, unsigned int* T, unsigned int* lowerCount) // Depth First Search to explore graph connectivity
+void InSequences::dfsScaffolds(unsigned int v, uint64_t* scaffSize, uint64_t* A, uint64_t* C, uint64_t* G, uint64_t* T, uint64_t* lowerCount) // Depth First Search to explore graph connectivity
 {
     
     visited[v] = true; // mark the current node as visited
@@ -1987,7 +1980,7 @@ void InSequences::revComPath(unsigned int pUId) {
     
 }
 
-void InSequences::trimPathByUId(unsigned int pUId, unsigned int start, unsigned int end) {
+void InSequences::trimPathByUId(unsigned int pUId, uint64_t start, uint64_t end) {
     
     auto pathIt = find_if(inPaths.begin(), inPaths.end(), [pUId](InPath& obj) {return obj.getpUId() == pUId;}); // given a path pUId, find it
     
@@ -1997,13 +1990,13 @@ void InSequences::trimPathByUId(unsigned int pUId, unsigned int start, unsigned 
     
 }
 
-void InSequences::trimPathByRef(std::vector<PathComponent>& pathComponents, unsigned int start, unsigned int end) {
+void InSequences::trimPathByRef(std::vector<PathComponent>& pathComponents, uint64_t start, uint64_t end) {
     
     trimPath(&pathComponents, start, end);
     
 }
 
-void InSequences::trimPath(std::vector<PathComponent>* pathComponents, unsigned int start, unsigned int end) {
+void InSequences::trimPath(std::vector<PathComponent>* pathComponents, uint64_t start, uint64_t end) {
     
     if(start == 0 || end == 0) {
 
@@ -2045,6 +2038,10 @@ void InSequences::trimPath(std::vector<PathComponent>* pathComponents, unsigned 
             continue;
             
         }
+		
+		// this is where we could test if we are cutting in a segment, and if so, we could decide to avoid cutting inside the segment by realigning the cut
+		// one option is to have a majority rule where the largest side takes all the sequence. Optionally there could also be a length cutoff for realignment
+		// one challenge is that in some instances there is no gap, so a list of allowed cuts should be provided
         
         if (traversedSize + compSize >= start && traversedSize < start - 1 && traversedSize + compSize > end) {
            
@@ -2162,7 +2159,7 @@ void InSequences::trimComponent(PathComponent& component, int start, int end) {
     
 }
 
-int InSequences::getComponentSize(PathComponent& component, bool original) {
+uint64_t InSequences::getComponentSize(PathComponent& component, bool original) {
     
     unsigned int cUId = component.id;
     
@@ -2326,7 +2323,7 @@ void InSequences::walkPath(InPath* path) {
             
             auto inGap = find_if(inGaps.begin(), inGaps.end(), [cUId](InGap& obj) {return obj.getuId() == cUId;}); // given a node Uid, find it
             
-            gapLen += inGap->getDist(component->start - component->end);
+            gapLen += inGap->getDist(component->start, component->end);
             
             if (component + 1 == pathComponents.end() || !((component + 1)->componentType == GAP)) {
             
@@ -2336,7 +2333,7 @@ void InSequences::walkPath(InPath* path) {
                 
             }
             
-            path->increaseLen(inGap->getDist(component->start - component->end));
+            path->increaseLen(inGap->getDist(component->start, component->end));
             
         }else{} // need to handle edges, cigars etc
         
