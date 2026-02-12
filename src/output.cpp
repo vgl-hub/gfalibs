@@ -1011,8 +1011,8 @@ bool Report::reportStats(InSequences &inSequences, uint64_t gSize, int outBubble
         lg.verbose("Graph DFS");
         
         std::vector<InSegment*>* inSegments = inSequences.getInSegments();
-        std::vector<unsigned int> componentLengths;
-        unsigned int componentLength = 0;
+        std::vector<uint64_t> componentLengths;
+		uint64_t componentLength = 0;
         
         for (InSegment* inSegment : *inSegments) { // loop through all nodes
             

@@ -2009,7 +2009,7 @@ void InSequences::trimPath(std::vector<PathComponent>* pathComponents, uint64_t 
     
     std::string trimmed;
     
-    unsigned int traversedSize = 0, actualSize = 0, compSize = 0, newCompSize = 0, compOriginalSize = 0;
+    uint64_t traversedSize = 0, actualSize = 0, compSize = 0, newCompSize = 0, compOriginalSize = 0;
     
     for (std::vector<PathComponent>::iterator component = pathComponents->begin(); component != pathComponents->end(); component++) {
         
@@ -2099,7 +2099,7 @@ void InSequences::trimPath(std::vector<PathComponent>* pathComponents, uint64_t 
         
     lg.verbose("Final path size: " + std::to_string(actualSize));
     
-    if (actualSize != end-start+1) {fprintf(stderr, "Error: Path size after trimming (%u) differs from expected size after trimming (%u). Terminating.\n", actualSize, end-start+1); exit(1);}
+    if (actualSize != end-start+1) {fprintf(stderr, "Error: Path size after trimming (%llu) differs from expected size after trimming (%llu). Terminating.\n", actualSize, end-start+1); exit(1);}
 
 }
 
@@ -2724,7 +2724,7 @@ void InSequences::maskPath(std::string pHeader, unsigned int start, unsigned int
     
     lg.verbose("Masking path (start: " + std::to_string(start) + ", end: " + std::to_string(end) + ")");
     
-    unsigned int traversedSize = 0, actualSize = 0, compSize = 0, newCompSize = 0;
+    uint64_t traversedSize = 0, actualSize = 0, compSize = 0, newCompSize = 0;
     
     for (std::vector<PathComponent>::iterator component = pathComponents->begin(); component != pathComponents->end(); component++) {
         

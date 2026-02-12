@@ -325,9 +325,9 @@ public:
     
     void revComPath(unsigned int pUId);
     
-    void trimPathByUId(unsigned int pUId, unsigned int start, unsigned int end);
+    void trimPathByUId(unsigned int pUId, uint64_t start, uint64_t end);
 
-    void trimPathByRef(std::vector<PathComponent>& pathComponents, unsigned int start, unsigned int end);
+    void trimPathByRef(std::vector<PathComponent>& pathComponents, uint64_t start, uint64_t end);
 
     void trimPath(std::vector<PathComponent>* pathComponents, uint64_t start, uint64_t end);
     
