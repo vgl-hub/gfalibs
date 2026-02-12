@@ -331,7 +331,7 @@ public:
 
     void trimPath(std::vector<PathComponent>* pathComponents, uint64_t start, uint64_t end);
     
-    void trimComponent(PathComponent& component, int start, int end);
+    void trimComponent(PathComponent& component, uint64_t start, uint64_t end);
     
 	uint64_t getComponentSize(PathComponent& component, bool original);
     

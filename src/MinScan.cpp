@@ -9,12 +9,26 @@
  *
  *******************************************************************************************/
 
+#if defined(_WIN32) || defined(_WIN64)
+// MinGW/Windows doesn't ship <sys/uio.h>.
+// If you only need iovec, define it here.
+#include <cstddef>   // size_t
+struct iovec {
+	void*  iov_base;
+	size_t iov_len;
+};
+
+// If MinScan actually calls readv/writev, add a small wrapper
+// (or refactor to plain read()/write()).
+#else
+#include <sys/uio.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <math.h>

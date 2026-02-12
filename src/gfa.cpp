@@ -2099,11 +2099,12 @@ void InSequences::trimPath(std::vector<PathComponent>* pathComponents, uint64_t 
         
     lg.verbose("Final path size: " + std::to_string(actualSize));
     
-    if (actualSize != end-start+1) {fprintf(stderr, "Error: Path size after trimming (%llu) differs from expected size after trimming (%llu). Terminating.\n", actualSize, end-start+1); exit(1);}
+    if (actualSize != end-start+1) {
+		std::cerr << "Error: Path size after trimming (" << actualSize << ") differs from expected size after trimming (" << (end - start + 1) << "). Terminating.\n"; exit(1);}
 
 }
 
-void InSequences::trimComponent(PathComponent& component, int start, int end) {
+void InSequences::trimComponent(PathComponent& component, uint64_t start, uint64_t end) {
     
     int startCom = component.start, endCom = component.end;
 
