@@ -145,7 +145,7 @@ std::string* InSegment::getInSequencePtr() {
     
 }
 
-std::string InSegment::getInSequenceQuality(unsigned int start, unsigned int end) {
+std::string InSegment::getInSequenceQuality(uint64_t start, uint64_t end) {
     
     if (inSequenceQuality != NULL) {
     
