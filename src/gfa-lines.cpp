@@ -125,7 +125,7 @@ std::vector<Tag> InSegment::getTags() {
     return tags;
 }
 
-std::string InSegment::getInSequence(unsigned int start, unsigned int end) {
+std::string InSegment::getInSequence(uint64_t start, uint64_t end) {
     
     if (inSequence == NULL) {
         

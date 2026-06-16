@@ -1,6 +1,7 @@
 #ifndef GFA_LINES_H
 #define GFA_LINES_H
 
+#include <cstdint>
 class InSegment { // DNA sequence with no gaps
 protected:
     std::string seqHeader;
@@ -58,7 +59,7 @@ public:
     
     std::vector<Tag> getTags();
     
-    std::string getInSequence(unsigned int start = 0, unsigned int end = 0);
+    std::string getInSequence(uint64_t start = 0, uint64_t end = 0);
     
     std::string* getInSequencePtr();
     
