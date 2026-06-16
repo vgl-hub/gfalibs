@@ -1,7 +1,6 @@
 #ifndef GFA_LINES_H
 #define GFA_LINES_H
 
-#include <cstdint>
 class InSegment { // DNA sequence with no gaps
 protected:
     std::string seqHeader;
