@@ -241,6 +241,8 @@ public:
     void clearPath();
     
     void setComponents(std::vector<PathComponent> newComponents);
+
+    void setLen(uint64_t len);
     
     std::vector<PathComponent> getComponents();
     

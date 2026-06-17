@@ -589,6 +589,11 @@ void InPath::setComponents(std::vector<PathComponent> newComponents) {
     
 }
 
+void InPath::setLen(uint64_t len) {
+	length = len;
+}
+
+
 std::vector<PathComponent> InPath::getComponents() {
     
     return pathComponents;
