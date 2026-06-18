@@ -58,11 +58,11 @@ public:
     
     std::vector<Tag> getTags();
     
-    std::string getInSequence(unsigned int start = 0, unsigned int end = 0);
+    std::string getInSequence(uint64_t start = 0, uint64_t end = 0);
     
     std::string* getInSequencePtr();
     
-    std::string getInSequenceQuality(unsigned int start = 0, unsigned int end = 0);
+    std::string getInSequenceQuality(uint64_t start = 0, uint64_t end = 0);
     
     unsigned int getSeqPos();
     
@@ -241,6 +241,8 @@ public:
     void clearPath();
     
     void setComponents(std::vector<PathComponent> newComponents);
+
+    void setLen(uint64_t len);
     
     std::vector<PathComponent> getComponents();
     

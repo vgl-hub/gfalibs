@@ -951,54 +951,71 @@ void InSequences::sortPathsByList(std::vector<std::string> headerList){
 void InSequences::sortPathsBySize(bool largest){
     
     auto comp = [&](InPath& one, InPath& two)-> bool { // lambda function for custom sorting
+
+	std::vector<PathComponent> pathComponents;
+	
+	unsigned int uId = 0, sIdx = 0, gIdx = 0;
+
+	uint64_t size1 = 0, size2 = 0;
+
+	// if the length of the first path is non-zero, we can just use it instead of calculating it again
+	if (one.getLen() != 0) {
+		size1 = one.getLen();
+	} else {
+		// if the length of the first path is zero, we can calculate it and set it at the end
+		pathComponents = one.getComponents();
+		
+		for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
+
+			uId = component->id;
+
+			if (component->componentType == SEGMENT) {
+			auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
+			
+			if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
+			
+			size1 += inSegments[sIdx]->getInSequence().size();
+			
+		    }else{
+			
+			auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
+			
+			if (gId != inGaps.end()) {gIdx = std::distance(inGaps.begin(), gId);} // gives us the segment index
+			
+			size1 += inGaps[gIdx].getDist();
+		    }
+		}
+
+		// set the length of the first path for future comparisons
+		one.setLen(size1);
+	}
+
+	// if the length of the second path is non-zero, we can just use it instead of calculating it again
+	if (two.getLen() != 0) {
+		size2 = two.getLen();
+	} else {
+		// if the length of the second path is zero, we can calculate it and set it at the end
+		pathComponents = two.getComponents();
+		
+		for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
+
+		    uId = component->id;
+
+		    if (component->componentType == SEGMENT) {
+			auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
+			if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
+			size2 += inSegments[sIdx]->getInSequence().size();
+		    }else{
+			auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
+			if (gId != inGaps.end()) {gIdx = std::distance(inGaps.begin(), gId);} // gives us the segment index
+			size2 += inGaps[gIdx].getDist();
+		    }
+		}
+
+		// set the length of the second path for future comparisons
+		two.setLen(size2);
+	}
     
-        std::vector<PathComponent> pathComponents;
-        
-		unsigned int uId = 0, sIdx = 0, gIdx = 0;
-		uint64_t size1 = 0, size2 = 0;
-            
-        pathComponents = one.getComponents();
-        
-        for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
-            
-            uId = component->id;
-            
-            if (component->componentType == SEGMENT) {
-            
-                auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
-                
-                if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
-                
-                size1 += inSegments[sIdx]->getInSequence().size();
-                
-            }else{
-                
-                auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
-                
-                if (gId != inGaps.end()) {gIdx = std::distance(inGaps.begin(), gId);} // gives us the segment index
-                
-                size1 += inGaps[gIdx].getDist();
-                
-            }
-            
-        }
-            
-        pathComponents = two.getComponents();
-        
-        for (std::vector<PathComponent>::iterator component = pathComponents.begin(); component != pathComponents.end(); component++) {
-            
-            uId = component->id;
-            
-            if (component->componentType == SEGMENT) {
-                auto sId = find_if(inSegments.begin(), inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node Uid, find it
-                if (sId != inSegments.end()) {sIdx = std::distance(inSegments.begin(), sId);} // gives us the segment index
-                size2 += inSegments[sIdx]->getInSequence().size();
-            }else{
-                auto gId = find_if(inGaps.begin(), inGaps.end(), [uId](InGap& obj) {return obj.getuId() == uId;}); // given a node Uid, find it
-                if (gId != inGaps.end()) {gIdx = std::distance(inGaps.begin(), gId);} // gives us the segment index
-                size2 += inGaps[gIdx].getDist();
-            }
-        }
         if(largest)
             return size1<size2;
         else

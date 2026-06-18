@@ -125,7 +125,7 @@ std::vector<Tag> InSegment::getTags() {
     return tags;
 }
 
-std::string InSegment::getInSequence(unsigned int start, unsigned int end) {
+std::string InSegment::getInSequence(uint64_t start, uint64_t end) {
     
     if (inSequence == NULL) {
         
@@ -145,7 +145,7 @@ std::string* InSegment::getInSequencePtr() {
     
 }
 
-std::string InSegment::getInSequenceQuality(unsigned int start, unsigned int end) {
+std::string InSegment::getInSequenceQuality(uint64_t start, uint64_t end) {
     
     if (inSequenceQuality != NULL) {
     
@@ -588,6 +588,11 @@ void InPath::setComponents(std::vector<PathComponent> newComponents) {
     pathComponents = newComponents;
     
 }
+
+void InPath::setLen(uint64_t len) {
+	length = len;
+}
+
 
 std::vector<PathComponent> InPath::getComponents() {
     
