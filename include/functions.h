@@ -282,31 +282,22 @@ static inline void textWrap(std::string input, std::ostream& output, uint32_t wi
     
     std::string tmp;
     char cur = '\0';
-    uint32_t i = 0;
     
     std::stringstream ss(input);
     
     while (ss.get(cur)) {
-        if (++i == width+1) {
-
+        if (tmp.length() == width) {
             output << tmp << '\n';
-            i = tmp.length();
             tmp.clear();
-            
-        }else{
-            
-            output << tmp;
-            tmp.clear();
-            
         }
-        
+
         tmp += cur;
-        
     }
-    
-    output << tmp << '\n';
-    tmp.clear();
-    
+
+    if (tmp.length() != 0) {
+        output << tmp << '\n';
+        tmp.clear();
+    }
 }
 
 static inline std::string rmFileExt(const std::string path) { // utility to strip file extension from file
