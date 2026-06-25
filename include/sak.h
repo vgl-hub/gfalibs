@@ -165,7 +165,7 @@ public:
             
         }else if (pId != inSequences.inPaths.end()){
             
-            inSequences.revComPath(uId);
+            inSequences.revComPath(pId);
             
         }else{
             
