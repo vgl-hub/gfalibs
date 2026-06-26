@@ -300,23 +300,33 @@ void Report::writeToStream(InSequences &inSequences, std::string file, UserInput
                         if (sId != inSegments->end()) {sIdx = std::distance(inSegments->begin(), sId);} // gives us the segment index
                         
                         if (component->orientation == '+') {
-                            
+
                             inSeq += (*inSegments)[sIdx]->getInSequence(component->start, component->end);
-                            
+
+                            if ((*inSegments)[sIdx]->getInSequenceQuality() != "") {
+
+                                inSeqQual += (*inSegments)[sIdx]->getInSequenceQuality(component->start, component->end);
+
+                            }else{
+
+                                inSeqQual += std::string((*inSegments)[sIdx]->getInSequence().size(), '!');
+
+                            }
+
                         }else{
-                            
+
                             inSeq += revCom((*inSegments)[sIdx]->getInSequence(component->start, component->end));
-                            
-                        }
-                        
-                        if ((*inSegments)[sIdx]->getInSequenceQuality() != "") {
-                            
-                            inSeqQual += (*inSegments)[sIdx]->getInSequenceQuality(component->start, component->end);
-                            
-                        }else{
-                            
-                            inSeqQual += std::string((*inSegments)[sIdx]->getInSequence().size(), '!');
-                            
+
+                            if ((*inSegments)[sIdx]->getInSequenceQuality() != "") {
+
+                                inSeqQual += rev((*inSegments)[sIdx]->getInSequenceQuality(component->start, component->end)); // quality follows the reverse-complemented base order
+
+                            }else{
+
+                                inSeqQual += std::string((*inSegments)[sIdx]->getInSequence().size(), '!');
+
+                            }
+
                         }
                         
                     }else{

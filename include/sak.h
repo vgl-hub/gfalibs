@@ -71,7 +71,7 @@ public:
         instruction.path3 = arguments[5];
     }
     bool join(InSequences& inSequences, Instruction &instruction) { // joins two sequences via a gap based on instruction
-        inSequences.joinPaths(instruction.path3, inSequences.headersToIds[instruction.path1], inSequences.headersToIds[instruction.path2], instruction.gHeader, instruction.gUId, instruction.pId1Or, instruction.pId2Or, instruction.dist, instruction.start1, instruction.end1, instruction.start2, instruction.end2); // generate a new path by joining the paths that contain the two segments
+        inSequences.joinPaths(instruction.path3, headerToId(instruction.path1, inSequences), headerToId(instruction.path2, inSequences), instruction.gHeader, instruction.gUId, instruction.pId1Or, instruction.pId2Or, instruction.dist, instruction.start1, instruction.end1, instruction.start2, instruction.end2); // generate a new path by joining the paths that contain the two segments
         return true;
     }
     void readSplit(Instruction &instruction, std::vector<std::string> &arguments) {
@@ -107,14 +107,14 @@ public:
         
         inSequences.addGap(gap); // introduce the new gap
         inSequences.removeGaps(&instruction.contig1);
-        inSequences.removeSegmentInPath(inSequences.headersToIds[instruction.contig1], gap); // removes the segment from the path
+        inSequences.removeSegmentInPath(headerToId(instruction.contig1, inSequences), gap); // removes the segment from the path
         return true;
     }
     void readRemove(Instruction &instruction, std::vector<std::string> &arguments) {
         instruction.contig1 = arguments[1];
     }
     bool remove(InSequences& inSequences, Instruction &instruction) { // removes a segment
-        inSequences.removePathsFromSegment(inSequences.headersToIds[instruction.contig1]); // remove the paths involving contig1
+        inSequences.removePathsFromSegment(headerToId(instruction.contig1, inSequences)); // remove the paths involving contig1
         inSequences.flagDeletedSegment(&instruction.contig1); // flag segment as deleted
         return true;
     }
@@ -122,7 +122,7 @@ public:
         instruction.path1 = arguments[1];
     }
     bool exclude(InSequences& inSequences, Instruction &instruction) { // removes a segment
-        inSequences.removePath(inSequences.headersToIds[instruction.path1], true); // remove the path and its components
+        inSequences.removePath(headerToId(instruction.path1, inSequences), true); // remove the path and its components
         return true;
     }
     void readErase(Instruction &instruction, std::vector<std::string> &arguments) {  
@@ -137,11 +137,11 @@ public:
         
         lg.verbose("Erasing from " + instruction.contig1 + " coordinates " + std::to_string(instruction.start1) + ":" + std::to_string(instruction.end1));
         
-        unsigned int uId = inSequences.headersToIds[instruction.contig1], sIdx = 0;
+        unsigned int uId = headerToId(instruction.contig1, inSequences), sIdx = 0;
         auto sId = find_if(inSequences.inSegments.begin(), inSequences.inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node uId, find it
 
         if (sId != inSequences.inSegments.end()) {sIdx = std::distance(inSequences.inSegments.begin(), sId);} // gives us the segment index
-        
+
         inSequences.inSegments[sIdx]->trimSegment(instruction.start1, instruction.end1); // trim segment
         inSequences.inSegments[sIdx]->updateSegmentCounts(instruction.start1, instruction.end1);
         return true;
@@ -151,10 +151,10 @@ public:
     }
     bool rvcp(InSequences& inSequences, Instruction &instruction) { // reverse complement sequence
         
-        unsigned int uId = inSequences.headersToIds[instruction.contig1], sIdx = 0;
-        
+        unsigned int uId = headerToId(instruction.contig1, inSequences), sIdx = 0;
+
         auto sId = find_if(inSequences.inSegments.begin(), inSequences.inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node uId, find it
-        
+
         auto pId = find_if(inSequences.inPaths.begin(), inSequences.inPaths.end(), [uId](InPath obj) {return obj.getpUId() == uId;}); // given a node uId, find it
 
         if (sId != inSequences.inSegments.end()) {
@@ -165,7 +165,7 @@ public:
             
         }else if (pId != inSequences.inPaths.end()){
             
-            inSequences.revComPath(pId);
+            inSequences.revComPath(uId);
             
         }else{
             
@@ -180,7 +180,7 @@ public:
         instruction.contig1 = arguments[1];
     }
     bool invert(InSequences& inSequences, Instruction &instruction) { // invert sequence
-        unsigned int uId = inSequences.headersToIds[instruction.contig1], sIdx = 0;
+        unsigned int uId = headerToId(instruction.contig1, inSequences), sIdx = 0;
         auto sId = find_if(inSequences.inSegments.begin(), inSequences.inSegments.end(), [uId](InSegment* obj) {return obj->getuId() == uId;}); // given a node uId, find it
 
         if (sId != inSequences.inSegments.end()) {sIdx = std::distance(inSequences.inSegments.begin(), sId);} // gives us the segment index
@@ -190,6 +190,14 @@ public:
     void readCompress(Instruction &instruction, std::vector<std::string> &arguments) {
         instruction.contig1 = arguments[1];
         instruction.compressThreshhold = stoi(arguments[2]);
+    }
+    unsigned int headerToId(const std::string &header, InSequences &inSequences) {
+        auto got = inSequences.headersToIds.find(header); // look up the header instead of operator[], which would silently insert a uId of 0
+        if (got == inSequences.headersToIds.end()) {
+            fprintf(stderr, "Error: couldn't find (%s). Terminating.\n", header.c_str());
+            exit(1);
+        }
+        return got->second;
     }
     std::string *headerToSequence(const std::string &header, InSequences &inSequences, const Instruction &instruction) {
         auto got = inSequences.headersToIds.find(header); // get the headers to uIds table to look for the header
@@ -251,7 +259,7 @@ public:
             instruction.edge1 = arguments[5];
     }
     bool cleave(InSequences &inSequences, Instruction &instruction) {
-        inSequences.cleaveSegment(inSequences.headersToIds[instruction.contig1], instruction.start1, instruction.contig2, instruction.contig3, instruction.edge1);
+        inSequences.cleaveSegment(headerToId(instruction.contig1, inSequences), instruction.start1, instruction.contig2, instruction.contig3, instruction.edge1);
         return true;
     }
     void readRename(Instruction &instruction, std::vector<std::string> &arguments) {

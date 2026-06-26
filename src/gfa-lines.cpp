@@ -322,8 +322,17 @@ bool InSegment::rvcpSegment() {
 
     *inSequence = revCom(*inSequence);
 
+    std::swap(A, T); // reverse complement swaps A<->T and C<->G base counts
+    std::swap(C, G);
+
+    if (inSequenceQuality != NULL) {
+
+        *inSequenceQuality = rev(*inSequenceQuality); // quality follows the reversed base order
+
+    }
+
     return true;
-    
+
 }
 
 bool InSegment::invertSegment() {
